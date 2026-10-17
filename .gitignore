@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+captures/
+*.sqlite3
+*.sqlite3-journal
+journals/
+spellbook-layouts.json
+accounts.local.json
+*.local.json
+VERSION
+cache/
+checkpoints/

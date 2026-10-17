@@ -1,0 +1,2652 @@
+[
+{
+"recipe": 0,
+"skill": 38,
+"difficulty": 55,
+"result": "Acid Infusion",
+"tool": 4747,
+"tool_name": "Alembic",
+"target": 753,
+"target_name": "Brimstone"
+},
+{
+"recipe": 1,
+"skill": 38,
+"difficulty": 55,
+"result": "Lightning Infusion",
+"tool": 4747,
+"tool_name": "Alembic",
+"target": 756,
+"target_name": "Cobalt"
+},
+{
+"recipe": 2,
+"skill": 38,
+"difficulty": 55,
+"result": "Frost Infusion",
+"tool": 4747,
+"tool_name": "Alembic",
+"target": 757,
+"target_name": "Colcothar"
+},
+{
+"recipe": 3,
+"skill": 38,
+"difficulty": 55,
+"result": "Mana Infusion",
+"tool": 4747,
+"tool_name": "Alembic",
+"target": 758,
+"target_name": "Gypsum"
+},
+{
+"recipe": 4,
+"skill": 38,
+"difficulty": 55,
+"result": "Bloodseeker Infusion",
+"tool": 4747,
+"tool_name": "Alembic",
+"target": 759,
+"target_name": "Quicksilver"
+},
+{
+"recipe": 5,
+"skill": 38,
+"difficulty": 55,
+"result": "Victual Infusion",
+"tool": 4747,
+"tool_name": "Alembic",
+"target": 760,
+"target_name": "Realgar"
+},
+{
+"recipe": 6,
+"skill": 38,
+"difficulty": 55,
+"result": "Fire Infusion",
+"tool": 4747,
+"tool_name": "Alembic",
+"target": 762,
+"target_name": "Turpeth"
+},
+{
+"recipe": 7,
+"skill": 38,
+"difficulty": 55,
+"result": "Health Infusion",
+"tool": 4747,
+"tool_name": "Alembic",
+"target": 764,
+"target_name": "Vitriol"
+},
+{
+"recipe": 8,
+"skill": 38,
+"difficulty": 75,
+"result": "Acid Oil",
+"tool": 5322,
+"tool_name": "Acid Infusion",
+"target": 4748,
+"target_name": "Aqua Incanta"
+},
+{
+"recipe": 9,
+"skill": 38,
+"difficulty": 75,
+"result": "Bloodseeker Oil",
+"tool": 5329,
+"tool_name": "Bloodseeker Infusion",
+"target": 4748,
+"target_name": "Aqua Incanta"
+},
+{
+"recipe": 10,
+"skill": 38,
+"difficulty": 75,
+"result": "Fire Oil",
+"tool": 4749,
+"tool_name": "Fire Infusion",
+"target": 4748,
+"target_name": "Aqua Incanta"
+},
+{
+"recipe": 11,
+"skill": 38,
+"difficulty": 75,
+"result": "Frost Oil",
+"tool": 5323,
+"tool_name": "Frost Infusion",
+"target": 4748,
+"target_name": "Aqua Incanta"
+},
+{
+"recipe": 12,
+"skill": 38,
+"difficulty": 90,
+"result": "Health Oil",
+"tool": 5325,
+"tool_name": "Health Infusion",
+"target": 4748,
+"target_name": "Aqua Incanta"
+},
+{
+"recipe": 13,
+"skill": 38,
+"difficulty": 75,
+"result": "Lightning Oil",
+"tool": 5324,
+"tool_name": "Lightning Infusion",
+"target": 4748,
+"target_name": "Aqua Incanta"
+},
+{
+"recipe": 14,
+"skill": 38,
+"difficulty": 90,
+"result": "Mana Oil",
+"tool": 5326,
+"tool_name": "Mana Infusion",
+"target": 4748,
+"target_name": "Aqua Incanta"
+},
+{
+"recipe": 15,
+"skill": 38,
+"difficulty": 135,
+"result": "Victual Oil",
+"tool": 5328,
+"tool_name": "Victual Infusion",
+"target": 4748,
+"target_name": "Aqua Incanta"
+},
+{
+"recipe": 16,
+"skill": 38,
+"difficulty": 100,
+"result": "Health Draught",
+"tool": 5325,
+"tool_name": "Health Infusion",
+"target": 5338,
+"target_name": "Neutral Balm"
+},
+{
+"recipe": 17,
+"skill": 38,
+"difficulty": 100,
+"result": "Mana Draught",
+"tool": 5326,
+"tool_name": "Mana Infusion",
+"target": 5338,
+"target_name": "Neutral Balm"
+},
+{
+"recipe": 18,
+"skill": 38,
+"difficulty": 180,
+"result": "Potion of Healing",
+"tool": 5328,
+"tool_name": "Victual Infusion",
+"target": 2457,
+"target_name": "Health Draught"
+},
+{
+"recipe": 19,
+"skill": 38,
+"difficulty": 180,
+"result": "Mana Potion",
+"tool": 5328,
+"tool_name": "Victual Infusion",
+"target": 2460,
+"target_name": "Mana Draught"
+},
+{
+"recipe": 22,
+"skill": 38,
+"difficulty": 40,
+"result": "Powdered Agate",
+"tool": 4751,
+"tool_name": "Mortar and Pestle",
+"target": 2413,
+"target_name": "Agate"
+},
+{
+"recipe": 23,
+"skill": 38,
+"difficulty": 40,
+"result": "Powdered Amber",
+"tool": 4751,
+"tool_name": "Mortar and Pestle",
+"target": 2426,
+"target_name": "Amber"
+},
+{
+"recipe": 24,
+"skill": 38,
+"difficulty": 40,
+"result": "Powdered Azurite",
+"tool": 4751,
+"tool_name": "Mortar and Pestle",
+"target": 2414,
+"target_name": "Azurite"
+},
+{
+"recipe": 25,
+"skill": 38,
+"difficulty": 40,
+"result": "Powdered Bloodstone",
+"tool": 4751,
+"tool_name": "Mortar and Pestle",
+"target": 2427,
+"target_name": "Bloodstone"
+},
+{
+"recipe": 26,
+"skill": 38,
+"difficulty": 40,
+"result": "Powdered Carnelian",
+"tool": 4751,
+"tool_name": "Mortar and Pestle",
+"target": 2428,
+"target_name": "Carnelian"
+},
+{
+"recipe": 27,
+"skill": 38,
+"difficulty": 40,
+"result": "Powdered Hematite",
+"tool": 4751,
+"tool_name": "Mortar and Pestle",
+"target": 2430,
+"target_name": "Hematite"
+},
+{
+"recipe": 28,
+"skill": 38,
+"difficulty": 40,
+"result": "Powdered Lapis Lazuli",
+"tool": 4751,
+"tool_name": "Mortar and Pestle",
+"target": 2415,
+"target_name": "Lapis Lazuli"
+},
+{
+"recipe": 29,
+"skill": 38,
+"difficulty": 40,
+"result": "Powdered Malachite",
+"tool": 4751,
+"tool_name": "Mortar and Pestle",
+"target": 2416,
+"target_name": "Malachite"
+},
+{
+"recipe": 30,
+"skill": 38,
+"difficulty": 40,
+"result": "Powdered Moonstone",
+"tool": 4751,
+"tool_name": "Mortar and Pestle",
+"target": 2431,
+"target_name": "Moonstone"
+},
+{
+"recipe": 31,
+"skill": 38,
+"difficulty": 40,
+"result": "Powdered Onyx",
+"tool": 4751,
+"tool_name": "Mortar and Pestle",
+"target": 2432,
+"target_name": "Onyx"
+},
+{
+"recipe": 32,
+"skill": 38,
+"difficulty": 40,
+"result": "Powdered Quartz",
+"tool": 4751,
+"tool_name": "Mortar and Pestle",
+"target": 2417,
+"target_name": "Smoky Quartz"
+},
+{
+"recipe": 33,
+"skill": 38,
+"difficulty": 40,
+"result": "Powdered Turquoise",
+"tool": 4751,
+"tool_name": "Mortar and Pestle",
+"target": 2419,
+"target_name": "Turquoise"
+},
+{
+"recipe": 37,
+"skill": 39,
+"difficulty": 20,
+"result": "Cake",
+"tool": 4754,
+"tool_name": "Baking Pan",
+"target": 4756,
+"target_name": "Cake Batter"
+},
+{
+"recipe": 38,
+"skill": 39,
+"difficulty": 20,
+"result": "Cookie",
+"tool": 4754,
+"tool_name": "Baking Pan",
+"target": 4758,
+"target_name": "Cookie Dough"
+},
+{
+"recipe": 39,
+"skill": 39,
+"difficulty": 5,
+"result": "Bread",
+"tool": 4754,
+"tool_name": "Baking Pan",
+"target": 4760,
+"target_name": "Dough"
+},
+{
+"recipe": 40,
+"skill": 39,
+"difficulty": 5,
+"result": "Cake Batter",
+"tool": 4752,
+"tool_name": "Batter",
+"target": 4761,
+"target_name": "Flour"
+},
+{
+"recipe": 41,
+"skill": 39,
+"difficulty": 15,
+"result": "Viamont Toast",
+"tool": 4752,
+"tool_name": "Batter",
+"target": 259,
+"target_name": "Bread"
+},
+{
+"recipe": 42,
+"skill": 39,
+"difficulty": 10,
+"result": "Kimchi",
+"tool": 4755,
+"tool_name": "Brine",
+"target": 260,
+"target_name": "Cabbage"
+},
+{
+"recipe": 43,
+"skill": 39,
+"difficulty": 5,
+"result": "Pickled Egg",
+"tool": 4755,
+"tool_name": "Brine",
+"target": 546,
+"target_name": "Egg"
+},
+{
+"recipe": 44,
+"skill": 39,
+"difficulty": 5,
+"result": "Pickled Fish",
+"tool": 4755,
+"tool_name": "Brine",
+"target": 4722,
+"target_name": "Fish Filet"
+},
+{
+"recipe": 45,
+"skill": 39,
+"difficulty": 5,
+"result": "Steak",
+"tool": 4757,
+"tool_name": "Carving Knife",
+"target": 4753,
+"target_name": "Side of Beef"
+},
+{
+"recipe": 46,
+"skill": 39,
+"difficulty": 7,
+"result": "Coleslaw",
+"tool": 4757,
+"tool_name": "Carving Knife",
+"target": 260,
+"target_name": "Cabbage"
+},
+{
+"recipe": 47,
+"skill": 39,
+"difficulty": 5,
+"result": "Chicken Piece",
+"tool": 4757,
+"tool_name": "Carving Knife",
+"target": 262,
+"target_name": "Chicken"
+},
+{
+"recipe": 48,
+"skill": 39,
+"difficulty": 5,
+"result": "Fish Filet",
+"tool": 4757,
+"tool_name": "Carving Knife",
+"target": 263,
+"target_name": "Fish"
+},
+{
+"recipe": 49,
+"skill": 39,
+"difficulty": 10,
+"result": "Steak",
+"tool": 4757,
+"tool_name": "Carving Knife",
+"target": 265,
+"target_name": "Meat"
+},
+{
+"recipe": 50,
+"skill": 39,
+"difficulty": 5,
+"result": "Rabbit Piece",
+"tool": 4757,
+"tool_name": "Carving Knife",
+"target": 5633,
+"target_name": "Rabbit Carcass"
+},
+{
+"recipe": 51,
+"skill": 39,
+"difficulty": 15,
+"result": "Chicken Stew",
+"tool": 4759,
+"tool_name": "Cooking Pot",
+"target": 4717,
+"target_name": "Chicken Piece"
+},
+{
+"recipe": 52,
+"skill": 39,
+"difficulty": 15,
+"result": "Fish Stew",
+"tool": 4759,
+"tool_name": "Cooking Pot",
+"target": 4722,
+"target_name": "Fish Filet"
+},
+{
+"recipe": 53,
+"skill": 39,
+"difficulty": 15,
+"result": "Mushroom Stew",
+"tool": 4759,
+"tool_name": "Cooking Pot",
+"target": 547,
+"target_name": "Brimstone-cap Mushroom"
+},
+{
+"recipe": 54,
+"skill": 39,
+"difficulty": 15,
+"result": "Rabbit Stew",
+"tool": 4759,
+"tool_name": "Cooking Pot",
+"target": 5212,
+"target_name": "Rabbit Piece"
+},
+{
+"recipe": 55,
+"skill": 39,
+"difficulty": 15,
+"result": "Beef Stew",
+"tool": 4759,
+"tool_name": "Cooking Pot",
+"target": 4742,
+"target_name": "Steak"
+},
+{
+"recipe": 56,
+"skill": 39,
+"difficulty": 20,
+"result": "Apple Pie",
+"tool": 4760,
+"tool_name": "Dough",
+"target": 258,
+"target_name": "Apple"
+},
+{
+"recipe": 57,
+"skill": 39,
+"difficulty": 20,
+"result": "Pizza",
+"tool": 4760,
+"tool_name": "Dough",
+"target": 261,
+"target_name": "Cheese"
+},
+{
+"recipe": 58,
+"skill": 39,
+"difficulty": 20,
+"result": "Chicken Pie",
+"tool": 4760,
+"tool_name": "Dough",
+"target": 4717,
+"target_name": "Chicken Piece"
+},
+{
+"recipe": 59,
+"skill": 39,
+"difficulty": 1,
+"result": "Batter",
+"tool": 4760,
+"tool_name": "Dough",
+"target": 546,
+"target_name": "Egg"
+},
+{
+"recipe": 60,
+"skill": 39,
+"difficulty": 20,
+"result": "Fish Pie",
+"tool": 4760,
+"tool_name": "Dough",
+"target": 4722,
+"target_name": "Fish Filet"
+},
+{
+"recipe": 61,
+"skill": 39,
+"difficulty": 1,
+"result": "Cookie Dough",
+"tool": 4760,
+"tool_name": "Dough",
+"target": 4763,
+"target_name": "Honey"
+},
+{
+"recipe": 62,
+"skill": 39,
+"difficulty": 20,
+"result": "Mushroom Pie",
+"tool": 4760,
+"tool_name": "Dough",
+"target": 547,
+"target_name": "Brimstone-cap Mushroom"
+},
+{
+"recipe": 63,
+"skill": 39,
+"difficulty": 20,
+"result": "Rabbit Pie",
+"tool": 4760,
+"tool_name": "Dough",
+"target": 5212,
+"target_name": "Rabbit Piece"
+},
+{
+"recipe": 64,
+"skill": 39,
+"difficulty": 20,
+"result": "Meat Pie",
+"tool": 4760,
+"tool_name": "Dough",
+"target": 4742,
+"target_name": "Steak"
+},
+{
+"recipe": 65,
+"skill": 39,
+"difficulty": 1,
+"result": "Dough",
+"tool": 4761,
+"tool_name": "Flour",
+"target": 4746,
+"target_name": "Water"
+},
+{
+"recipe": 66,
+"skill": 39,
+"difficulty": 5,
+"result": "Fried Chicken",
+"tool": 4762,
+"tool_name": "Frying Pan",
+"target": 4717,
+"target_name": "Chicken Piece"
+},
+{
+"recipe": 67,
+"skill": 39,
+"difficulty": 5,
+"result": "Flat Bread",
+"tool": 4762,
+"tool_name": "Frying Pan",
+"target": 4760,
+"target_name": "Dough"
+},
+{
+"recipe": 68,
+"skill": 39,
+"difficulty": 5,
+"result": "Fried Egg",
+"tool": 4762,
+"tool_name": "Frying Pan",
+"target": 546,
+"target_name": "Egg"
+},
+{
+"recipe": 69,
+"skill": 39,
+"difficulty": 5,
+"result": "Fried Fish Filet",
+"tool": 4762,
+"tool_name": "Frying Pan",
+"target": 4722,
+"target_name": "Fish Filet"
+},
+{
+"recipe": 70,
+"skill": 39,
+"difficulty": 5,
+"result": "Fried Mushroom",
+"tool": 4762,
+"tool_name": "Frying Pan",
+"target": 547,
+"target_name": "Brimstone-cap Mushroom"
+},
+{
+"recipe": 71,
+"skill": 39,
+"difficulty": 5,
+"result": "Fried Rabbit",
+"tool": 4762,
+"tool_name": "Frying Pan",
+"target": 5212,
+"target_name": "Rabbit Piece"
+},
+{
+"recipe": 72,
+"skill": 39,
+"difficulty": 5,
+"result": "Fried Steak",
+"tool": 4762,
+"tool_name": "Frying Pan",
+"target": 4742,
+"target_name": "Steak"
+},
+{
+"recipe": 73,
+"skill": 39,
+"difficulty": 100,
+"result": "Healing Apple Pie",
+"tool": 5333,
+"tool_name": "Health Oil",
+"target": 4709,
+"target_name": "Apple Pie"
+},
+{
+"recipe": 74,
+"skill": 39,
+"difficulty": 100,
+"result": "Healing Beef Noodle",
+"tool": 5333,
+"tool_name": "Health Oil",
+"target": 4711,
+"target_name": "Beef Noodle"
+},
+{
+"recipe": 75,
+"skill": 39,
+"difficulty": 100,
+"result": "Healing Beef Stew",
+"tool": 5333,
+"tool_name": "Health Oil",
+"target": 4713,
+"target_name": "Beef Stew"
+},
+{
+"recipe": 76,
+"skill": 39,
+"difficulty": 100,
+"result": "Healing Cake",
+"tool": 5333,
+"tool_name": "Health Oil",
+"target": 620,
+"target_name": "Cake"
+},
+{
+"recipe": 77,
+"skill": 39,
+"difficulty": 100,
+"result": "Healing Chicken Noodle",
+"tool": 5333,
+"tool_name": "Health Oil",
+"target": 4715,
+"target_name": "Chicken Noodle"
+},
+{
+"recipe": 78,
+"skill": 39,
+"difficulty": 100,
+"result": "Healing Chicken Pie",
+"tool": 5333,
+"tool_name": "Health Oil",
+"target": 4716,
+"target_name": "Chicken Pie"
+},
+{
+"recipe": 79,
+"skill": 39,
+"difficulty": 100,
+"result": "Healing Chicken Stew",
+"tool": 5333,
+"tool_name": "Health Oil",
+"target": 4719,
+"target_name": "Chicken Stew"
+},
+{
+"recipe": 80,
+"skill": 39,
+"difficulty": 100,
+"result": "Healing Fish Noodle",
+"tool": 5333,
+"tool_name": "Health Oil",
+"target": 4724,
+"target_name": "Fish Noodle"
+},
+{
+"recipe": 81,
+"skill": 39,
+"difficulty": 100,
+"result": "Healing Fish Pie",
+"tool": 5333,
+"tool_name": "Health Oil",
+"target": 4725,
+"target_name": "Fish Pie"
+},
+{
+"recipe": 82,
+"skill": 39,
+"difficulty": 100,
+"result": "Healing Fish Stew",
+"tool": 5333,
+"tool_name": "Health Oil",
+"target": 4726,
+"target_name": "Fish Stew"
+},
+{
+"recipe": 83,
+"skill": 39,
+"difficulty": 100,
+"result": "Healing Meat Pie",
+"tool": 5333,
+"tool_name": "Health Oil",
+"target": 4734,
+"target_name": "Meat Pie"
+},
+{
+"recipe": 84,
+"skill": 39,
+"difficulty": 100,
+"result": "Healing Mushroom Noodle",
+"tool": 5333,
+"tool_name": "Health Oil",
+"target": 4736,
+"target_name": "Mushroom Noodle"
+},
+{
+"recipe": 85,
+"skill": 39,
+"difficulty": 100,
+"result": "Healing Mushroom Pie",
+"tool": 5333,
+"tool_name": "Health Oil",
+"target": 4737,
+"target_name": "Mushroom Pie"
+},
+{
+"recipe": 86,
+"skill": 39,
+"difficulty": 100,
+"result": "Healing Mushroom Stew",
+"tool": 5333,
+"tool_name": "Health Oil",
+"target": 5208,
+"target_name": "Mushroom Stew"
+},
+{
+"recipe": 87,
+"skill": 39,
+"difficulty": 100,
+"result": "Healing Pizza",
+"tool": 5333,
+"tool_name": "Health Oil",
+"target": 4741,
+"target_name": "Pizza"
+},
+{
+"recipe": 88,
+"skill": 39,
+"difficulty": 100,
+"result": "Healing Rabbit Noodle",
+"tool": 5333,
+"tool_name": "Health Oil",
+"target": 5210,
+"target_name": "Rabbit Noodle"
+},
+{
+"recipe": 89,
+"skill": 39,
+"difficulty": 100,
+"result": "Healing Rabbit Pie",
+"tool": 5333,
+"tool_name": "Health Oil",
+"target": 5211,
+"target_name": "Rabbit Pie"
+},
+{
+"recipe": 90,
+"skill": 39,
+"difficulty": 100,
+"result": "Healing Rabbit Stew",
+"tool": 5333,
+"tool_name": "Health Oil",
+"target": 5214,
+"target_name": "Rabbit Stew"
+},
+{
+"recipe": 91,
+"skill": 39,
+"difficulty": 100,
+"result": "Mana Apple Pie",
+"tool": 5334,
+"tool_name": "Mana Oil",
+"target": 4709,
+"target_name": "Apple Pie"
+},
+{
+"recipe": 92,
+"skill": 39,
+"difficulty": 100,
+"result": "Mana Beef Noodle",
+"tool": 5334,
+"tool_name": "Mana Oil",
+"target": 4711,
+"target_name": "Beef Noodle"
+},
+{
+"recipe": 93,
+"skill": 39,
+"difficulty": 100,
+"result": "Mana Beef Stew",
+"tool": 5334,
+"tool_name": "Mana Oil",
+"target": 4713,
+"target_name": "Beef Stew"
+},
+{
+"recipe": 94,
+"skill": 39,
+"difficulty": 100,
+"result": "Mana Cake",
+"tool": 5334,
+"tool_name": "Mana Oil",
+"target": 620,
+"target_name": "Cake"
+},
+{
+"recipe": 95,
+"skill": 39,
+"difficulty": 100,
+"result": "Mana Chicken Noodle",
+"tool": 5334,
+"tool_name": "Mana Oil",
+"target": 4715,
+"target_name": "Chicken Noodle"
+},
+{
+"recipe": 96,
+"skill": 39,
+"difficulty": 100,
+"result": "Mana Chicken Pie",
+"tool": 5334,
+"tool_name": "Mana Oil",
+"target": 4716,
+"target_name": "Chicken Pie"
+},
+{
+"recipe": 97,
+"skill": 39,
+"difficulty": 100,
+"result": "Mana Chicken Stew",
+"tool": 5334,
+"tool_name": "Mana Oil",
+"target": 4719,
+"target_name": "Chicken Stew"
+},
+{
+"recipe": 98,
+"skill": 39,
+"difficulty": 100,
+"result": "Mana Fish Noodle",
+"tool": 5334,
+"tool_name": "Mana Oil",
+"target": 4724,
+"target_name": "Fish Noodle"
+},
+{
+"recipe": 99,
+"skill": 39,
+"difficulty": 100,
+"result": "Mana Fish Pie",
+"tool": 5334,
+"tool_name": "Mana Oil",
+"target": 4725,
+"target_name": "Fish Pie"
+},
+{
+"recipe": 100,
+"skill": 39,
+"difficulty": 100,
+"result": "Mana Fish Stew",
+"tool": 5334,
+"tool_name": "Mana Oil",
+"target": 4726,
+"target_name": "Fish Stew"
+},
+{
+"recipe": 101,
+"skill": 39,
+"difficulty": 100,
+"result": "Mana Meat Pie",
+"tool": 5334,
+"tool_name": "Mana Oil",
+"target": 4734,
+"target_name": "Meat Pie"
+},
+{
+"recipe": 102,
+"skill": 39,
+"difficulty": 100,
+"result": "Mana Mushroom Noodle",
+"tool": 5334,
+"tool_name": "Mana Oil",
+"target": 4736,
+"target_name": "Mushroom Noodle"
+},
+{
+"recipe": 103,
+"skill": 39,
+"difficulty": 100,
+"result": "Mana Mushroom Pie",
+"tool": 5334,
+"tool_name": "Mana Oil",
+"target": 4737,
+"target_name": "Mushroom Pie"
+},
+{
+"recipe": 104,
+"skill": 39,
+"difficulty": 100,
+"result": "Mana Mushroom Stew",
+"tool": 5334,
+"tool_name": "Mana Oil",
+"target": 5208,
+"target_name": "Mushroom Stew"
+},
+{
+"recipe": 105,
+"skill": 39,
+"difficulty": 100,
+"result": "Mana Pizza",
+"tool": 5334,
+"tool_name": "Mana Oil",
+"target": 4741,
+"target_name": "Pizza"
+},
+{
+"recipe": 106,
+"skill": 39,
+"difficulty": 100,
+"result": "Mana Rabbit Noodle",
+"tool": 5334,
+"tool_name": "Mana Oil",
+"target": 5210,
+"target_name": "Rabbit Noodle"
+},
+{
+"recipe": 107,
+"skill": 39,
+"difficulty": 100,
+"result": "Mana Rabbit Pie",
+"tool": 5334,
+"tool_name": "Mana Oil",
+"target": 5211,
+"target_name": "Rabbit Pie"
+},
+{
+"recipe": 108,
+"skill": 39,
+"difficulty": 100,
+"result": "Mana Rabbit Stew",
+"tool": 5334,
+"tool_name": "Mana Oil",
+"target": 5214,
+"target_name": "Rabbit Stew"
+},
+{
+"recipe": 109,
+"skill": 39,
+"difficulty": 5,
+"result": "Raw Noodles",
+"tool": 4764,
+"tool_name": "Noodle Cutter",
+"target": 4760,
+"target_name": "Dough"
+},
+{
+"recipe": 110,
+"skill": 39,
+"difficulty": 15,
+"result": "Chicken Noodle",
+"tool": 4765,
+"tool_name": "Raw Noodles",
+"target": 4717,
+"target_name": "Chicken Piece"
+},
+{
+"recipe": 111,
+"skill": 39,
+"difficulty": 15,
+"result": "Fish Noodle",
+"tool": 4765,
+"tool_name": "Raw Noodles",
+"target": 4722,
+"target_name": "Fish Filet"
+},
+{
+"recipe": 112,
+"skill": 39,
+"difficulty": 15,
+"result": "Mushroom Noodle",
+"tool": 4765,
+"tool_name": "Raw Noodles",
+"target": 547,
+"target_name": "Brimstone-cap Mushroom"
+},
+{
+"recipe": 113,
+"skill": 39,
+"difficulty": 15,
+"result": "Rabbit Noodle",
+"tool": 4765,
+"tool_name": "Raw Noodles",
+"target": 5212,
+"target_name": "Rabbit Piece"
+},
+{
+"recipe": 114,
+"skill": 39,
+"difficulty": 15,
+"result": "Beef Noodle",
+"tool": 4765,
+"tool_name": "Raw Noodles",
+"target": 4742,
+"target_name": "Steak"
+},
+{
+"recipe": 115,
+"skill": 39,
+"difficulty": 20,
+"result": "Cheese",
+"tool": 4766,
+"tool_name": "Rennet",
+"target": 2463,
+"target_name": "Milk"
+},
+{
+"recipe": 116,
+"skill": 39,
+"difficulty": 5,
+"result": "Chicken Kebab",
+"tool": 4767,
+"tool_name": "Skewer",
+"target": 4717,
+"target_name": "Chicken Piece"
+},
+{
+"recipe": 117,
+"skill": 39,
+"difficulty": 5,
+"result": "Fish Kebab",
+"tool": 4767,
+"tool_name": "Skewer",
+"target": 4722,
+"target_name": "Fish Filet"
+},
+{
+"recipe": 118,
+"skill": 39,
+"difficulty": 5,
+"result": "Mushroom Kebab",
+"tool": 4767,
+"tool_name": "Skewer",
+"target": 547,
+"target_name": "Brimstone-cap Mushroom"
+},
+{
+"recipe": 119,
+"skill": 39,
+"difficulty": 5,
+"result": "Beef Kebab",
+"tool": 4767,
+"tool_name": "Skewer",
+"target": 4742,
+"target_name": "Steak"
+},
+{
+"recipe": 120,
+"skill": 39,
+"difficulty": 5,
+"result": "Chicken Rice",
+"tool": 4768,
+"tool_name": "Uncooked Rice",
+"target": 4717,
+"target_name": "Chicken Piece"
+},
+{
+"recipe": 121,
+"skill": 39,
+"difficulty": 5,
+"result": "Sushi",
+"tool": 4768,
+"tool_name": "Uncooked Rice",
+"target": 4722,
+"target_name": "Fish Filet"
+},
+{
+"recipe": 122,
+"skill": 39,
+"difficulty": 5,
+"result": "Stuffed Grape Leaf",
+"tool": 4768,
+"tool_name": "Uncooked Rice",
+"target": 264,
+"target_name": "Grapes"
+},
+{
+"recipe": 123,
+"skill": 39,
+"difficulty": 5,
+"result": "Mushroom Rice",
+"tool": 4768,
+"tool_name": "Uncooked Rice",
+"target": 547,
+"target_name": "Brimstone-cap Mushroom"
+},
+{
+"recipe": 124,
+"skill": 39,
+"difficulty": 5,
+"result": "Rabbit Rice",
+"tool": 4768,
+"tool_name": "Uncooked Rice",
+"target": 5212,
+"target_name": "Rabbit Piece"
+},
+{
+"recipe": 125,
+"skill": 39,
+"difficulty": 5,
+"result": "Beef Rice",
+"tool": 4768,
+"tool_name": "Uncooked Rice",
+"target": 4742,
+"target_name": "Steak"
+},
+{
+"recipe": 126,
+"skill": 39,
+"difficulty": 200,
+"result": "Hearty Mana Apple Pie",
+"tool": 5336,
+"tool_name": "Victual Oil",
+"target": 5616,
+"target_name": "Mana Apple Pie"
+},
+{
+"recipe": 127,
+"skill": 39,
+"difficulty": 150,
+"result": "Hearty Apple Pie",
+"tool": 5336,
+"tool_name": "Victual Oil",
+"target": 4709,
+"target_name": "Apple Pie"
+},
+{
+"recipe": 128,
+"skill": 39,
+"difficulty": 200,
+"result": "Hearty Healing Apple Pie",
+"tool": 5336,
+"tool_name": "Victual Oil",
+"target": 5215,
+"target_name": "Healing Apple Pie"
+},
+{
+"recipe": 129,
+"skill": 39,
+"difficulty": 200,
+"result": "Hearty Mana Beef Noodle",
+"tool": 5336,
+"tool_name": "Victual Oil",
+"target": 5233,
+"target_name": "Mana Beef Noodle"
+},
+{
+"recipe": 130,
+"skill": 39,
+"difficulty": 150,
+"result": "Hearty Beef Noodle",
+"tool": 5336,
+"tool_name": "Victual Oil",
+"target": 4711,
+"target_name": "Beef Noodle"
+},
+{
+"recipe": 131,
+"skill": 39,
+"difficulty": 200,
+"result": "Hearty Healing Beef Noodle",
+"tool": 5336,
+"tool_name": "Victual Oil",
+"target": 5216,
+"target_name": "Healing Beef Noodle"
+},
+{
+"recipe": 132,
+"skill": 39,
+"difficulty": 200,
+"result": "Hearty Mana Beef Stew",
+"tool": 5336,
+"tool_name": "Victual Oil",
+"target": 5235,
+"target_name": "Mana Beef Stew"
+},
+{
+"recipe": 133,
+"skill": 39,
+"difficulty": 150,
+"result": "Hearty Beef Stew",
+"tool": 5336,
+"tool_name": "Victual Oil",
+"target": 4713,
+"target_name": "Beef Stew"
+},
+{
+"recipe": 134,
+"skill": 39,
+"difficulty": 200,
+"result": "Hearty Healing Beef Stew",
+"tool": 5336,
+"tool_name": "Victual Oil",
+"target": 5218,
+"target_name": "Healing Beef Stew"
+},
+{
+"recipe": 135,
+"skill": 39,
+"difficulty": 200,
+"result": "Hearty Mana Cake",
+"tool": 5336,
+"tool_name": "Victual Oil",
+"target": 5236,
+"target_name": "Mana Cake"
+},
+{
+"recipe": 136,
+"skill": 39,
+"difficulty": 150,
+"result": "Hearty Cake",
+"tool": 5336,
+"tool_name": "Victual Oil",
+"target": 620,
+"target_name": "Cake"
+},
+{
+"recipe": 137,
+"skill": 39,
+"difficulty": 200,
+"result": "Hearty Healing Cake",
+"tool": 5336,
+"tool_name": "Victual Oil",
+"target": 5219,
+"target_name": "Healing Cake"
+},
+{
+"recipe": 138,
+"skill": 39,
+"difficulty": 200,
+"result": "Hearty Mana Chicken Noodle",
+"tool": 5336,
+"tool_name": "Victual Oil",
+"target": 5237,
+"target_name": "Mana Chicken Noodle"
+},
+{
+"recipe": 139,
+"skill": 39,
+"difficulty": 150,
+"result": "Hearty Chicken Noodle",
+"tool": 5336,
+"tool_name": "Victual Oil",
+"target": 4715,
+"target_name": "Chicken Noodle"
+},
+{
+"recipe": 140,
+"skill": 39,
+"difficulty": 200,
+"result": "Hearty Healing Chicken Noodle",
+"tool": 5336,
+"tool_name": "Victual Oil",
+"target": 5220,
+"target_name": "Healing Chicken Noodle"
+},
+{
+"recipe": 141,
+"skill": 39,
+"difficulty": 200,
+"result": "Hearty Mana Chicken Pie",
+"tool": 5336,
+"tool_name": "Victual Oil",
+"target": 5238,
+"target_name": "Mana Chicken Pie"
+},
+{
+"recipe": 142,
+"skill": 39,
+"difficulty": 150,
+"result": "Hearty Chicken Pie",
+"tool": 5336,
+"tool_name": "Victual Oil",
+"target": 4716,
+"target_name": "Chicken Pie"
+},
+{
+"recipe": 143,
+"skill": 39,
+"difficulty": 200,
+"result": "Hearty Healing Chicken Pie",
+"tool": 5336,
+"tool_name": "Victual Oil",
+"target": 5221,
+"target_name": "Healing Chicken Pie"
+},
+{
+"recipe": 144,
+"skill": 39,
+"difficulty": 200,
+"result": "Hearty Mana Chicken Stew",
+"tool": 5336,
+"tool_name": "Victual Oil",
+"target": 5239,
+"target_name": "Mana Chicken Stew"
+},
+{
+"recipe": 145,
+"skill": 39,
+"difficulty": 150,
+"result": "Hearty Chicken Stew",
+"tool": 5336,
+"tool_name": "Victual Oil",
+"target": 4719,
+"target_name": "Chicken Stew"
+},
+{
+"recipe": 146,
+"skill": 39,
+"difficulty": 200,
+"result": "Hearty Healing Chicken Stew",
+"tool": 5336,
+"tool_name": "Victual Oil",
+"target": 5222,
+"target_name": "Healing Chicken Stew"
+},
+{
+"recipe": 147,
+"skill": 39,
+"difficulty": 200,
+"result": "Hearty Mana Fish Noodle",
+"tool": 5336,
+"tool_name": "Victual Oil",
+"target": 5240,
+"target_name": "Mana Fish Noodle"
+},
+{
+"recipe": 148,
+"skill": 39,
+"difficulty": 150,
+"result": "Hearty Fish Noodle",
+"tool": 5336,
+"tool_name": "Victual Oil",
+"target": 4724,
+"target_name": "Fish Noodle"
+},
+{
+"recipe": 149,
+"skill": 39,
+"difficulty": 200,
+"result": "Hearty Healing Fish Noodle",
+"tool": 5336,
+"tool_name": "Victual Oil",
+"target": 5223,
+"target_name": "Healing Fish Noodle"
+},
+{
+"recipe": 150,
+"skill": 39,
+"difficulty": 200,
+"result": "Hearty Mana Fish Pie",
+"tool": 5336,
+"tool_name": "Victual Oil",
+"target": 5241,
+"target_name": "Mana Fish Pie"
+},
+{
+"recipe": 151,
+"skill": 39,
+"difficulty": 150,
+"result": "Hearty Fish Pie",
+"tool": 5336,
+"tool_name": "Victual Oil",
+"target": 4725,
+"target_name": "Fish Pie"
+},
+{
+"recipe": 152,
+"skill": 39,
+"difficulty": 200,
+"result": "Hearty Healing Fish Pie",
+"tool": 5336,
+"tool_name": "Victual Oil",
+"target": 5224,
+"target_name": "Healing Fish Pie"
+},
+{
+"recipe": 153,
+"skill": 39,
+"difficulty": 200,
+"result": "Hearty Mana Fish Stew",
+"tool": 5336,
+"tool_name": "Victual Oil",
+"target": 5242,
+"target_name": "Mana Fish Stew"
+},
+{
+"recipe": 154,
+"skill": 39,
+"difficulty": 150,
+"result": "Hearty Fish Stew",
+"tool": 5336,
+"tool_name": "Victual Oil",
+"target": 4726,
+"target_name": "Fish Stew"
+},
+{
+"recipe": 155,
+"skill": 39,
+"difficulty": 200,
+"result": "Hearty Healing Fish Stew",
+"tool": 5336,
+"tool_name": "Victual Oil",
+"target": 5225,
+"target_name": "Healing Fish Stew"
+},
+{
+"recipe": 156,
+"skill": 39,
+"difficulty": 200,
+"result": "Hearty Mana Meat Pie",
+"tool": 5336,
+"tool_name": "Victual Oil",
+"target": 5234,
+"target_name": "Mana Meat Pie"
+},
+{
+"recipe": 157,
+"skill": 39,
+"difficulty": 150,
+"result": "Hearty Meat Pie",
+"tool": 5336,
+"tool_name": "Victual Oil",
+"target": 4734,
+"target_name": "Meat Pie"
+},
+{
+"recipe": 158,
+"skill": 39,
+"difficulty": 200,
+"result": "Hearty Healing Meat Pie",
+"tool": 5336,
+"tool_name": "Victual Oil",
+"target": 5217,
+"target_name": "Healing Meat Pie"
+},
+{
+"recipe": 159,
+"skill": 39,
+"difficulty": 200,
+"result": "Hearty Mana Mushroom Noodle",
+"tool": 5336,
+"tool_name": "Victual Oil",
+"target": 5243,
+"target_name": "Mana Mushroom Noodle"
+},
+{
+"recipe": 160,
+"skill": 39,
+"difficulty": 150,
+"result": "Hearty Mushroom Noodle",
+"tool": 5336,
+"tool_name": "Victual Oil",
+"target": 4736,
+"target_name": "Mushroom Noodle"
+},
+{
+"recipe": 161,
+"skill": 39,
+"difficulty": 200,
+"result": "Hearty Healing Mushroom Noodle",
+"tool": 5336,
+"tool_name": "Victual Oil",
+"target": 5226,
+"target_name": "Healing Mushroom Noodle"
+},
+{
+"recipe": 162,
+"skill": 39,
+"difficulty": 200,
+"result": "Hearty Mana Mushroom Pie",
+"tool": 5336,
+"tool_name": "Victual Oil",
+"target": 5244,
+"target_name": "Mana Mushroom Pie"
+},
+{
+"recipe": 163,
+"skill": 39,
+"difficulty": 150,
+"result": "Hearty Mushroom Pie",
+"tool": 5336,
+"tool_name": "Victual Oil",
+"target": 4737,
+"target_name": "Mushroom Pie"
+},
+{
+"recipe": 164,
+"skill": 39,
+"difficulty": 200,
+"result": "Hearty Healing Mushroom Pie",
+"tool": 5336,
+"tool_name": "Victual Oil",
+"target": 5227,
+"target_name": "Healing Mushroom Pie"
+},
+{
+"recipe": 165,
+"skill": 39,
+"difficulty": 200,
+"result": "Hearty Mana Mushroom Stew",
+"tool": 5336,
+"tool_name": "Victual Oil",
+"target": 5245,
+"target_name": "Mana Mushroom Stew"
+},
+{
+"recipe": 166,
+"skill": 39,
+"difficulty": 150,
+"result": "Hearty Mushroom Stew",
+"tool": 5336,
+"tool_name": "Victual Oil",
+"target": 5208,
+"target_name": "Mushroom Stew"
+},
+{
+"recipe": 167,
+"skill": 39,
+"difficulty": 200,
+"result": "Hearty Healing Mushroom Stew",
+"tool": 5336,
+"tool_name": "Victual Oil",
+"target": 5228,
+"target_name": "Healing Mushroom Stew"
+},
+{
+"recipe": 168,
+"skill": 39,
+"difficulty": 200,
+"result": "Hearty Mana Pizza",
+"tool": 5336,
+"tool_name": "Victual Oil",
+"target": 5246,
+"target_name": "Mana Pizza"
+},
+{
+"recipe": 169,
+"skill": 39,
+"difficulty": 150,
+"result": "Hearty Pizza",
+"tool": 5336,
+"tool_name": "Victual Oil",
+"target": 4741,
+"target_name": "Pizza"
+},
+{
+"recipe": 170,
+"skill": 39,
+"difficulty": 200,
+"result": "Hearty Healing Pizza",
+"tool": 5336,
+"tool_name": "Victual Oil",
+"target": 5229,
+"target_name": "Healing Pizza"
+},
+{
+"recipe": 171,
+"skill": 39,
+"difficulty": 200,
+"result": "Hearty Mana Rabbit Noodle",
+"tool": 5336,
+"tool_name": "Victual Oil",
+"target": 5247,
+"target_name": "Mana Rabbit Noodle"
+},
+{
+"recipe": 172,
+"skill": 39,
+"difficulty": 150,
+"result": "Hearty Rabbit Noodle",
+"tool": 5336,
+"tool_name": "Victual Oil",
+"target": 5210,
+"target_name": "Rabbit Noodle"
+},
+{
+"recipe": 173,
+"skill": 39,
+"difficulty": 200,
+"result": "Hearty Healing Rabbit Noodle",
+"tool": 5336,
+"tool_name": "Victual Oil",
+"target": 5230,
+"target_name": "Healing Rabbit Noodle"
+},
+{
+"recipe": 174,
+"skill": 39,
+"difficulty": 200,
+"result": "Hearty Mana Rabbit Pie",
+"tool": 5336,
+"tool_name": "Victual Oil",
+"target": 5248,
+"target_name": "Mana Rabbit Pie"
+},
+{
+"recipe": 175,
+"skill": 39,
+"difficulty": 150,
+"result": "Hearty Rabbit Pie",
+"tool": 5336,
+"tool_name": "Victual Oil",
+"target": 5211,
+"target_name": "Rabbit Pie"
+},
+{
+"recipe": 176,
+"skill": 39,
+"difficulty": 200,
+"result": "Hearty Healing Rabbit Pie",
+"tool": 5336,
+"tool_name": "Victual Oil",
+"target": 5231,
+"target_name": "Healing Rabbit Pie"
+},
+{
+"recipe": 177,
+"skill": 39,
+"difficulty": 200,
+"result": "Hearty Mana Rabbit Stew",
+"tool": 5336,
+"tool_name": "Victual Oil",
+"target": 5249,
+"target_name": "Mana Rabbit Stew"
+},
+{
+"recipe": 178,
+"skill": 39,
+"difficulty": 150,
+"result": "Hearty Rabbit Stew",
+"tool": 5336,
+"tool_name": "Victual Oil",
+"target": 5214,
+"target_name": "Rabbit Stew"
+},
+{
+"recipe": 179,
+"skill": 39,
+"difficulty": 200,
+"result": "Hearty Healing Rabbit Stew",
+"tool": 5336,
+"tool_name": "Victual Oil",
+"target": 5232,
+"target_name": "Healing Rabbit Stew"
+},
+{
+"recipe": 313,
+"skill": 37,
+"difficulty": 30,
+"result": "Bundle of Acid Arrowheads",
+"tool": 5330,
+"tool_name": "Acid Oil",
+"target": 5347,
+"target_name": "Bundle of Armor Piercing Arrowheads"
+},
+{
+"recipe": 314,
+"skill": 37,
+"difficulty": 30,
+"result": "Bundle of Acid Arrowheads",
+"tool": 5330,
+"tool_name": "Acid Oil",
+"target": 5344,
+"target_name": "Bundle of Blunt Arrowheads"
+},
+{
+"recipe": 315,
+"skill": 37,
+"difficulty": 30,
+"result": "Bundle of Acid Arrowheads",
+"tool": 5330,
+"tool_name": "Acid Oil",
+"target": 5345,
+"target_name": "Bundle of Broad Arrowheads"
+},
+{
+"recipe": 316,
+"skill": 37,
+"difficulty": 30,
+"result": "Bundle of Acid Arrowheads",
+"tool": 5330,
+"tool_name": "Acid Oil",
+"target": 5346,
+"target_name": "Bundle of Frog Crotch Arrowheads"
+},
+{
+"recipe": 317,
+"skill": 37,
+"difficulty": 30,
+"result": "Bundle of Greater Acid Arrowheads",
+"tool": 5330,
+"tool_name": "Acid Oil",
+"target": 5356,
+"target_name": "Bundle of Greater Armor Piercing Arrowheads"
+},
+{
+"recipe": 318,
+"skill": 37,
+"difficulty": 30,
+"result": "Bundle of Greater Acid Arrowheads",
+"tool": 5330,
+"tool_name": "Acid Oil",
+"target": 5353,
+"target_name": "Bundle of Greater Blunt Arrowheads"
+},
+{
+"recipe": 319,
+"skill": 37,
+"difficulty": 30,
+"result": "Bundle of Greater Acid Arrowheads",
+"tool": 5330,
+"tool_name": "Acid Oil",
+"target": 5354,
+"target_name": "Bundle of Greater Broad Arrowheads"
+},
+{
+"recipe": 320,
+"skill": 37,
+"difficulty": 30,
+"result": "Bundle of Greater Acid Arrowheads",
+"tool": 5330,
+"tool_name": "Acid Oil",
+"target": 5355,
+"target_name": "Bundle of Greater Frog Crotch Arrowheads"
+},
+{
+"recipe": 321,
+"skill": 37,
+"difficulty": 30,
+"result": "Bundle of Greater Acid Arrowheads",
+"tool": 5330,
+"tool_name": "Acid Oil",
+"target": 5348,
+"target_name": "Bundle of Greater Arrowheads"
+},
+{
+"recipe": 322,
+"skill": 37,
+"difficulty": 30,
+"result": "Bundle of Acid Arrowheads",
+"tool": 5330,
+"tool_name": "Acid Oil",
+"target": 4586,
+"target_name": "Bundle of Arrowheads"
+},
+{
+"recipe": 323,
+"skill": 37,
+"difficulty": 5,
+"result": "Arrow",
+"tool": 4586,
+"tool_name": "Bundle of Arrowheads",
+"target": 4585,
+"target_name": "Bundle of Arrowshafts"
+},
+{
+"recipe": 324,
+"skill": 37,
+"difficulty": 5,
+"result": "Quarrel",
+"tool": 4586,
+"tool_name": "Bundle of Arrowheads",
+"target": 5339,
+"target_name": "Bundle of Quarrelshafts"
+},
+{
+"recipe": 325,
+"skill": 37,
+"difficulty": 60,
+"result": "Acid Arrow",
+"tool": 5340,
+"tool_name": "Bundle of Acid Arrowheads",
+"target": 4585,
+"target_name": "Bundle of Arrowshafts"
+},
+{
+"recipe": 326,
+"skill": 37,
+"difficulty": 60,
+"result": "Acid Quarrel",
+"tool": 5340,
+"tool_name": "Bundle of Acid Arrowheads",
+"target": 5339,
+"target_name": "Bundle of Quarrelshafts"
+},
+{
+"recipe": 327,
+"skill": 37,
+"difficulty": 20,
+"result": "Armor Piercing Arrow",
+"tool": 5347,
+"tool_name": "Bundle of Armor Piercing Arrowheads",
+"target": 4585,
+"target_name": "Bundle of Arrowshafts"
+},
+{
+"recipe": 328,
+"skill": 37,
+"difficulty": 20,
+"result": "Armor Piercing Quarrel",
+"tool": 5347,
+"tool_name": "Bundle of Armor Piercing Arrowheads",
+"target": 5339,
+"target_name": "Bundle of Quarrelshafts"
+},
+{
+"recipe": 329,
+"skill": 37,
+"difficulty": 10,
+"result": "Blunt Arrow",
+"tool": 5344,
+"tool_name": "Bundle of Blunt Arrowheads",
+"target": 4585,
+"target_name": "Bundle of Arrowshafts"
+},
+{
+"recipe": 330,
+"skill": 37,
+"difficulty": 10,
+"result": "Blunt Quarrel",
+"tool": 5344,
+"tool_name": "Bundle of Blunt Arrowheads",
+"target": 5339,
+"target_name": "Bundle of Quarrelshafts"
+},
+{
+"recipe": 331,
+"skill": 37,
+"difficulty": 10,
+"result": "Broadhead Arrow",
+"tool": 5345,
+"tool_name": "Bundle of Broad Arrowheads",
+"target": 4585,
+"target_name": "Bundle of Arrowshafts"
+},
+{
+"recipe": 332,
+"skill": 37,
+"difficulty": 10,
+"result": "Broadhead Quarrel",
+"tool": 5345,
+"tool_name": "Bundle of Broad Arrowheads",
+"target": 5339,
+"target_name": "Bundle of Quarrelshafts"
+},
+{
+"recipe": 333,
+"skill": 37,
+"difficulty": 60,
+"result": "Fire Arrow",
+"tool": 5341,
+"tool_name": "Bundle of Fire Arrowheads",
+"target": 4585,
+"target_name": "Bundle of Arrowshafts"
+},
+{
+"recipe": 334,
+"skill": 37,
+"difficulty": 60,
+"result": "Fire Quarrel",
+"tool": 5341,
+"tool_name": "Bundle of Fire Arrowheads",
+"target": 5339,
+"target_name": "Bundle of Quarrelshafts"
+},
+{
+"recipe": 335,
+"skill": 37,
+"difficulty": 20,
+"result": "Frog Crotch Arrow",
+"tool": 5346,
+"tool_name": "Bundle of Frog Crotch Arrowheads",
+"target": 4585,
+"target_name": "Bundle of Arrowshafts"
+},
+{
+"recipe": 336,
+"skill": 37,
+"difficulty": 20,
+"result": "Frog Crotch Quarrel",
+"tool": 5346,
+"tool_name": "Bundle of Frog Crotch Arrowheads",
+"target": 5339,
+"target_name": "Bundle of Quarrelshafts"
+},
+{
+"recipe": 337,
+"skill": 37,
+"difficulty": 60,
+"result": "Frost Arrow",
+"tool": 5342,
+"tool_name": "Bundle of Frost Arrowheads",
+"target": 4585,
+"target_name": "Bundle of Arrowshafts"
+},
+{
+"recipe": 338,
+"skill": 37,
+"difficulty": 60,
+"result": "Frost Quarrel",
+"tool": 5342,
+"tool_name": "Bundle of Frost Arrowheads",
+"target": 5339,
+"target_name": "Bundle of Quarrelshafts"
+},
+{
+"recipe": 339,
+"skill": 37,
+"difficulty": 60,
+"result": "Lightning Arrow",
+"tool": 5343,
+"tool_name": "Bundle of Lightning Arrowheads",
+"target": 4585,
+"target_name": "Bundle of Arrowshafts"
+},
+{
+"recipe": 340,
+"skill": 37,
+"difficulty": 60,
+"result": "Lightning Quarrel",
+"tool": 5343,
+"tool_name": "Bundle of Lightning Arrowheads",
+"target": 5339,
+"target_name": "Bundle of Quarrelshafts"
+},
+{
+"recipe": 341,
+"skill": 37,
+"difficulty": 120,
+"result": "Greater Arrow",
+"tool": 5348,
+"tool_name": "Bundle of Greater Arrowheads",
+"target": 4585,
+"target_name": "Bundle of Arrowshafts"
+},
+{
+"recipe": 342,
+"skill": 37,
+"difficulty": 120,
+"result": "Greater Quarrel",
+"tool": 5348,
+"tool_name": "Bundle of Greater Arrowheads",
+"target": 5339,
+"target_name": "Bundle of Quarrelshafts"
+},
+{
+"recipe": 343,
+"skill": 37,
+"difficulty": 200,
+"result": "Greater Acid Arrow",
+"tool": 5349,
+"tool_name": "Bundle of Greater Acid Arrowheads",
+"target": 4585,
+"target_name": "Bundle of Arrowshafts"
+},
+{
+"recipe": 344,
+"skill": 37,
+"difficulty": 200,
+"result": "Greater Acid Quarrel",
+"tool": 5349,
+"tool_name": "Bundle of Greater Acid Arrowheads",
+"target": 5339,
+"target_name": "Bundle of Quarrelshafts"
+},
+{
+"recipe": 345,
+"skill": 37,
+"difficulty": 160,
+"result": "Greater Armor Piercing Arrow",
+"tool": 5356,
+"tool_name": "Bundle of Greater Armor Piercing Arrowheads",
+"target": 4585,
+"target_name": "Bundle of Arrowshafts"
+},
+{
+"recipe": 346,
+"skill": 37,
+"difficulty": 160,
+"result": "Greater Armor Piercing Quarrel",
+"tool": 5356,
+"tool_name": "Bundle of Greater Armor Piercing Arrowheads",
+"target": 5339,
+"target_name": "Bundle of Quarrelshafts"
+},
+{
+"recipe": 347,
+"skill": 37,
+"difficulty": 140,
+"result": "Greater Blunt Arrow",
+"tool": 5353,
+"tool_name": "Bundle of Greater Blunt Arrowheads",
+"target": 4585,
+"target_name": "Bundle of Arrowshafts"
+},
+{
+"recipe": 348,
+"skill": 37,
+"difficulty": 140,
+"result": "Greater Blunt Quarrel",
+"tool": 5353,
+"tool_name": "Bundle of Greater Blunt Arrowheads",
+"target": 5339,
+"target_name": "Bundle of Quarrelshafts"
+},
+{
+"recipe": 349,
+"skill": 37,
+"difficulty": 140,
+"result": "Greater Broadhead Arrow",
+"tool": 5354,
+"tool_name": "Bundle of Greater Broad Arrowheads",
+"target": 4585,
+"target_name": "Bundle of Arrowshafts"
+},
+{
+"recipe": 350,
+"skill": 37,
+"difficulty": 140,
+"result": "Greater Broadhead Quarrel",
+"tool": 5354,
+"tool_name": "Bundle of Greater Broad Arrowheads",
+"target": 5339,
+"target_name": "Bundle of Quarrelshafts"
+},
+{
+"recipe": 351,
+"skill": 37,
+"difficulty": 200,
+"result": "Greater Fire Arrow",
+"tool": 5350,
+"tool_name": "Bundle of Greater Fire Arrowheads",
+"target": 4585,
+"target_name": "Bundle of Arrowshafts"
+},
+{
+"recipe": 352,
+"skill": 37,
+"difficulty": 200,
+"result": "Greater Fire Quarrel",
+"tool": 5350,
+"tool_name": "Bundle of Greater Fire Arrowheads",
+"target": 5339,
+"target_name": "Bundle of Quarrelshafts"
+},
+{
+"recipe": 353,
+"skill": 37,
+"difficulty": 160,
+"result": "Greater Frog Crotch Arrow",
+"tool": 5355,
+"tool_name": "Bundle of Greater Frog Crotch Arrowheads",
+"target": 4585,
+"target_name": "Bundle of Arrowshafts"
+},
+{
+"recipe": 354,
+"skill": 37,
+"difficulty": 160,
+"result": "Greater Frog Crotch Quarrel",
+"tool": 5355,
+"tool_name": "Bundle of Greater Frog Crotch Arrowheads",
+"target": 5339,
+"target_name": "Bundle of Quarrelshafts"
+},
+{
+"recipe": 355,
+"skill": 37,
+"difficulty": 200,
+"result": "Greater Frost Arrow",
+"tool": 5351,
+"tool_name": "Bundle of Greater Frost Arrowheads",
+"target": 4585,
+"target_name": "Bundle of Arrowshafts"
+},
+{
+"recipe": 356,
+"skill": 37,
+"difficulty": 200,
+"result": "Greater Frost Quarrel",
+"tool": 5351,
+"tool_name": "Bundle of Greater Frost Arrowheads",
+"target": 5339,
+"target_name": "Bundle of Quarrelshafts"
+},
+{
+"recipe": 357,
+"skill": 37,
+"difficulty": 200,
+"result": "Greater Lightning Arrow",
+"tool": 5352,
+"tool_name": "Bundle of Greater Lightning Arrowheads",
+"target": 4585,
+"target_name": "Bundle of Arrowshafts"
+},
+{
+"recipe": 358,
+"skill": 37,
+"difficulty": 200,
+"result": "Greater Lightning Quarrel",
+"tool": 5352,
+"tool_name": "Bundle of Greater Lightning Arrowheads",
+"target": 5339,
+"target_name": "Bundle of Quarrelshafts"
+},
+{
+"recipe": 359,
+"skill": 37,
+"difficulty": 100,
+"result": "Bundle of Greater Acid Arrowheads",
+"tool": 5337,
+"tool_name": "Bloodseeker Oil",
+"target": 5340,
+"target_name": "Bundle of Acid Arrowheads"
+},
+{
+"recipe": 360,
+"skill": 37,
+"difficulty": 80,
+"result": "Bundle of Greater Armor Piercing Arrowheads",
+"tool": 5337,
+"tool_name": "Bloodseeker Oil",
+"target": 5347,
+"target_name": "Bundle of Armor Piercing Arrowheads"
+},
+{
+"recipe": 361,
+"skill": 37,
+"difficulty": 70,
+"result": "Bundle of Greater Blunt Arrowheads",
+"tool": 5337,
+"tool_name": "Bloodseeker Oil",
+"target": 5344,
+"target_name": "Bundle of Blunt Arrowheads"
+},
+{
+"recipe": 362,
+"skill": 37,
+"difficulty": 70,
+"result": "Bundle of Greater Broad Arrowheads",
+"tool": 5337,
+"tool_name": "Bloodseeker Oil",
+"target": 5345,
+"target_name": "Bundle of Broad Arrowheads"
+},
+{
+"recipe": 363,
+"skill": 37,
+"difficulty": 100,
+"result": "Bundle of Greater Fire Arrowheads",
+"tool": 5337,
+"tool_name": "Bloodseeker Oil",
+"target": 5341,
+"target_name": "Bundle of Fire Arrowheads"
+},
+{
+"recipe": 364,
+"skill": 37,
+"difficulty": 80,
+"result": "Bundle of Greater Frog Crotch Arrowheads",
+"tool": 5337,
+"tool_name": "Bloodseeker Oil",
+"target": 5346,
+"target_name": "Bundle of Frog Crotch Arrowheads"
+},
+{
+"recipe": 365,
+"skill": 37,
+"difficulty": 100,
+"result": "Bundle of Greater Frost Arrowheads",
+"tool": 5337,
+"tool_name": "Bloodseeker Oil",
+"target": 5342,
+"target_name": "Bundle of Frost Arrowheads"
+},
+{
+"recipe": 366,
+"skill": 37,
+"difficulty": 100,
+"result": "Bundle of Greater Lightning Arrowheads",
+"tool": 5337,
+"tool_name": "Bloodseeker Oil",
+"target": 5343,
+"target_name": "Bundle of Lightning Arrowheads"
+},
+{
+"recipe": 367,
+"skill": 37,
+"difficulty": 60,
+"result": "Bundle of Greater Arrowheads",
+"tool": 5337,
+"tool_name": "Bloodseeker Oil",
+"target": 4586,
+"target_name": "Bundle of Arrowheads"
+},
+{
+"recipe": 368,
+"skill": 37,
+"difficulty": 30,
+"result": "Bundle of Fire Arrowheads",
+"tool": 4750,
+"tool_name": "Fire Oil",
+"target": 5347,
+"target_name": "Bundle of Armor Piercing Arrowheads"
+},
+{
+"recipe": 369,
+"skill": 37,
+"difficulty": 30,
+"result": "Bundle of Fire Arrowheads",
+"tool": 4750,
+"tool_name": "Fire Oil",
+"target": 5344,
+"target_name": "Bundle of Blunt Arrowheads"
+},
+{
+"recipe": 370,
+"skill": 37,
+"difficulty": 30,
+"result": "Bundle of Fire Arrowheads",
+"tool": 4750,
+"tool_name": "Fire Oil",
+"target": 5345,
+"target_name": "Bundle of Broad Arrowheads"
+},
+{
+"recipe": 371,
+"skill": 37,
+"difficulty": 30,
+"result": "Bundle of Fire Arrowheads",
+"tool": 4750,
+"tool_name": "Fire Oil",
+"target": 5346,
+"target_name": "Bundle of Frog Crotch Arrowheads"
+},
+{
+"recipe": 372,
+"skill": 37,
+"difficulty": 30,
+"result": "Bundle of Greater Fire Arrowheads",
+"tool": 4750,
+"tool_name": "Fire Oil",
+"target": 5356,
+"target_name": "Bundle of Greater Armor Piercing Arrowheads"
+},
+{
+"recipe": 373,
+"skill": 37,
+"difficulty": 30,
+"result": "Bundle of Greater Fire Arrowheads",
+"tool": 4750,
+"tool_name": "Fire Oil",
+"target": 5353,
+"target_name": "Bundle of Greater Blunt Arrowheads"
+},
+{
+"recipe": 374,
+"skill": 37,
+"difficulty": 30,
+"result": "Bundle of Greater Fire Arrowheads",
+"tool": 4750,
+"tool_name": "Fire Oil",
+"target": 5354,
+"target_name": "Bundle of Greater Broad Arrowheads"
+},
+{
+"recipe": 375,
+"skill": 37,
+"difficulty": 30,
+"result": "Bundle of Greater Fire Arrowheads",
+"tool": 4750,
+"tool_name": "Fire Oil",
+"target": 5355,
+"target_name": "Bundle of Greater Frog Crotch Arrowheads"
+},
+{
+"recipe": 376,
+"skill": 37,
+"difficulty": 30,
+"result": "Bundle of Greater Fire Arrowheads",
+"tool": 4750,
+"tool_name": "Fire Oil",
+"target": 5348,
+"target_name": "Bundle of Greater Arrowheads"
+},
+{
+"recipe": 377,
+"skill": 37,
+"difficulty": 30,
+"result": "Bundle of Fire Arrowheads",
+"tool": 4750,
+"tool_name": "Fire Oil",
+"target": 4586,
+"target_name": "Bundle of Arrowheads"
+},
+{
+"recipe": 378,
+"skill": 37,
+"difficulty": 30,
+"result": "Bundle of Frost Arrowheads",
+"tool": 5331,
+"tool_name": "Frost Oil",
+"target": 5347,
+"target_name": "Bundle of Armor Piercing Arrowheads"
+},
+{
+"recipe": 379,
+"skill": 37,
+"difficulty": 30,
+"result": "Bundle of Frost Arrowheads",
+"tool": 5331,
+"tool_name": "Frost Oil",
+"target": 5344,
+"target_name": "Bundle of Blunt Arrowheads"
+},
+{
+"recipe": 380,
+"skill": 37,
+"difficulty": 30,
+"result": "Bundle of Frost Arrowheads",
+"tool": 5331,
+"tool_name": "Frost Oil",
+"target": 5345,
+"target_name": "Bundle of Broad Arrowheads"
+},
+{
+"recipe": 381,
+"skill": 37,
+"difficulty": 30,
+"result": "Bundle of Frost Arrowheads",
+"tool": 5331,
+"tool_name": "Frost Oil",
+"target": 5346,
+"target_name": "Bundle of Frog Crotch Arrowheads"
+},
+{
+"recipe": 382,
+"skill": 37,
+"difficulty": 30,
+"result": "Bundle of Greater Frost Arrowheads",
+"tool": 5331,
+"tool_name": "Frost Oil",
+"target": 5356,
+"target_name": "Bundle of Greater Armor Piercing Arrowheads"
+},
+{
+"recipe": 383,
+"skill": 37,
+"difficulty": 30,
+"result": "Bundle of Greater Frost Arrowheads",
+"tool": 5331,
+"tool_name": "Frost Oil",
+"target": 5353,
+"target_name": "Bundle of Greater Blunt Arrowheads"
+},
+{
+"recipe": 384,
+"skill": 37,
+"difficulty": 30,
+"result": "Bundle of Greater Frost Arrowheads",
+"tool": 5331,
+"tool_name": "Frost Oil",
+"target": 5354,
+"target_name": "Bundle of Greater Broad Arrowheads"
+},
+{
+"recipe": 385,
+"skill": 37,
+"difficulty": 30,
+"result": "Bundle of Greater Frost Arrowheads",
+"tool": 5331,
+"tool_name": "Frost Oil",
+"target": 5355,
+"target_name": "Bundle of Greater Frog Crotch Arrowheads"
+},
+{
+"recipe": 386,
+"skill": 37,
+"difficulty": 30,
+"result": "Bundle of Greater Frost Arrowheads",
+"tool": 5331,
+"tool_name": "Frost Oil",
+"target": 5348,
+"target_name": "Bundle of Greater Arrowheads"
+},
+{
+"recipe": 387,
+"skill": 37,
+"difficulty": 30,
+"result": "Bundle of Frost Arrowheads",
+"tool": 5331,
+"tool_name": "Frost Oil",
+"target": 4586,
+"target_name": "Bundle of Arrowheads"
+},
+{
+"recipe": 388,
+"skill": 37,
+"difficulty": 30,
+"result": "Bundle of Lightning Arrowheads",
+"tool": 5332,
+"tool_name": "Lightning Oil",
+"target": 5347,
+"target_name": "Bundle of Armor Piercing Arrowheads"
+},
+{
+"recipe": 389,
+"skill": 37,
+"difficulty": 30,
+"result": "Bundle of Lightning Arrowheads",
+"tool": 5332,
+"tool_name": "Lightning Oil",
+"target": 5344,
+"target_name": "Bundle of Blunt Arrowheads"
+},
+{
+"recipe": 390,
+"skill": 37,
+"difficulty": 30,
+"result": "Bundle of Lightning Arrowheads",
+"tool": 5332,
+"tool_name": "Lightning Oil",
+"target": 5345,
+"target_name": "Bundle of Broad Arrowheads"
+},
+{
+"recipe": 391,
+"skill": 37,
+"difficulty": 30,
+"result": "Bundle of Lightning Arrowheads",
+"tool": 5332,
+"tool_name": "Lightning Oil",
+"target": 5346,
+"target_name": "Bundle of Frog Crotch Arrowheads"
+},
+{
+"recipe": 392,
+"skill": 37,
+"difficulty": 30,
+"result": "Bundle of Greater Lightning Arrowheads",
+"tool": 5332,
+"tool_name": "Lightning Oil",
+"target": 5356,
+"target_name": "Bundle of Greater Armor Piercing Arrowheads"
+},
+{
+"recipe": 393,
+"skill": 37,
+"difficulty": 30,
+"result": "Bundle of Greater Lightning Arrowheads",
+"tool": 5332,
+"tool_name": "Lightning Oil",
+"target": 5353,
+"target_name": "Bundle of Greater Blunt Arrowheads"
+},
+{
+"recipe": 394,
+"skill": 37,
+"difficulty": 30,
+"result": "Bundle of Greater Lightning Arrowheads",
+"tool": 5332,
+"tool_name": "Lightning Oil",
+"target": 5354,
+"target_name": "Bundle of Greater Broad Arrowheads"
+},
+{
+"recipe": 395,
+"skill": 37,
+"difficulty": 30,
+"result": "Bundle of Greater Lightning Arrowheads",
+"tool": 5332,
+"tool_name": "Lightning Oil",
+"target": 5355,
+"target_name": "Bundle of Greater Frog Crotch Arrowheads"
+},
+{
+"recipe": 396,
+"skill": 37,
+"difficulty": 30,
+"result": "Bundle of Greater Lightning Arrowheads",
+"tool": 5332,
+"tool_name": "Lightning Oil",
+"target": 5348,
+"target_name": "Bundle of Greater Arrowheads"
+},
+{
+"recipe": 397,
+"skill": 37,
+"difficulty": 30,
+"result": "Bundle of Lightning Arrowheads",
+"tool": 5332,
+"tool_name": "Lightning Oil",
+"target": 4586,
+"target_name": "Bundle of Arrowheads"
+},
+{
+"recipe": 850,
+"skill": 0,
+"difficulty": 0,
+"result": "Water",
+"tool": 175,
+"tool_name": "Wineskin",
+"target": 174,
+"target_name": "Well"
+},
+{
+"recipe": 852,
+"skill": 0,
+"difficulty": 0,
+"result": "Water",
+"tool": 175,
+"tool_name": "Wineskin",
+"target": 153,
+"target_name": "Fountain"
+},
+{
+"recipe": 854,
+"skill": 0,
+"difficulty": 0,
+"result": "Water",
+"tool": 175,
+"tool_name": "Wineskin",
+"target": 152,
+"target_name": "Font"
+},
+{
+"recipe": 856,
+"skill": 0,
+"difficulty": 0,
+"result": "Water",
+"tool": 175,
+"tool_name": "Wineskin",
+"target": 165,
+"target_name": "Pool"
+},
+{
+"recipe": 858,
+"skill": 0,
+"difficulty": 0,
+"result": "Water",
+"tool": 175,
+"tool_name": "Wineskin",
+"target": 171,
+"target_name": "Vat"
+}
+]
