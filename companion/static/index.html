@@ -1347,6 +1347,12 @@ function goalBar(goal) {
 }
 
 // ---- the launcher (launcher.py): the header's launch buttons, Settings > Game and Settings > Accounts ----------
+// Vendor backgrounds are on: experimental features and the backgrounds both (Settings › Game). (The global state:
+// a page's renderer often has a character's own `state` in its place.)
+function tintOn() {
+  const L = state && state.launcher;
+  return !!(L && L.experimental && L.tint);
+}
 const launching = new Set();          // account keys whose client is being started
 let newAcctDir = "";                    // the folder chosen for the account being added ("": the game folder)
 // Online: its game client is running on this computer (launcher.py reads the clients' own command lines, so one
@@ -3012,7 +3018,7 @@ function renderOrderCfg(state, burn) {
     <div class="col">
       <label><input type="number" min="1" max="9999" data-comp-list="sellMin" value="${compLists.sellMin}"> components over</label>
       <span class="hint2">a component goes on the sell list once you carry that many more than its desired amount</span></div>
-    ${(state.launcher || {}).experimental && state.launcher.tint ? `<div class="k" style="align-self:start;padding-top:6px">Vendor backgrounds</div>
+    ${tintOn() ? `<div class="k" style="align-self:start;padding-top:6px">Vendor backgrounds</div>
     <div class="col">
       ${[["tint_buy", "To buy", cfg.tint_buy ?? 0x1000], ["tint_other", "The rest", cfg.tint_other ?? 0x80]].map(([k, label, cur]) =>
         `<div class="row bgpick"><span class="bglbl">${label}</span>${VENDOR_BG.map(([t, tex, name]) =>
