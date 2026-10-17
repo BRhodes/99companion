@@ -75,7 +75,7 @@ class DescribeTest(unittest.TestCase):
                    "spells": ["Impenetrability III"], "difficulty": 105, "spellcraft": 105, "max_mana": 242, "rank_limit": 5}
         self.assertEqual(appraisal.clip_lines(hauberk, {"Impenetrability III": 100}),
                          ["120al · 1.3s, 1.0p, 1.0b, 0.4c, 0.4f, 0.6a, 0.4l",
-                          "5,949p · 2,988bu · 105lore, 5+rank",
+                          "5,949p · 2,988bu · lore 105, rank 5",
                           "Impen III"])
         self.assertEqual(appraisal.clip_lines({"value": 5, "burden": 10}), ["5p · 10bu"])
         knife = {"value": 10, "burden": 38, "weapon": {"damage_type": 3, "speed": 25, "skill": 4, "damage": 3, "variance": 0.75,
