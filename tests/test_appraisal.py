@@ -63,8 +63,8 @@ class DescribeTest(unittest.TestCase):
                                                        "offense": 1.05, "defense": 1.0}}
         self.assertEqual(appraisal.describe("Practice Knife", knife), "Practice Knife · 10p · 38 BU · Dagger, 1-3 Slash/Pierce, Speed 25, +5% attack")
         coat = {"value": 800, "burden": 810, "armor_level": 120, "protection": [1.0, 0.8, 1.0, 0.4, 0.4, 0.6, 0.4]}
-        self.assertEqual(appraisal.describe("Coat", coat), "Coat · 800p · 810 BU · AL 120 (Slas 1.0, Pier 0.8, Blud 1.0, "
-                                                           "Cold 0.4, Fire 0.4, Acid 0.6, Ligh 0.4)")
+        self.assertEqual(appraisal.describe("Coat", coat), "Coat · 800p · 810 BU · AL 120 (S1.0, P0.8, B1.0, "
+                                                           "C0.4, F0.4, A0.6, L0.4)")
 
 
     def test_how_long_a_full_charge_lasts(self):

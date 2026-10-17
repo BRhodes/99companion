@@ -5,7 +5,7 @@ from . import skills as sk
 
 DAMAGE_TYPES = [(0x1, "Slash"), (0x2, "Pierce"), (0x4, "Bludge"), (0x8, "Cold"), (0x10, "Fire"), (0x20, "Acid"),
                 (0x40, "Lightning")]
-PROTECTIONS = ["Slas", "Pier", "Blud", "Cold", "Fire", "Acid", "Ligh"]     # (4 letters each: it's a long line)
+PROTECTIONS = ["S", "P", "B", "C", "F", "A", "L"]   # slash, pierce, bludgeon, cold, fire, acid, lightning (a long line)
 BOOSTS = {2: "Health", 4: "Stamina", 6: "Mana"}
 MIN_DRAIN = 0.0166      # mana a second: loot never drains slower (TreasureFactory.cpp, MANA_RATE_FLOAT)
 
@@ -58,7 +58,7 @@ def describe(name, p, powers=None):
         parts.append(", ".join(bits))
     if p.get("armor_level"):
         prot = p.get("protection")
-        parts.append(f"AL {p['armor_level']}" + (f" ({', '.join(f'{k} {v:.1f}' for k, v in zip(PROTECTIONS, prot))})" if prot else ""))
+        parts.append(f"AL {p['armor_level']}" + (f" ({', '.join(f'{k}{v:.1f}' for k, v in zip(PROTECTIONS, prot))})" if prot else ""))
     if p.get("boost_type") in BOOSTS and p.get("boost"):
         parts.append(f"Restores {p['boost']} {BOOSTS[p['boost_type']]}")
     if p.get("max_uses"):
