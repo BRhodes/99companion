@@ -5,4 +5,4 @@ rem Stops a relay that's already running first.
 cd /d "%~dp0"
 call relay-stop.cmd
 title 99companion relay (tint-store)
-python -m companion.relay --tint-store %*
+call tools\py.cmd -m companion.relay --tint-store %*

@@ -10,7 +10,7 @@ checkout's HEAD when there is one, else the VERSION file an earlier update wrote
 
 Updating: a git checkout pulls (fast-forward only: local changes stop it rather than be touched). Otherwise the
 commit's zip is downloaded and its files copied over this install -- never what's yours (KEEP: journals, the
-database, caches, captures, checkpoints, *.local.json, settings files), and nothing is deleted. The companion's
+database, caches, captures, checkpoints, the runtime\ Python, *.local.json, settings files), and nothing is deleted. The companion's
 reloader then restarts it on its own; if a file the relay runs changed, the dashboard says to restart relay.cmd.
 """
 import io
@@ -29,7 +29,7 @@ CHECK_EVERY = 1800.0      # seconds between checks
 ROOT = Path(__file__).resolve().parent.parent
 SETTINGS = ROOT / "update.local.json"
 VERSION_FILE = ROOT / "VERSION"
-KEEP = ("journals/", "cache/", "captures/", "checkpoints/", ".git/", "companion.sqlite3", "spellbook-layouts.json",
+KEEP = ("journals/", "cache/", "captures/", "checkpoints/", ".git/", "runtime/", "runtime.partial/", "companion.sqlite3", "spellbook-layouts.json",
         "VERSION")
 RELAY_FILES = {"companion/relay.py", "companion/proxy.py", "companion/capture.py", "companion/storetint.py",
                "companion/netcrc.py", "companion/framing.py", "companion/binreader.py", "companion/messages.py",

@@ -7,6 +7,6 @@ if errorlevel 1 (
     powershell -NoProfile -Command "Start-Process -FilePath '%~f0' -Verb RunAs"
     exit /b
 )
-python tools\bgpatch.py "C:\Program Files (x86)\Microsoft Games\Asheron's Call"
-python tools\bgpatch.py "C:\Program Files (x86)\Microsoft Games\Asheron's Call2"
+call tools\py.cmd tools\bgpatch.py "C:\Program Files (x86)\Microsoft Games\Asheron's Call"
+call tools\py.cmd tools\bgpatch.py "C:\Program Files (x86)\Microsoft Games\Asheron's Call2"
 pause

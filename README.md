@@ -2,7 +2,17 @@
 
 A companion for the Asheron's Call 1999 client: a small relay the client connects through, and a local
 dashboard that reads the game traffic to track your character, spells, components, experience and
-surroundings. Python 3 standard library only (Windows).
+surroundings. Windows.
+
+## Quick start
+
+1. On GitHub, **Code › Download ZIP**, and unzip it anywhere (your Documents folder is fine).
+2. Double-click **`start.cmd`**. The first time, it sets up its own Python inside the folder (a one-time
+   download of about 40 MB: no administrator rights, nothing installed on the system). Two windows open (the
+   relay and the dashboard; leave them open while you play) and the dashboard opens in your browser.
+3. Point the game at the relay: in your launcher, a server with host `127.0.0.1` and port `9110`.
+
+Next time, just double-click `start.cmd`. Updates come from GitHub on their own (see Updates).
 
 The relay forwards every packet unchanged before decoding a copy, so the server sees exactly the traffic it
 would without it. The companion never plays for you: everything in game is done by you; the dashboard shows,
@@ -55,6 +65,11 @@ Replay a journal offline: `python -m companion.replay journals/session-....cap -
 
 Tests: `python -m unittest discover`
 
+The `.cmd` files run Python through `tools\py.cmd`: the project's own `runtime\` when there is one, else an
+installed Python 3.11+ that has numpy and Pillow (`pip install -r requirements.txt`), else it sets `runtime\` up
+(`tools\setup.ps1`: python.org's embeddable Python, pip, `requirements.txt`). numpy and Pillow are only used to
+draw the map and its walk grid from `cell.dat` the first time; they're cached in `cache\` after that.
+
 ### Launching accounts
 
 `account1.cmd` / `account2.cmd` start `client-windows-3d-accel.exe` for that account through the relay.
@@ -84,7 +99,7 @@ commit the header says so: **Update now** brings this install up to it (Settings
 
 - A git clone updates with `git pull --ff-only`; local changes stop it rather than be overwritten.
 - A downloaded copy has the new commit's files copied over it.
-- Your journals, database, caches, captures, checkpoints, settings and `*.local.json` are never touched,
+- Your journals, database, caches, captures, checkpoints, settings, `runtime\` and `*.local.json` are never touched,
   and nothing is deleted. The companion restarts itself afterwards; if the relay's files changed, the header
   asks you to restart `relay.cmd` when it suits you.
 
