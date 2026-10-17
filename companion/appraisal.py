@@ -55,7 +55,7 @@ def _parts(p, powers=None):
     needs (who can use it), crafter. Each a string, "" when the item hasn't got it."""
     got = {"value": f"{_n(p['value'])}p" if p.get("value") is not None else "",
            "burden": f"{_n(p['burden'])}bu" if p.get("burden") is not None else ""}
-    stats, clip = [], []         # the line's, and the clipboard's (its armor as 120AL · s1.3, p1.0, ...)
+    stats, clip = [], []         # the line's, and the clipboard's (its armor as 120al · 1.3s, 1.0p, ...)
     w = p.get("weapon")
     if w:
         bits = [sk.skill_name(w["skill"])] if w.get("skill") else []
@@ -71,7 +71,7 @@ def _parts(p, powers=None):
     if p.get("armor_level"):
         prot = p.get("protection")
         stats.append(f"AL {p['armor_level']}" + (f" ({', '.join(f'{k}{v:.1f}' for k, v in zip(PROTECTIONS, prot))})" if prot else ""))
-        clip.append(f"{p['armor_level']}AL" + (f" · {', '.join(f'{k.lower()}{v:.1f}' for k, v in zip(PROTECTIONS, prot))}" if prot else ""))
+        clip.append(f"{p['armor_level']}al" + (f" · {', '.join(f'{v:.1f}{k.lower()}' for k, v in zip(PROTECTIONS, prot))}" if prot else ""))
     rest = []
     if p.get("boost_type") in BOOSTS and p.get("boost"):
         rest.append(f"Restores {p['boost']} {BOOSTS[p['boost_type']]}")
@@ -115,7 +115,7 @@ def describe(name, p, powers=None):
 
 def clip_lines(p, powers=None):
     """What the clipboard gets (no name: the game's chat already says it), as up to three lines: what it does
-    (weapon, armor as 120AL · s1.3, p1.0, ..., restores, uses); value, burden and what it takes to use (difficulty, mana, limits,
+    (weapon, armor as 120al · 1.3s, 1.0p, ..., restores, uses); value, burden and what it takes to use (difficulty, mana, limits,
     crafter: only spaces between, no commas but the numbers'); its spells. Lines with nothing on them are left out."""
     g = _parts(p, powers)
     lines = [g["stats_clip"], " ".join(s for s in (g["value"], g["burden"], g["magic_clip"], g["needs"], g["crafter"]) if s).replace(", ", " "),

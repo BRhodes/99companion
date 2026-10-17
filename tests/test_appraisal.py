@@ -73,7 +73,7 @@ class DescribeTest(unittest.TestCase):
         hauberk = {"value": 5949, "burden": 2988, "armor_level": 120, "protection": [1.3, 1.0, 1.0, 0.4, 0.4, 0.6, 0.4],
                    "spells": ["Impenetrability III"], "difficulty": 105, "spellcraft": 105, "max_mana": 242, "rank_limit": 5}
         self.assertEqual(appraisal.clip_lines(hauberk, {"Impenetrability III": 100}),
-                         ["120AL · s1.3, p1.0, b1.0, c0.4, f0.4, a0.6, l0.4",
+                         ["120al · 1.3s, 1.0p, 1.0b, 0.4c, 0.4f, 0.6a, 0.4l",
                           "5,949p 2,988bu Diff 105 Mana 242 (~4h) Rank 5+",
                           "Impen III"])
         self.assertEqual(appraisal.clip_lines({"value": 5, "burden": 10}), ["5p 10bu"])
