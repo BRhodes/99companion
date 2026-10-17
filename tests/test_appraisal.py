@@ -55,7 +55,7 @@ class DescribeTest(unittest.TestCase):
     def test_a_bow(self):
         (ev,) = decode("s2c", 4, bow_appraisal())
         self.assertEqual(appraisal.describe("Bloodstone Yumi", ev["profile"]),
-                         "Bloodstone Yumi · 1,109p · 980 BU · Bow, Speed 41 · Strength Other II · Diff 3, Spellcraft 51, "
+                         "Bloodstone Yumi · 1,109p · 980 BU · Bow, Speed 41 · Strength Other II · Diff 3, SC 51, "
                          "Mana 156 · Sho only, Bow 71+")
 
     def test_a_weapon_and_armor(self):
@@ -63,8 +63,8 @@ class DescribeTest(unittest.TestCase):
                                                        "offense": 1.05, "defense": 1.0}}
         self.assertEqual(appraisal.describe("Practice Knife", knife), "Practice Knife · 10p · 38 BU · Dagger, 1-3 Slash/Pierce, Speed 25, +5% attack")
         coat = {"value": 800, "burden": 810, "armor_level": 120, "protection": [1.0, 0.8, 1.0, 0.4, 0.4, 0.6, 0.4]}
-        self.assertEqual(appraisal.describe("Coat", coat), "Coat · 800p · 810 BU · AL 120 (Slash 1.0, Pierce 0.8, Bludge 1.0, "
-                                                           "Cold 0.4, Fire 0.4, Acid 0.6, Lightning 0.4)")
+        self.assertEqual(appraisal.describe("Coat", coat), "Coat · 800p · 810 BU · AL 120 (Slas 1.0, Pier 0.8, Blud 1.0, "
+                                                           "Cold 0.4, Fire 0.4, Acid 0.6, Ligh 0.4)")
 
 
 class CopyTest(unittest.TestCase):

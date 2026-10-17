@@ -5,7 +5,7 @@ from . import skills as sk
 
 DAMAGE_TYPES = [(0x1, "Slash"), (0x2, "Pierce"), (0x4, "Bludge"), (0x8, "Cold"), (0x10, "Fire"), (0x20, "Acid"),
                 (0x40, "Lightning")]
-PROTECTIONS = ["Slash", "Pierce", "Bludge", "Cold", "Fire", "Acid", "Lightning"]
+PROTECTIONS = ["Slas", "Pier", "Blud", "Cold", "Fire", "Acid", "Ligh"]     # (4 letters each: it's a long line)
 BOOSTS = {2: "Health", 4: "Stamina", 6: "Mana"}
 
 
@@ -48,7 +48,7 @@ def describe(name, p):
     if p.get("spells"):
         parts.append(", ".join(p["spells"]))
     magic = [f"Diff {p['difficulty']}" if p.get("difficulty") is not None else "",
-             f"Spellcraft {p['spellcraft']}" if p.get("spellcraft") is not None else "",
+             f"SC {p['spellcraft']}" if p.get("spellcraft") is not None else "",
              f"Mana {p['max_mana']}" if p.get("max_mana") is not None else ""]     # its capacity (what's in it now changes)
     if any(magic):
         parts.append(", ".join(m for m in magic if m))
