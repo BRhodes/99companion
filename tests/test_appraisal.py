@@ -68,8 +68,9 @@ class DescribeTest(unittest.TestCase):
 
 
     def test_short_spell_names_and_the_line_without_the_name(self):
-        self.assertEqual([appraisal.short_spell(s) for s in ("Impenetrability III", "Impenetrability", "Strength Self II")],
-                         ["Impen III", "Impen", "Strength Self II"])
+        self.assertEqual([appraisal.short_spell(s) for s in ("Impenetrability III", "Impenetrability", "Strength Self II",
+                                                             "Fire Protection Other III", "Protection Others")],
+                         ["Impen III", "Impen", "Strength Self II", "Fire Prot III", "Protection Others"])
         hauberk = {"value": 5949, "burden": 2988, "armor_level": 120, "protection": [1.3, 1.0, 1.0, 0.4, 0.4, 0.6, 0.4],
                    "spells": ["Impenetrability III"], "difficulty": 105, "spellcraft": 105, "max_mana": 242, "rank_limit": 5}
         self.assertEqual(appraisal.clip_lines(hauberk, {"Impenetrability III": 100}),

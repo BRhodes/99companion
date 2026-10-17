@@ -2,6 +2,7 @@
 appraisal: _appraisal_profile)."""
 
 import json
+import re
 from pathlib import Path
 
 from . import skills as sk
@@ -12,7 +13,8 @@ PROTECTIONS = ["Slash", "Pierce", "Bludge", "Cold", "Fire", "Acid", "Lightning"]
 HERITAGE_SHORT = {"Aluvian": "Aluv", "Gharu'ndim": "Gharu", "Sho": "Sho"}   # the clipboard's (HeritageIndexName)
 PROT_LETTERS = "spbcfal"      # the same, as the clipboard has them (it's short of room)
 BOOSTS = {2: "Health", 4: "Stamina", 6: "Mana"}
-# spells' short names on the clipboard (it's short of room; the dashboard keeps the whole names): {"Impenetrability": "Impen"} makes "Impenetrability III" "Impen III" (add to it freely)
+# spells' short words on the clipboard (it's short of room; the dashboard keeps the whole names), anywhere in a name:
+# {"Impenetrability": "Impen", "Protection Other": "Prot"} (add to it freely)
 SPELL_SHORT = json.loads((Path(__file__).parent / "data" / "spell_short.json").read_text(encoding="utf-8"))
 MIN_DRAIN = 0.0166      # mana a second: loot never drains slower (TreasureFactory.cpp, MANA_RATE_FLOAT)
 
@@ -28,10 +30,10 @@ def mana_hours(mana, spells, powers):
 
 
 def short_spell(name):
-    """A spell's name as the clipboard gives it: its start shortened by SPELL_SHORT ("Impenetrability III" -> "Impen III")."""
-    for long, short in SPELL_SHORT.items():
-        if name == long or name.startswith(long + " "):
-            return short + name[len(long):]
+    """A spell's name as the clipboard gives it: SPELL_SHORT's words shortened wherever they are, whole words only,
+    longest first ("Impenetrability III" -> "Impen III", "Fire Protection Other III" -> "Fire Prot III")."""
+    for long in sorted(SPELL_SHORT, key=len, reverse=True):
+        name = re.sub(rf"(?<!\w){re.escape(long)}(?!\w)", SPELL_SHORT[long], name)
     return name
 
 
