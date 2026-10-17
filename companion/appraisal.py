@@ -7,6 +7,23 @@ DAMAGE_TYPES = [(0x1, "Slash"), (0x2, "Pierce"), (0x4, "Bludge"), (0x8, "Cold"),
                 (0x40, "Lightning")]
 PROTECTIONS = ["Slas", "Pier", "Blud", "Cold", "Fire", "Acid", "Ligh"]     # (4 letters each: it's a long line)
 BOOSTS = {2: "Health", 4: "Stamina", 6: "Mana"}
+MIN_DRAIN = 0.0166      # mana a second: loot never drains slower (TreasureFactory.cpp, MANA_RATE_FLOAT)
+
+
+def mana_hours(mana, spells, powers):
+    """About how long `mana` lasts worn, in hours, or None. The server takes 1 mana every 1/rate seconds while the
+    item's spells are on, and loot's rate is its spells' total power / 10,000 a second, at least MIN_DRAIN
+    (TreasureFactory.cpp). Quest and other fixed items have their own rates, which the game never says."""
+    if not mana or not spells or any(s not in powers for s in spells):
+        return None
+    rate = max(sum(powers[s] for s in spells) / 10000.0, MIN_DRAIN)
+    return mana / rate / 3600
+
+
+def _duration(hours):
+    if hours * 60 < 90:
+        return f"~{max(1, round(hours * 60))}m"
+    return f"~{round(hours)}h" if hours >= 9.5 else f"~{hours:.1f}".rstrip("0").rstrip(".") + "h"
 
 
 def _n(v):
@@ -19,9 +36,10 @@ def _pct(mod, what):
     return f"{'+' if d > 0 else ''}{d}% {what}" if d else ""
 
 
-def describe(name, p):
+def describe(name, p, powers=None):
     """One line: name · value · burden · what it does (weapon, armor, restores, uses) · spells · its magic (difficulty,
-    spellcraft, mana) · who can use it. Parts it doesn't have are left out."""
+    spellcraft, mana, and about how long a full charge lasts worn: powers, {spell name: power}) · who can use it.
+    Parts it doesn't have are left out."""
     parts = [name or "Item"]
     if p.get("value") is not None:
         parts.append(f"{_n(p['value'])}p")
@@ -50,6 +68,9 @@ def describe(name, p):
     magic = [f"Diff {p['difficulty']}" if p.get("difficulty") is not None else "",
              f"SC {p['spellcraft']}" if p.get("spellcraft") is not None else "",
              f"Mana {p['max_mana']}" if p.get("max_mana") is not None else ""]     # its capacity (what's in it now changes)
+    hours = mana_hours(p.get("max_mana"), p.get("spells"), powers or {}) if magic[2] else None
+    if hours is not None:
+        magic[2] += f" ({_duration(hours)})"
     if any(magic):
         parts.append(", ".join(m for m in magic if m))
     needs = []

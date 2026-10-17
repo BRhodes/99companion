@@ -243,13 +243,17 @@ class Tracker:
         if kind:                                 # a spell cast on others can be researched at it (Spells page)
             self.examined = {"guid": ev["object"], "name": obj.get("name", "?"), "kind": kind, "ts": now}
 
+    def _spell_powers(self):
+        """{spell name: power}, for how long an item's mana lasts (appraisal.mana_hours)."""
+        return {s["name"]: s["power"] for s in self.spells.values() if s.get("name") and s.get("power") is not None}
+
     def _on_appraisal(self, ev, now):
         if ev["object"] in self.objects and "magic" in ev:
             self.objects[ev["object"]]["magic"] = ev["magic"]     # carries spells
         obj = self.objects.get(ev["object"], {})
         # an item you appraised (not a creature or player), and it worked: a line to paste (appraisal.py)
         prof = ev.get("profile")
-        text = appraisal.describe(obj.get("name"), prof) if ev["success"] and prof and not prof.get("creature") else None
+        text = appraisal.describe(obj.get("name"), prof, self._spell_powers()) if ev["success"] and prof and not prof.get("creature") else None
         if ev["success"] and prof and prof.get("burden") is not None:
             self.appraised_burden[ev["object"]] = prof["burden"]
         if text:

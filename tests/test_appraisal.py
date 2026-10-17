@@ -67,6 +67,20 @@ class DescribeTest(unittest.TestCase):
                                                            "Cold 0.4, Fire 0.4, Acid 0.6, Ligh 0.4)")
 
 
+    def test_how_long_a_full_charge_lasts(self):
+        hauberk = {"value": 5949, "burden": 2988, "spells": ["Impenetrability III"], "difficulty": 105, "spellcraft": 105,
+                   "max_mana": 242}
+        powers = {"Impenetrability III": 100, "Strength Self VI": 300, "Swift Killer V": 250}
+        # power 100: 0.01 mana a second, under loot's floor of 1 a minute -> 242 minutes
+        self.assertTrue(appraisal.describe("Hauberk", hauberk, powers).endswith("· Impenetrability III · Diff 105, SC 105, Mana 242 (~4h)"))
+        self.assertAlmostEqual(appraisal.mana_hours(600, ["Strength Self VI", "Swift Killer V"], powers), 600 / 0.055 / 3600)
+        self.assertEqual(appraisal._duration(600 / 0.055 / 3600), "~3h")
+        self.assertEqual(appraisal._duration(0.5), "~30m")
+        self.assertEqual(appraisal._duration(12.4), "~12h")
+        self.assertIsNone(appraisal.mana_hours(242, ["Some Unknown Spell"], powers))      # not every spell known: no guess
+        self.assertTrue(appraisal.describe("Hauberk", hauberk).endswith("Mana 242"))          # (no powers given)
+
+
 class CopyTest(unittest.TestCase):
     def view(self, on=True, live=True):
         tr = types.SimpleNamespace(described=None)
