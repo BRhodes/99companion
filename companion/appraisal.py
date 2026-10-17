@@ -8,9 +8,10 @@ from . import skills as sk
 
 DAMAGE_TYPES = [(0x1, "Slash"), (0x2, "Pierce"), (0x4, "Bludge"), (0x8, "Cold"), (0x10, "Fire"), (0x20, "Acid"),
                 (0x40, "Lightning")]
-PROTECTIONS = ["S", "P", "B", "C", "F", "A", "L"]   # slash, pierce, bludgeon, cold, fire, acid, lightning (a long line)
+PROTECTIONS = ["Slash", "Pierce", "Bludge", "Cold", "Fire", "Acid", "Lightning"]
+PROT_LETTERS = "spbcfal"      # the same, as the clipboard has them (it's short of room)
 BOOSTS = {2: "Health", 4: "Stamina", 6: "Mana"}
-# spells' short names on the line: {"Impenetrability": "Impen"} makes "Impenetrability III" "Impen III" (add to it freely)
+# spells' short names on the clipboard (it's short of room; the dashboard keeps the whole names): {"Impenetrability": "Impen"} makes "Impenetrability III" "Impen III" (add to it freely)
 SPELL_SHORT = json.loads((Path(__file__).parent / "data" / "spell_short.json").read_text(encoding="utf-8"))
 MIN_DRAIN = 0.0166      # mana a second: loot never drains slower (TreasureFactory.cpp, MANA_RATE_FLOAT)
 
@@ -26,7 +27,7 @@ def mana_hours(mana, spells, powers):
 
 
 def short_spell(name):
-    """A spell's name as the line gives it: its start shortened by SPELL_SHORT ("Impenetrability III" -> "Impen III")."""
+    """A spell's name as the clipboard gives it: its start shortened by SPELL_SHORT ("Impenetrability III" -> "Impen III")."""
     for long, short in SPELL_SHORT.items():
         if name == long or name.startswith(long + " "):
             return short + name[len(long):]
@@ -54,7 +55,7 @@ def _parts(p, powers=None):
     (difficulty, spellcraft, mana, and about how long a full charge lasts worn: powers, {spell name: power}),
     needs (who can use it), crafter. Each a string, "" when the item hasn't got it."""
     got = {"value": f"{_n(p['value'])}p" if p.get("value") is not None else "",
-           "burden": f"{_n(p['burden'])}bu" if p.get("burden") is not None else ""}
+           "burden": f"{_n(p['burden'])} BU" if p.get("burden") is not None else ""}
     stats = []
     w = p.get("weapon")
     if w:
@@ -69,15 +70,15 @@ def _parts(p, powers=None):
         stats.append(", ".join(bits))
     if p.get("armor_level"):
         prot = p.get("protection")
-        stats.append(f"AL {p['armor_level']}" + (f" ({', '.join(f'{k}{v:.1f}' for k, v in zip(PROTECTIONS, prot))})" if prot else ""))
+        stats.append(f"AL {p['armor_level']}" + (f" ({', '.join(f'{k} {v:.1f}' for k, v in zip(PROTECTIONS, prot))})" if prot else ""))
     if p.get("boost_type") in BOOSTS and p.get("boost"):
         stats.append(f"Restores {p['boost']} {BOOSTS[p['boost_type']]}")
     if p.get("max_uses"):
         stats.append(f"{p.get('uses') if p.get('uses') is not None else '?'}/{p['max_uses']} uses")
     got["stats"] = " · ".join(s for s in stats if s)
-    got["spells"] = ", ".join(short_spell(s) for s in p["spells"]) if p.get("spells") else ""
+    got["spells"] = ", ".join(p["spells"]) if p.get("spells") else ""
     magic = [f"Diff {p['difficulty']}" if p.get("difficulty") is not None else "",
-             f"SC {p['spellcraft']}" if p.get("spellcraft") is not None else "",
+             f"Spellcraft {p['spellcraft']}" if p.get("spellcraft") is not None else "",
              f"Mana {p['max_mana']}" if p.get("max_mana") is not None else ""]     # its capacity (what's in it now changes)
     hours = mana_hours(p.get("max_mana"), p.get("spells"), powers or {}) if magic[2] else None
     if hours is not None:
@@ -131,7 +132,7 @@ def clip_lines(p, powers=None):
         first.append(", ".join(bits))
     if p.get("armor_level"):
         prot = p.get("protection")
-        first.append(f"{p['armor_level']}al" + (f" · {', '.join(f'{v:.1f}{k.lower()}' for k, v in zip(PROTECTIONS, prot))}" if prot else ""))
+        first.append(f"{p['armor_level']}al" + (f" · {', '.join(f'{v:.1f}{k}' for k, v in zip(PROT_LETTERS, prot))}" if prot else ""))
     if p.get("boost_type") in BOOSTS and p.get("boost"):
         first.append(f"{p['boost']}{BOOSTS[p['boost_type']].lower()}")
     if p.get("max_uses"):

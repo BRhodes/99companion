@@ -55,16 +55,16 @@ class DescribeTest(unittest.TestCase):
     def test_a_bow(self):
         (ev,) = decode("s2c", 4, bow_appraisal())
         self.assertEqual(appraisal.describe("Bloodstone Yumi", ev["profile"]),
-                         "Bloodstone Yumi · 1,109p · 980bu · Bow, Speed 41 · Strength Other II · Diff 3, SC 51, "
+                         "Bloodstone Yumi · 1,109p · 980 BU · Bow, Speed 41 · Strength Other II · Diff 3, Spellcraft 51, "
                          "Mana 156 · Sho only, Bow 71+")
 
     def test_a_weapon_and_armor(self):
         knife = {"value": 10, "burden": 38, "weapon": {"damage_type": 3, "speed": 25, "skill": 4, "damage": 3, "variance": 0.75,
                                                        "offense": 1.05, "defense": 1.0}}
-        self.assertEqual(appraisal.describe("Practice Knife", knife), "Practice Knife · 10p · 38bu · Dagger, 1-3 Slash/Pierce, Speed 25, +5% attack")
+        self.assertEqual(appraisal.describe("Practice Knife", knife), "Practice Knife · 10p · 38 BU · Dagger, 1-3 Slash/Pierce, Speed 25, +5% attack")
         coat = {"value": 800, "burden": 810, "armor_level": 120, "protection": [1.0, 0.8, 1.0, 0.4, 0.4, 0.6, 0.4]}
-        self.assertEqual(appraisal.describe("Coat", coat), "Coat · 800p · 810bu · AL 120 (S1.0, P0.8, B1.0, "
-                                                           "C0.4, F0.4, A0.6, L0.4)")
+        self.assertEqual(appraisal.describe("Coat", coat), "Coat · 800p · 810 BU · AL 120 (Slash 1.0, Pierce 0.8, Bludge 1.0, "
+                                                           "Cold 0.4, Fire 0.4, Acid 0.6, Lightning 0.4)")
 
 
     def test_short_spell_names_and_the_line_without_the_name(self):
@@ -89,7 +89,7 @@ class DescribeTest(unittest.TestCase):
                    "max_mana": 242}
         powers = {"Impenetrability III": 100, "Strength Self VI": 300, "Swift Killer V": 250}
         # power 100: 0.01 mana a second, under loot's floor of 1 a minute -> 242 minutes
-        self.assertTrue(appraisal.describe("Hauberk", hauberk, powers).endswith("· Impen III · Diff 105, SC 105, Mana 242 (~4h)"))
+        self.assertTrue(appraisal.describe("Hauberk", hauberk, powers).endswith("· Impenetrability III · Diff 105, Spellcraft 105, Mana 242 (~4h)"))
         self.assertAlmostEqual(appraisal.mana_hours(600, ["Strength Self VI", "Swift Killer V"], powers), 600 / 0.055 / 3600)
         self.assertEqual(appraisal._duration(600 / 0.055 / 3600), "~3h")
         self.assertEqual(appraisal._duration(0.5), "~30m")
