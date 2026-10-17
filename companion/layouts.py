@@ -128,7 +128,7 @@ def clean_prefs(prefs):
                         "target_mode": "capacity" if got.get("target_mode") == "capacity" else "bu",
                         "target_pct": max(1, min(100, int(got.get("target_pct") or 50))) if str(got.get("target_pct") or 50).isdigit() else 50,
                         # a vendor's window (the relay's --tint-store): the item type, so background, for the list's and the rest
-                        "tint_buy": got.get("tint_buy") if got.get("tint_buy") in storetint.BACKGROUNDS else storetint.COMPONENT,
+                        "tint_buy": got.get("tint_buy") if got.get("tint_buy") in storetint.BACKGROUNDS else storetint.DEFAULT_BUY,
                         "tint_other": got.get("tint_other") if got.get("tint_other") in storetint.BACKGROUNDS else storetint.DEFAULT_OTHER,
                         "override": _per_component(got.get("override"), 0), "adjust": _per_component(got.get("adjust"), -99999),
                         "exclude": sorted({str(n)[:40] for n in (got.get("exclude") or [])[:200] if isinstance(n, str)})}}

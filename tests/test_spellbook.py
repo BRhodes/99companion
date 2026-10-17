@@ -64,11 +64,11 @@ class RoutesTest(unittest.TestCase):
         self.app.writer = types.SimpleNamespace(is_closing=lambda: False, write=sent.append)
         self.app.sessions[1] = types.SimpleNamespace(info={"id": "s1"}, ended=None, tracker=types.SimpleNamespace(character="Zorn"))
         self.app.route("POST", "/api/sessions/s1/shoplist", b'{"amounts": {"Hyssop": 12}}')
-        self.assertEqual(json.loads(sent[-1]), {"cmd": "shoplist", "session": "s1", "amounts": {"Hyssop": 12}, "buy": 0x1000,
-                                                "other": 0x80})
+        self.assertEqual(json.loads(sent[-1]), {"cmd": "shoplist", "session": "s1", "amounts": {"Hyssop": 12}, "buy": 0x2,
+                                                "other": 0x1000})
         self.app.route("PUT", "/api/prefs/Zorn", json.dumps({"restock": {"tint_buy": 0x800, "tint_other": 0x10}}).encode())
         self.assertEqual(json.loads(sent[-1])["buy"], 0x800)                    # a new pick goes at once
-        self.assertEqual(json.loads(sent[-1])["other"], 0x80)                   # (creature isn't offered)
+        self.assertEqual(json.loads(sent[-1])["other"], 0x1000)                 # (creature isn't offered: the default)
 
     def test_a_route_from_a_starting_point_gets_an_answer(self):
         # (the routing module went missing from the imports once: every route request died without a response)
@@ -104,7 +104,7 @@ class RoutesTest(unittest.TestCase):
                  "goals": [], "goal_tracked": None,
                  "restock": {"target_bu": 5000, "min": {"Scarabs": 10, "Herbs": 10, "Powders": 10, "Potions": 10,
                                                         "Talismans": 10, "Tapers": 20}, "since": None, "target_mode": "bu", "target_pct": 50,
-                                                        "tint_buy": 0x1000, "tint_other": 0x80,
+                                                        "tint_buy": 0x2, "tint_other": 0x1000,
                              "override": {}, "adjust": {}, "exclude": []}}
         get = lambda who: json.loads(self.app.route("GET", f"/api/prefs/{who}", b"")[2])
         self.assertEqual(get("Zorn"), empty)

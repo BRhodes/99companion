@@ -36,7 +36,8 @@ COMPONENT = 0x1000          # spell components' own item type (background 11CD)
 # the client may treat those differently)
 BACKGROUNDS = {0x1000: 0x11CD, 0x1: 0x11CB, 0x2: 0x11CF, 0x4: 0x11F3, 0x8: 0x11D5, 0x20: 0x11CC, 0x40: 0x11F4,
                0x80: 0x11D4, 0x100: 0x11D2, 0x400: 0x11D0, 0x800: 0x11D3}
-DEFAULT_OTHER = 0x80        # misc: 11D4
+DEFAULT_BUY = 0x2           # until you pick: what's on your list on armor's background (11CF)...
+DEFAULT_OTHER = COMPONENT   # ...and the rest as they are
 STOCK_START = 16 + 28        # event header, then the vendor's id, buy types, min / max value, magic, two prices
 SEQ_MEMORY = 512
 
