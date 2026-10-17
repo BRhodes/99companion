@@ -31,7 +31,8 @@ class LauncherTest(unittest.TestCase):
     def test_accounts_never_give_a_password_back(self):
         key = launcher.save_account({"account": "zorn", "password": "hunter2", "background": True})
         self.assertEqual(key, "1")
-        self.assertEqual(launcher.accounts(), [{"key": "1", "account": "zorn", "password": True, "background": True, "dir": ""}])
+        self.assertEqual(launcher.accounts(running={"zorn": [42]}),
+                         [{"key": "1", "account": "zorn", "password": True, "background": True, "dir": "", "running": True}])
         self.assertNotIn("hunter2", json.dumps(launcher.Launcher().state()))
         self.assertEqual(json.loads(self.accounts.read_text())["1"]["password"], "hunter2")   # (aclaunch reads it)
 
@@ -62,6 +63,14 @@ class LauncherTest(unittest.TestCase):
             self.assertEqual(launcher.game_dir(), str(g))
             launcher.save_settings({"game_dir": "E:\\Picked"})
             self.assertEqual(launcher.game_dir(), "E:\\Picked")                  # a picked folder wins
+
+    def test_whose_client_it_is_comes_from_its_command_line_without_the_password(self):
+        self.assertEqual(launcher.account_in(r".\client-windows-3d-accel.exe -h 127.0.0.1 -p 9110 -a Zorn:pa ss -db"), "Zorn")
+        self.assertEqual(launcher.account_in('client.exe -a "zorn:pw"'), "zorn")
+        self.assertIsNone(launcher.account_in("client.exe -h 127.0.0.1"))
+        with mock.patch.object(launcher, "_client_command_lines", lambda: [(7, "c.exe -a Zorn:secret"), (8, "c.exe")]):
+            self.assertEqual(launcher.running_accounts(), {"zorn": [7]})
+            self.assertNotIn("secret", json.dumps(launcher.running_accounts()))
 
     def test_launch_takes_only_a_known_key(self):
         import asyncio

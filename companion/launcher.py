@@ -15,6 +15,7 @@ folder -- so nothing that reaches the dashboard can choose a program to run.
 import asyncio
 import json
 import os
+import re
 import sys
 import time
 from pathlib import Path
@@ -107,13 +108,16 @@ def _key_order(k):
     return (0, int(k)) if k.isdigit() else (1, k)
 
 
-def accounts(path=None):
-    """[{key, account, password: there is one, background, dir}] -- never a password itself."""
+def accounts(path=None, running=None):
+    """[{key, account, password: there is one, background, dir, running: its client is running here}] -- never
+    a password itself. (running: from the clients' own command lines; running=None reads them now.)"""
     out = []
+    running = running_accounts() if running is None else running
     for k, a in sorted(_accounts_raw(path).items(), key=lambda kv: _key_order(kv[0])):
         if a.get("account"):
             out.append({"key": k, "account": str(a["account"]), "password": bool(a.get("password")),
-                        "background": a.get("background") is True, "dir": str(a.get("dir") or "")})
+                        "background": a.get("background") is True, "dir": str(a.get("dir") or ""),
+                        "running": str(a["account"]).lower() in running})
     return out
 
 
@@ -155,6 +159,82 @@ def _write_accounts(raw, path=None):
     tmp = p.with_name(p.name + ".tmp")
     tmp.write_text(json.dumps(dict(sorted(raw.items(), key=lambda kv: _key_order(kv[0]))), indent=2), encoding="utf-8")
     os.replace(tmp, p)
+
+
+# ---- which accounts have a client running on this computer ------------------------------------------------------
+
+LOGIN = re.compile(r'(?:^|\s)-a\s+"?([^:"\s]+):')
+
+
+def account_in(cmdline):
+    """The account a game client was started for, from its command line (-a name:password), or None. Only
+    the name is kept: the password is never read out of it."""
+    m = LOGIN.search(cmdline or "")
+    return m.group(1) if m else None
+
+
+def _client_command_lines():
+    """[(pid, command line)] of the game clients running (client*.exe), read straight from Windows."""
+    if sys.platform != "win32":
+        return []
+    import ctypes
+    import ctypes.wintypes as wt
+
+    class Entry(ctypes.Structure):
+        _fields_ = [("dwSize", wt.DWORD), ("cntUsage", wt.DWORD), ("th32ProcessID", wt.DWORD),
+                    ("th32DefaultHeapID", ctypes.c_size_t), ("th32ModuleID", wt.DWORD), ("cntThreads", wt.DWORD),
+                    ("th32ParentProcessID", wt.DWORD), ("pcPriClassBase", wt.LONG), ("dwFlags", wt.DWORD),
+                    ("szExeFile", wt.WCHAR * 260)]
+
+    class UnicodeString(ctypes.Structure):
+        _fields_ = [("Length", wt.USHORT), ("MaximumLength", wt.USHORT), ("Buffer", ctypes.c_void_p)]
+
+    k32, ntdll = ctypes.WinDLL("kernel32"), ctypes.WinDLL("ntdll")
+    k32.CreateToolhelp32Snapshot.restype = wt.HANDLE
+    k32.OpenProcess.restype = wt.HANDLE
+    k32.CloseHandle.argtypes = [wt.HANDLE]
+    ntdll.NtQueryInformationProcess.argtypes = [wt.HANDLE, wt.ULONG, ctypes.c_void_p, wt.ULONG, ctypes.POINTER(wt.ULONG)]
+    snap = k32.CreateToolhelp32Snapshot(0x2, 0)            # TH32CS_SNAPPROCESS
+    if not snap or snap == wt.HANDLE(-1).value:
+        return []
+    out = []
+    try:
+        e = Entry()
+        e.dwSize = ctypes.sizeof(Entry)
+        more = k32.Process32FirstW(snap, ctypes.byref(e))
+        while more:
+            name = e.szExeFile.lower()
+            if name.startswith("client") and name.endswith(".exe"):
+                h = k32.OpenProcess(0x1000, False, e.th32ProcessID)   # PROCESS_QUERY_LIMITED_INFORMATION
+                if h:
+                    try:
+                        buf = ctypes.create_string_buffer(8192)
+                        got = wt.ULONG()
+                        # ProcessCommandLineInformation (60): a UNICODE_STRING pointing into the buffer
+                        if ntdll.NtQueryInformationProcess(h, 60, buf, len(buf), ctypes.byref(got)) == 0:
+                            us = UnicodeString.from_buffer(buf)
+                            if us.Buffer and us.Length:
+                                out.append((e.th32ProcessID, ctypes.wstring_at(us.Buffer, us.Length // 2)))
+                    finally:
+                        k32.CloseHandle(h)
+            more = k32.Process32NextW(snap, ctypes.byref(e))
+    finally:
+        k32.CloseHandle(snap)
+    return out
+
+
+def running_accounts():
+    """{account name, lower case: [pid]} for the game clients running on this computer."""
+    found = {}
+    try:
+        lines = _client_command_lines()
+    except OSError:
+        return found
+    for pid, line in lines:
+        name = account_in(line)
+        if name:
+            found.setdefault(name.lower(), []).append(pid)
+    return found
 
 
 # ---- doing things (off the event loop) -------------------------------------------------------------------------
@@ -216,9 +296,22 @@ class Launcher:
 
     def __init__(self):
         self._state = (0.0, None)
+        self._running = (0.0, None)
 
     def invalidate(self):
         self._state = (0.0, None)
+
+    def poll(self, every=2.0):
+        """Look at the game clients running (at most every `every` seconds). -> True when which accounts have one
+        changed: state() has been read again, for the dashboard."""
+        if time.time() - self._running[0] < every:
+            return False
+        now = set(running_accounts())
+        changed = self._running[1] is not None and now != self._running[1]
+        self._running = (time.time(), now)
+        if changed:
+            self.invalidate()
+        return changed
 
     def state(self):
         if time.time() - self._state[0] > 5:

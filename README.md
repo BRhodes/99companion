@@ -79,8 +79,11 @@ draw the map and its walk grid from `cell.dat` the first time; they're cached in
 
 ### Launching accounts
 
-Settings › Accounts keeps your accounts; **▶ name** in the header starts `client-windows-3d-accel.exe`
-for one through the relay, logged in (`account1.cmd` / `account2.cmd` do the same for accounts 1 and 2). They're
+Settings › Accounts keeps your accounts. Each has a button on the right of the header: white **▶ name** starts
+`client-windows-3d-accel.exe` for it through the relay, logged in (`account1.cmd` / `account2.cmd` do the same
+for accounts 1 and 2); blue once it's online -- its game running on this computer (read from the running
+clients' own command lines, however they were started; never the password) or connected through the relay --
+and a click shows its tab. They're
 kept in `accounts.local.json` (git-ignored, plain text, this computer only); the dashboard never shows a password
 again, and launching takes only an account's number, so nothing can ask it to run another program. The game
 folder is Settings › Game (`launcher.local.json`): found from the registry or the usual places until you pick

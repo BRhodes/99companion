@@ -593,6 +593,8 @@ class Companion:
     def tick(self):
         now = time.time()
         self.updater.tick(now)
+        if self.launcher.poll():            # a game client started or closed: the header's play buttons
+            self.dirty = True
         self._end_stale_duplicates()
         for num, view in list(self.sessions.items()):
             if view.skip:

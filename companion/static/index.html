@@ -561,7 +561,10 @@ td.num, th.num { text-align: right; }
 #launchBar .chip, table.accts .chip { color: var(--ink); }
 .chip.act-now { border-color: var(--bad); color: var(--bad) !important; background: color-mix(in srgb, var(--bad) 12%, transparent); font-weight: 600; }
 .chip.act-soon { border-color: var(--warn); color: var(--warn) !important; background: color-mix(in srgb, var(--warn) 12%, transparent); font-weight: 600; }
-:is(#launchBar, table.accts) .chip.on { border-color: #3a82f6; color: #3a82f6 !important; background: rgba(58,130,246,.12); cursor: default; }
+/* the play buttons: white with ▶ (start it), blue once it's online */
+.chip.play { background: #fff; color: #1b1b1b !important; border-color: var(--line); font-weight: 600; }
+.chip.play.on { background: #3a82f6; border-color: #3a82f6; color: #fff !important; }
+.chip.play.on:not([data-id]) { cursor: default; }
 .ocfg .have { color: var(--good); } .ocfg .miss { color: var(--bad); font-weight: 600; }
 table.accts { border-collapse: collapse; font-size: 13px; width: auto; }
 table.accts th { text-align: left; font-weight: 600; color: var(--muted); font-size: 12px; padding: 0 10px 4px 0; }
@@ -606,9 +609,9 @@ table.accts tr.add td { border-top: 1px solid var(--line); padding-top: 8px; }
   <h1>'99 Comp</h1>
   <nav id="tabs" aria-label="Characters"></nav>
   <span class="stat" id="connStat"><span id="dot" class="dot"></span><span id="conn">waiting for client</span></span>
-  <span id="launchBar"></span>
   <span style="flex:1"></span>
   <span id="updBanner"></span>
+  <span id="launchBar"></span>
 </header>
 <div id="pagenav" role="navigation" aria-label="Pages">
   <a href="#dashboard" data-page="dashboard">Dashboard</a><a
@@ -1112,7 +1115,7 @@ function render() {
 }
 
 document.addEventListener("click", e => {
-  const b = e.target.closest("#tabs button");
+  const b = e.target.closest("#tabs button, #launchBar button[data-id]");   // (a blue play button: its tab)
   if (!b) return;
   selected = b.dataset.id;
   const s = state && state.sessions.find(x => x.session.id === selected);
@@ -1344,23 +1347,30 @@ function goalBar(goal) {
 
 // ---- the launcher (launcher.py): the header's launch buttons, Settings > Game and Settings > Accounts ----------
 const launching = new Set();          // account keys whose client is being started
-function onlineAccounts(sessions) {   // accounts with a client connected (in the world or at character select)
-  return new Set(sessions.filter(s => !s.session.ended && s.status.account)
-    .map(s => s.status.account.toLowerCase()));
+// Online: its game client is running on this computer (launcher.py reads the clients' own command lines, so one
+// started any way counts), or the relay has a session connected for it.
+function onlineAccounts(sessions, accounts) {
+  const on = new Set(sessions.filter(s => !s.session.ended && s.status.account).map(s => s.status.account.toLowerCase()));
+  for (const a of accounts || []) if (a.running) on.add(a.account.toLowerCase());
+  return on;
 }
-function launchButton(a, online) {
-  if (online.has(a.account.toLowerCase())) return `<span class="chip on" title="Logged in">● ${esc(a.account)}</span>`;
-  if (launching.has(a.key)) return `<span class="chip">Starting ${esc(a.account)}…</span>`;
-  return a.password ? `<button class="chip" data-launch="${esc(a.key)}" title="Start the game for this account">▶ ${esc(a.account)}</button>`
-    : `<button class="chip" data-goto-cfg="accounts" title="No password saved for it">▶ ${esc(a.account)}?</button>`;
+function launchButton(a, online, sessions) {
+  if (online.has(a.account.toLowerCase())) {
+    launching.delete(a.key);
+    const s = sessions.find(x => !x.session.ended && (x.status.account || "").toLowerCase() === a.account.toLowerCase());
+    return `<button class="chip play on" ${s ? `data-id="${esc(s.session.id)}" title="Online: show it"` : `title="Its game is running"`}>${esc(a.account)}</button>`;
+  }
+  if (launching.has(a.key)) return `<span class="chip play">Starting ${esc(a.account)}…</span>`;
+  return a.password ? `<button class="chip play" data-launch="${esc(a.key)}" title="Start the game for this account">▶ ${esc(a.account)}</button>`
+    : `<button class="chip play" data-goto-cfg="accounts" title="No password saved for it">▶ ${esc(a.account)}?</button>`;
 }
 function renderLauncher(L, sessions) {
   const bar = $("launchBar");
   if (!L) { setHTML(bar, ""); return; }
-  const online = onlineAccounts(sessions);
+  const online = onlineAccounts(sessions, L.accounts);
   setHTML(bar, !L.game.ok ? `<button class="chip act-now" data-goto-cfg="game">Set up the game folder</button>`
     : !L.accounts.length ? `<button class="chip act-soon" data-goto-cfg="accounts">＋ Add your account</button>`
-    : L.accounts.filter(a => !online.has(a.account.toLowerCase())).map(a => launchButton(a, online)).join(""));  // (logged in: its tab instead)
+    : L.accounts.map(a => launchButton(a, online, sessions)).join(""));
   if (page !== "config") return;
   const tick = (ok, what) => `<span class="${ok ? "have" : "miss"}">${ok ? "✓" : "✗"} ${what}</span>`;
   const g = L.game, game = $("cfgGame");
@@ -1385,7 +1395,7 @@ function renderLauncher(L, sessions) {
   const row = a => `<tr><td><input type="text" data-acct-name="${esc(a.key)}" value="${esc(a.account)}" style="width:150px"></td>
     <td><input type="password" data-acct-pw="${esc(a.key)}" placeholder="${a.password ? "saved: type to change" : "not saved yet"}" style="width:170px" autocomplete="new-password"></td>
     <td><label><input type="checkbox" data-acct-bg="${esc(a.key)}" ${a.background ? "checked" : ""} ${g.background ? "" : "disabled"}> background</label></td>
-    <td>${launchButton(a, online)}</td><td><button class="chip" data-acct-del="${esc(a.key)}">Remove</button>${a.dir ? ` <span class="muted">from ${esc(a.dir)}</span>` : ""}</td></tr>`;
+    <td>${launchButton(a, online, sessions)}</td><td><button class="chip" data-acct-del="${esc(a.key)}">Remove</button>${a.dir ? ` <span class="muted">from ${esc(a.dir)}</span>` : ""}</td></tr>`;
   setHTML(box, `<table class="accts"><thead><tr><th>Account</th><th>Password</th><th></th><th></th><th></th></tr></thead><tbody>
     ${L.accounts.map(row).join("")}
     <tr class="add"><td><input type="text" id="acctNewName" placeholder="account name" style="width:150px"></td>
