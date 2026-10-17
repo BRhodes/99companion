@@ -114,8 +114,8 @@ def clip_lines(p, powers=None):
     first, then what it is, in lower case and against it (2,988bu, 105diff, 25speed):
         what it does:      weapon (skill, 1-3slash/pierce, 25speed, +5%attack), armor (120al · 1.3s, 1.0p, ...),
                            50health restored, 3/10uses
-        value and needs:   5,949p 2,988bu 105diff 242mana (~4h) 5+rank 200+bow 20+level, heritage, crafter
-                           (spaces between, no spellcraft)
+        value and needs:   5,949p · 2,988bu · 105lore 5+rank 200+bow 20+level, heritage · crafter
+                           (no spellcraft or mana)
         its spells, short (Impen III)
     Lines with nothing on them are left out."""
     first = []
@@ -137,24 +137,20 @@ def clip_lines(p, powers=None):
         first.append(f"{p['boost']}{BOOSTS[p['boost_type']].lower()}")
     if p.get("max_uses"):
         first.append(f"{p.get('uses') if p.get('uses') is not None else '?'}/{p['max_uses']}uses")
+    needs = [f"{p['difficulty']}lore" if p.get("difficulty") is not None else ""]    # (the arcane lore it takes)
+    if p.get("rank_limit") is not None:
+        needs.append(f"{p['rank_limit']}+rank")
+    if p.get("skill_limit") is not None and p.get("skill_limit_type"):
+        needs.append(f"{p['skill_limit']}+{sk.skill_name(p['skill_limit_type']).lower()}")
+    if p.get("min_level") is not None:
+        needs.append(f"{p['min_level']}+level")
+    if p.get("max_level") is not None:
+        needs.append(f"<={p['max_level']}level")
+    if p.get("heritage"):
+        needs.append(f"{p['heritage']} only")
     second = [f"{_n(p['value'])}p" if p.get("value") is not None else "",
               f"{_n(p['burden'])}bu" if p.get("burden") is not None else "",
-              f"{p['difficulty']}diff" if p.get("difficulty") is not None else ""]
-    if p.get("max_mana") is not None:
-        hours = mana_hours(p.get("max_mana"), p.get("spells"), powers or {})
-        second.append(f"{p['max_mana']}mana" + (f" ({_duration(hours)})" if hours is not None else ""))
-    if p.get("rank_limit") is not None:
-        second.append(f"{p['rank_limit']}+rank")
-    if p.get("skill_limit") is not None and p.get("skill_limit_type"):
-        second.append(f"{p['skill_limit']}+{sk.skill_name(p['skill_limit_type']).lower()}")
-    if p.get("min_level") is not None:
-        second.append(f"{p['min_level']}+level")
-    if p.get("max_level") is not None:
-        second.append(f"<={p['max_level']}level")
-    if p.get("heritage"):
-        second.append(f"{p['heritage']} only")
-    if p.get("crafter"):
-        second.append(f"made by {p['crafter']}")
+              " ".join(s for s in needs if s), f"made by {p['crafter']}" if p.get("crafter") else ""]
     third = ", ".join(short_spell(s) for s in p["spells"]) if p.get("spells") else ""
-    lines = [" · ".join(s for s in first if s), " ".join(s for s in second if s), third]
+    lines = [" · ".join(s for s in first if s), " · ".join(s for s in second if s), third]
     return [line for line in lines if line]
