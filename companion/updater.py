@@ -11,11 +11,13 @@ checkout's HEAD when there is one, else the VERSION file an earlier update wrote
 Updating: a git checkout pulls (fast-forward only: local changes stop it rather than be touched). Otherwise the
 commit's zip is downloaded and its files copied over this install -- never what's yours (KEEP: journals, the
 database, caches, captures, checkpoints, the runtime\ Python, *.local.json, settings files), and nothing is deleted. The companion's
-reloader then restarts it on its own; if a file the relay runs changed, the dashboard says to restart relay.cmd.
+reloader then restarts it on its own, and the relay too when a file it runs changed (a relay of your own, from
+relay.cmd: the dashboard says to restart it). start.cmd's window itself only runs new code once it's opened again.
 """
 import io
 import json
 import logging
+import os
 import subprocess
 import threading
 import time
@@ -33,7 +35,8 @@ KEEP = ("journals/", "cache/", "captures/", "checkpoints/", ".git/", "runtime/",
         "VERSION")
 RELAY_FILES = {"companion/relay.py", "companion/proxy.py", "companion/capture.py", "companion/storetint.py",
                "companion/netcrc.py", "companion/framing.py", "companion/binreader.py", "companion/messages.py",
-               "relay.cmd", "relay-tint.cmd", "relay-stop.cmd"}
+               "companion/launcher.py", "relay.cmd", "relay-tint.cmd", "relay-stop.cmd"}
+WINDOW_FILES = {"companion/reloader.py"}   # what start.cmd's window itself runs: new only once it's opened again
 log = logging.getLogger(__name__)
 
 
@@ -121,7 +124,8 @@ class Updater:
 
     def __init__(self, root=ROOT, on_change=None, get=_get):
         self.root, self.on_change, self.get = root, on_change, get
-        self.info = {"latest": None, "checked": None, "error": None, "busy": False, "applied": None, "relay": False}
+        self.info = {"latest": None, "checked": None, "error": None, "busy": False, "applied": None, "relay": False,
+                     "window": False}
         self.next_check = time.time() + 20
         self.lock = threading.Lock()
         self._current = (0.0, None)          # (when read, this install's version): read again every 30 s
@@ -133,6 +137,7 @@ class Updater:
         cur = self._current[1]
         lat = self.info["latest"]
         return dict(self.info, repo=cfg["repo"], branch=cfg["branch"], auto=cfg["auto"], current=cur,
+                    supervised=bool(os.environ.get("COMPANION_SUPERVISED")),
                     git=(self.root / ".git").exists(),
                     available=bool(lat and cur != lat["sha"] and not (cur and lat["sha"].startswith(cur))))
 
@@ -184,7 +189,8 @@ class Updater:
                 written = unpack(self.get(f"https://codeload.github.com/{cfg['repo']}/zip/{lat['sha']}", timeout=120), self.root)
                 (self.root / "VERSION").write_text(lat["sha"], encoding="utf-8")
             self.info.update(applied={"sha": lat["sha"], "files": len(written), "ts": time.time()},
-                             relay=self.info["relay"] or any(w in RELAY_FILES for w in written), error=None)
+                             relay=self.info["relay"] or any(w in RELAY_FILES for w in written),
+                             window=self.info.get("window") or any(w in WINDOW_FILES for w in written), error=None)
             log.info("updated to %s (%d files)", lat["sha"][:7], len(written))
         except Exception as e:
             self.info["error"] = f"Update failed: {e}"

@@ -8,8 +8,8 @@ surroundings. Windows.
 
 1. On GitHub, **Code › Download ZIP**, and unzip it anywhere (your Documents folder is fine).
 2. Double-click **`start.cmd`**. The first time, it sets up its own Python inside the folder (a one-time
-   download of about 40 MB: no administrator rights, nothing installed on the system). Two windows open (the
-   relay and the dashboard; leave them open while you play) and the dashboard opens in your browser.
+   download of about 40 MB: no administrator rights, nothing installed on the system). A window opens (leave
+   it open while you play: closing it stops the companion) and the dashboard opens in your browser.
 3. Point the game at the relay: in your launcher, a server with host `127.0.0.1` and port `9110`.
 
 Next time, just double-click `start.cmd`. Updates come from GitHub on their own (see Updates).
@@ -43,11 +43,14 @@ client ⇄ relay ⇄ server        python -m companion.relay   long-lived, tiny,
 
 ## Run
 
-`start.cmd` opens both windows and the dashboard (http://127.0.0.1:8099/). Or separately:
+`start.cmd` runs everything in one window and opens the dashboard (http://127.0.0.1:8099/) in your browser.
+The window (`python -m companion.reloader`) runs the relay and the dashboard and keeps both going: the
+dashboard restarts when its code changes (an edit or an update), and the relay when a file it runs changes,
+when its settings change, or if it stops. Closing the window stops both; game clients keep running.
 
 ```
-relay.cmd        (python -m companion.relay)    keep open while playing; stops a relay already running first
-companion.cmd    (python -m companion.reloader) the dashboard; restarts itself when its files change
+companion.cmd    the same, without opening the browser (--no-relay: leave the relay to relay.cmd)
+relay.cmd        just the relay (python -m companion.relay); start.cmd's window leaves a relay it didn't start alone
 ```
 
 Point the client at the relay: a launcher server entry with host `127.0.0.1`, port `9110`, or
@@ -100,8 +103,9 @@ commit the header says so: **Update now** brings this install up to it (Settings
 - A git clone updates with `git pull --ff-only`; local changes stop it rather than be overwritten.
 - A downloaded copy has the new commit's files copied over it.
 - Your journals, database, caches, captures, checkpoints, settings, `runtime\` and `*.local.json` are never touched,
-  and nothing is deleted. The companion restarts itself afterwards; if the relay's files changed, the header
-  asks you to restart `relay.cmd` when it suits you.
+  and nothing is deleted. The dashboard and the relay restart themselves afterwards. (A relay you started
+  with `relay.cmd`: the header asks you to restart it. A change to the window's own code: the header asks you
+  to run `start.cmd` again when it suits you.)
 
 The repository is `REPO` in `companion/updater.py` (or set it in Settings › Updates, kept in
 `update.local.json`).

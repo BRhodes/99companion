@@ -1337,7 +1337,8 @@ function renderUpdate(u) {
   if (!u) { setHTML(banner, ""); return; }
   const short = s => s ? s.slice(0, 7) : "-";
   setHTML(banner, u.busy ? `<span class="upd">Updating…</span>`
-    : u.applied && u.relay ? `<span class="upd" title="A file the relay runs changed">Updated to ${short(u.applied.sha)} · restart relay.cmd when convenient</span>`
+    : u.applied && u.window ? `<span class="upd" title="The 99 Companion window's own code changed">Updated to ${short(u.applied.sha)} · close the 99 Companion window and run start.cmd again when convenient</span>`
+    : u.applied && u.relay && !u.supervised ? `<span class="upd" title="A file the relay runs changed">Updated to ${short(u.applied.sha)} · restart relay.cmd when convenient</span>`
     : u.available ? `<span class="upd" title="${esc(u.latest.message)}">Update ${short(u.latest.sha)} available <button class="chip mini" data-upd-apply>Update now</button></span>` : "");
   const box = $("cfgUpdates");
   if (!box || (page !== "config" || cfgTab !== "updates") || box.contains(document.activeElement)) return;
@@ -1352,7 +1353,7 @@ function renderUpdate(u) {
       <button class="chip" data-upd-apply ${u.available && !u.busy ? "" : "disabled"}>${u.busy ? "Updating…" : u.available ? "Update now" : "Up to date"}</button>
       <label><input type="checkbox" data-upd-auto ${u.auto ? "checked" : ""}> apply updates automatically</label></div>
       <span class="hint2">Your journals, database, caches and settings are never touched, and nothing is deleted. The companion restarts itself
-        after an update; if the relay's files changed, restart relay.cmd when it suits you.</span></div></div>`);
+        after an update, and the relay too when its files changed.</span></div></div>`);
 }
 document.addEventListener("click", e => {
   if (e.target.closest("[data-upd-apply]")) updPost("/api/update/apply").then(() => toast("Updating…"));
