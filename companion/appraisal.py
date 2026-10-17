@@ -29,9 +29,17 @@ def mana_hours(mana, spells, powers):
     return mana / rate / 3600
 
 
-def short_spell(name):
-    """A spell's name as the clipboard gives it: SPELL_SHORT's words shortened wherever they are, whole words only,
-    longest first ("Impenetrability III" -> "Impen III", "Fire Protection Other III" -> "Fire Prot III")."""
+ROMAN = re.compile(r"\s+(I|II|III|IV|V|VI|VII)$")
+
+
+def short_spell(name, raises=None):
+    """A spell's name as the clipboard gives it. A creature buff (raises: {spell name: the skill or attribute it
+    raises}) is just that and its level ("Sword Mastery Other III" -> "Sword III"); any other has SPELL_SHORT's words
+    shortened wherever they are, whole words only, longest first ("Impenetrability III" -> "Impen III",
+    "Fire Protection Other III" -> "Fire Prot III")."""
+    if raises and name in raises:
+        level = ROMAN.search(name)
+        name = raises[name] + (" " + level.group(1) if level else "")
     for long in sorted(SPELL_SHORT, key=len, reverse=True):
         name = re.sub(rf"(?<!\w){re.escape(long)}(?!\w)", SPELL_SHORT[long], name)
     return " ".join(name.split())          # (a word shortened to nothing, like Other, leaves no gap)
@@ -112,14 +120,14 @@ def describe(name, p, powers=None):
     return " · ".join(s for s in parts if s)
 
 
-def clip_lines(p, powers=None):
+def clip_lines(p, powers=None, raises=None):
     """What the clipboard gets (no name: the game's chat already says it), short, as up to three lines -- a number
     first, then what it is, in lower case and against it (2,988bu, 105diff, 25speed):
         what it does:      weapon (skill, 1-3slash/pierce, 25speed, +5%attack), armor (120al · 1.3s, 1.0p, ...),
                            50health restored, 3/10uses
         value and needs:   5,949p · 2,988bu · lore 105, rank 5, bow 200, lvl 20, Aluv · crafter
                            (no spellcraft or mana)
-        its spells, short (Impen III)
+        its spells, short (Impen III; a creature buff as the skill it raises: Sword III; raises, short_spell's)
     Lines with nothing on them are left out."""
     first = []
     w = p.get("weapon")
@@ -154,6 +162,6 @@ def clip_lines(p, powers=None):
     second = [f"{_n(p['value'])}p" if p.get("value") is not None else "",
               f"{_n(p['burden'])}bu" if p.get("burden") is not None else "",
               ", ".join(s for s in needs if s), f"made by {p['crafter']}" if p.get("crafter") else ""]
-    third = ", ".join(short_spell(s) for s in p["spells"]) if p.get("spells") else ""
+    third = ", ".join(short_spell(s, raises) for s in p["spells"]) if p.get("spells") else ""
     lines = [" · ".join(s for s in first if s), " · ".join(s for s in second if s), third]
     return [line for line in lines if line]

@@ -247,6 +247,21 @@ class Tracker:
         """{spell name: power}, for how long an item's mana lasts (appraisal.mana_hours)."""
         return {s["name"]: s["power"] for s in self.spells.values() if s.get("name") and s.get("power") is not None}
 
+    def _spell_raises(self):
+        """{spell name: the skill or attribute it raises} for the creature buffs (spell_mods: a skill 0x10 or an
+        attribute 0x1, by a positive amount), for the clipboard's short spell names (appraisal.short_spell)."""
+        attrs = {**dict(buffpanel.ATTRIBUTES), 6: "Willpower"}     # (the Self attribute, as its spells call it)
+        out = {}
+        for sid, s in self.spells.items():
+            m = SPELL_MODS.get(sid)
+            if s.get("school_name") != "Creature" or not s.get("name") or not m or m[2] <= 0:
+                continue
+            if m[0] & 0x10:
+                out[s["name"]] = sk.skill_name(m[1])
+            elif m[0] & 0x1 and m[1] in attrs:
+                out[s["name"]] = attrs[m[1]]
+        return out
+
     def _on_appraisal(self, ev, now):
         if ev["object"] in self.objects and "magic" in ev:
             self.objects[ev["object"]]["magic"] = ev["magic"]     # carries spells
@@ -255,12 +270,13 @@ class Tracker:
         prof = ev.get("profile")
         item = ev["success"] and prof and not prof.get("creature")
         powers = self._spell_powers() if item else None
+        raises = self._spell_raises() if item else None
         text = appraisal.describe(obj.get("name"), prof, powers) if item else None
         if ev["success"] and prof and prof.get("burden") is not None:
             self.appraised_burden[ev["object"]] = prof["burden"]
         if text:
             self.described = {"ts": now, "object": ev["object"], "name": obj.get("name", "?"), "text": text,
-                              "clip": appraisal.clip_lines(prof, powers), "profile": prof}   # (a new one each time)
+                              "clip": appraisal.clip_lines(prof, powers, raises), "profile": prof}   # (a new one each time)
         for a in self.appraisals:
             if a["object"] == ev["object"] and a["success"] is None:
                 a["success"], a["text"] = ev["success"], text

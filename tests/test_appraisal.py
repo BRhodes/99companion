@@ -87,6 +87,12 @@ class DescribeTest(unittest.TestCase):
                                                        "10p · 38bu · dagger 200, lvl 20, lvl <=30, Aluv"])
         self.assertEqual(appraisal.clip_lines({"boost_type": 2, "boost": 50, "uses": 3, "max_uses": 10}), ["50health · 3/10uses"])
 
+    def test_a_creature_buff_is_the_skill_it_raises(self):
+        raises = {"Sword Mastery Other III": "Sword", "Unarmed Combat Mastery Other II": "Unarmed Combat",
+                  "Invulnerability Other V": "Melee Defense"}
+        self.assertEqual([appraisal.short_spell(s, raises) for s in (*raises, "Weakness Other III", "Swift Killer IV")],
+                         ["Sword III", "UA II", "Melee Defense V", "Weakness III", "SK IV"])
+
     def test_how_long_a_full_charge_lasts(self):
         hauberk = {"value": 5949, "burden": 2988, "spells": ["Impenetrability III"], "difficulty": 105, "spellcraft": 105,
                    "max_mana": 242}
