@@ -25,6 +25,11 @@ class WebServer:
         self.clients = set()
         self.server = None
 
+    @property
+    def hosts(self):
+        """The Host values this dashboard answers to: its own addresses, never another name."""
+        return {f"{h}:{self.port}" for h in ("127.0.0.1", "localhost", "[::1]")}
+
     async def start(self):
         self.server = await asyncio.start_server(self._handle, self.host, self.port)
         log.info("dashboard at http://localhost:%d/", self.port)
@@ -60,7 +65,11 @@ class WebServer:
             path = parts[1].split("?", 1)[0] if len(parts) > 1 else "/"
             length = min(int(headers.get("content-length") or 0), MAX_BODY)
             body = await reader.readexactly(length) if length else b""
-            if method != "GET" and headers.get("x-companion") != "1":
+            if headers.get("host", "").lower() not in self.hosts:
+                # DNS rebinding: a web page whose name has been pointed at 127.0.0.1 counts as this dashboard's own
+                # origin to the browser, but still says its own name in Host. Only our own names get an answer.
+                await self._send(writer, 403, "application/json", b'{"error": "unknown Host"}')
+            elif method != "GET" and headers.get("x-companion") != "1":
                 # Any web page can POST to localhost; a custom header forces a CORS preflight we never
                 # answer, so only this dashboard can change state or (later) trigger actions.
                 await self._send(writer, 403, "application/json", b'{"error": "missing X-Companion header"}')

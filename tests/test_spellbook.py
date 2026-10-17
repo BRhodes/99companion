@@ -170,6 +170,27 @@ class RoutesTest(unittest.TestCase):
 
         self.assertEqual(asyncio.run(scenario()), (403, 200))
 
+    def test_only_our_own_host_names_are_answered(self):
+        async def scenario():
+            web = WebServer("127.0.0.1", 28198, lambda: {"ok": 1})
+            await web.start()
+            loop = asyncio.get_running_loop()
+
+            def get(host):
+                req = urllib.request.Request("http://127.0.0.1:28198/api/state", headers={"Host": host})
+                try:
+                    return urllib.request.urlopen(req).status
+                except urllib.error.HTTPError as e:
+                    e.close()
+                    return e.code
+
+            got = [await loop.run_in_executor(None, get, h)
+                   for h in ("127.0.0.1:28198", "localhost:28198", "evil.example:28198", "localhost.evil.example:28198")]
+            web.close()
+            return got
+
+        self.assertEqual(asyncio.run(scenario()), [200, 200, 403, 403])
+
 
 if __name__ == "__main__":
     unittest.main()
