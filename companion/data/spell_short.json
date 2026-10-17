@@ -27,5 +27,9 @@
   "Thrown Weapons": "Thrown",
   "Mana Conversion": "ManaConv",
   "Arcane Enlightenment": "Arcane",
-  "Swift Killer": "SK"
+  "Swift Killer": "SK",
+  "Creature Enchantment": "Critters",
+  "Life Magic": "Life",
+  "War Magic": "War",
+  "Item Enchantment": "Item"
 }
