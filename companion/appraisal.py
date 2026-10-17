@@ -14,7 +14,7 @@ HERITAGE_SHORT = {"Aluvian": "Aluv", "Gharu'ndim": "Gharu", "Sho": "Sho"}   # th
 PROT_LETTERS = "spbcfal"      # the same, as the clipboard has them (it's short of room)
 BOOSTS = {2: "Health", 4: "Stamina", 6: "Mana"}
 # spells' short words on the clipboard (it's short of room; the dashboard keeps the whole names), anywhere in a name:
-# {"Impenetrability": "Impen", "Protection Other": "Prot"} (add to it freely)
+# {"Impenetrability": "Impen", "Protection": "Prot", "Other": ""} (add to it freely; "" drops the word)
 SPELL_SHORT = json.loads((Path(__file__).parent / "data" / "spell_short.json").read_text(encoding="utf-8"))
 MIN_DRAIN = 0.0166      # mana a second: loot never drains slower (TreasureFactory.cpp, MANA_RATE_FLOAT)
 
@@ -34,7 +34,7 @@ def short_spell(name):
     longest first ("Impenetrability III" -> "Impen III", "Fire Protection Other III" -> "Fire Prot III")."""
     for long in sorted(SPELL_SHORT, key=len, reverse=True):
         name = re.sub(rf"(?<!\w){re.escape(long)}(?!\w)", SPELL_SHORT[long], name)
-    return name
+    return " ".join(name.split())          # (a word shortened to nothing, like Other, leaves no gap)
 
 
 def _duration(hours):
