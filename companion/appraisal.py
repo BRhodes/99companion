@@ -111,8 +111,8 @@ def describe(name, p, powers=None):
 def clip_lines(p, powers=None):
     """What the clipboard gets (no name: the game's chat already says it), as up to three lines: what it does
     (weapon, armor, restores, uses); value, burden and what it takes to use (difficulty, spellcraft, mana, limits,
-    crafter); its spells. Lines with nothing on them are left out."""
+    crafter: only spaces between, no commas, numbers' too); its spells. Lines with nothing on them are left out."""
     g = _parts(p, powers)
-    lines = [g["stats"], " · ".join(s for s in (g["value"], g["burden"], g["magic"], g["needs"], g["crafter"]) if s),
+    lines = [g["stats"], " ".join(s for s in (g["value"], g["burden"], g["magic"], g["needs"], g["crafter"]) if s).replace(",", ""),
              g["spells"]]
     return [line for line in lines if line]
