@@ -1088,7 +1088,7 @@ function render() {
   applyPage(sessions.length > 0);
   if (!sessions.length) {
     $("dot").className = "dot" + (state.relay ? " on" : "");
-    $("conn").textContent = state.relay ? "relay up, waiting for a client" : "relay not running (start relay.cmd)";
+    $("conn").textContent = state.relay ? "relay up, waiting for a client" : "relay not running (run start.cmd)";
     for (const id of ["xpSession", "xpRate", "xpEta"]) $(id).textContent = "-";
     $("connStat").style.display = "";
     $("vitals").style.display = "none";
@@ -1394,7 +1394,7 @@ function renderLauncher(L, sessions) {
       <label><input type="checkbox" data-launch-tint ${L.tint ? "checked" : ""}> in a vendor's window, show the spell components on your shopping list on their own background</label>
       <span class="hint2">Experimental: rewrites the vendor's list on its way to your game (the item type that picks each icon's background). What you buy is untouched.
         The backgrounds are picked in Comps › Order. ${L.supervised
-        ? "The relay restarts when this changes (about a second; you stay logged in)." : "This window isn't running the relay: restart it with relay-tint.cmd (on) or relay.cmd (off)."}</span></div>` : ""}</div>`);
+        ? "The relay restarts when this changes (about a second; you stay logged in)." : "This window isn't running the relay: restart it with tools\\relay-tint.cmd (on) or tools\\relay.cmd (off)."}</span></div>` : ""}</div>`);
   const box = $("cfgAccounts");
   if (cfgTab !== "accounts" || !box || typing(box)) return;
   const row = a => `<tr><td><input type="text" data-acct-name="${esc(a.key)}" value="${esc(a.account)}" style="width:150px"></td>
@@ -1481,7 +1481,7 @@ function renderUpdate(u) {
   const short = s => s ? s.slice(0, 7) : "-";
   setHTML(banner, u.busy ? `<span class="upd">Updating…</span>`
     : u.applied && u.window ? `<span class="upd" title="The 99 Companion window's own code changed">Updated to ${short(u.applied.sha)} · close the 99 Companion window and run start.cmd again when convenient</span>`
-    : u.applied && u.relay && !u.supervised ? `<span class="upd" title="A file the relay runs changed">Updated to ${short(u.applied.sha)} · restart relay.cmd when convenient</span>`
+    : u.applied && u.relay && !u.supervised ? `<span class="upd" title="A file the relay runs changed">Updated to ${short(u.applied.sha)} · restart tools\\relay.cmd when convenient</span>`
     : u.available ? `<span class="upd" title="${esc(u.latest.message)}">Update ${short(u.latest.sha)} available <button class="chip mini" data-upd-apply>Update now</button></span>` : "");
   const box = $("cfgUpdates");
   if (!box || (page !== "config" || cfgTab !== "updates") || box.contains(document.activeElement)) return;
@@ -1536,7 +1536,7 @@ function renderSession(state, relayUp) {
   }).join("") + xpHtml;
   $("dot").className = "dot" + (st.connected ? " on" : "");
   // the tabs' dots show who's connected; spell it out only when something's wrong
-  $("conn").textContent = relayUp === false ? "relay not running (start relay.cmd)" : "";
+  $("conn").textContent = relayUp === false ? "relay not running (run start.cmd)" : "";
   $("connStat").style.display = $("conn").textContent ? "" : "none";
   // after a Reset, count from that moment (for this login only: a new session starts from zero anyway)
   const base = xpBase[st.character], reset = !!base && base.session === state.session.id && xp.total != null;
@@ -3107,7 +3107,7 @@ document.addEventListener("change", e => {
 // fits; else a step at a time to whichever stands lowest (what you carry and what's bought of it so far, as a share of
 // its level), a component's first step the minimum buy (none bought short of it), one at a time after, until nothing
 // more fits.
-// the buy list's components, for the relay: the other components get another background in a vendor's window (relay-tint.cmd): sent when it changes,
+// the buy list's components, for the relay: the other components get another background in a vendor's window (the relay's --tint-store): sent when it changes,
 // and every minute (a restarted companion or relay has lost it)
 let shoplistSent = {key: "", at: 0};
 function sendShoplist(id, amounts) {

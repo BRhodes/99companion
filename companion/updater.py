@@ -10,9 +10,9 @@ checkout's HEAD when there is one, else the VERSION file an earlier update wrote
 
 Updating: a git checkout pulls (fast-forward only: local changes stop it rather than be touched). Otherwise the
 commit's zip is downloaded and its files copied over this install -- never what's yours (KEEP: journals, the
-database, caches, captures, checkpoints, the runtime\ Python, *.local.json, settings files), and nothing is deleted. The companion's
+database, caches, captures, checkpoints, the runtime/ Python, *.local.json, settings files), and nothing is deleted. The companion's
 reloader then restarts it on its own, and the relay too when a file it runs changed (a relay of your own, from
-relay.cmd: the dashboard says to restart it). start.cmd's window itself only runs new code once it's opened again.
+tools/relay.cmd: the dashboard says to restart it). start.cmd's window itself only runs new code once it's opened again.
 """
 import io
 import json
@@ -35,7 +35,7 @@ KEEP = ("journals/", "cache/", "captures/", "checkpoints/", ".git/", "runtime/",
         "VERSION")
 RELAY_FILES = {"companion/relay.py", "companion/proxy.py", "companion/capture.py", "companion/storetint.py",
                "companion/netcrc.py", "companion/framing.py", "companion/binreader.py", "companion/messages.py",
-               "relay.cmd", "relay-tint.cmd", "relay-stop.cmd"}
+               "tools/relay.cmd", "tools/relay-tint.cmd", "tools/relay-stop.cmd"}
 WINDOW_FILES = {"companion/reloader.py"}   # what start.cmd's window itself runs: new only once it's opened again
 log = logging.getLogger(__name__)
 

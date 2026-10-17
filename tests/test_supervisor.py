@@ -68,7 +68,7 @@ class SupervisorTest(unittest.TestCase):
         r.tick()                                     # noticed; waits before trying again
         self.assertEqual(len(self.started), 1)
         self.clock += 10                             # (a quick exit: the wait doubles)
-        self.tap = True                              # relay.cmd's relay took over meanwhile
+        self.tap = True                              # tools\relay.cmd's relay took over meanwhile
         r.tick()
         self.assertTrue(r.outside)
         self.assertEqual(len(self.started), 1)

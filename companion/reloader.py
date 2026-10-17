@@ -5,10 +5,10 @@
 - The companion restarts whenever its code changes (an edit, or an update), or when it asks to (exit code
   RESTART: a setting that needs a fresh start, such as the game folder).
 - The relay starts with the flags launcher.local.json asks for (relay_flags), after any relay
-  already running is stopped (relay-stop.cmd). It restarts when a file it runs changes, when those flags
+  already running is stopped (tools/relay-stop.cmd). It restarts when a file it runs changes, when those flags
   change, and if it exits on its own. A restart drops about a second of game traffic; sessions carry on.
-  A relay that someone else started meanwhile (relay.cmd) is left alone until it goes away.
-- --no-relay leaves the relay to relay.cmd, as before.
+  A relay that someone else started meanwhile (tools/relay.cmd) is left alone until it goes away.
+- --no-relay leaves the relay to tools/relay.cmd.
 Closing the window stops both; game clients already started keep running.
 """
 
@@ -97,7 +97,7 @@ class Relay:
 
     def start(self, take_over=False):
         if take_over:
-            subprocess.run(["cmd", "/c", str(ROOT / "relay-stop.cmd")], cwd=ROOT)
+            subprocess.run(["cmd", "/c", str(ROOT / "tools" / "relay-stop.cmd")], cwd=ROOT)
         self.flags = relay_flags()
         log.info("starting relay%s", " " + " ".join(self.flags) if self.flags else "")
         self.proc = subprocess.Popen([sys.executable, "-m", "companion.relay", *self.flags], cwd=ROOT)
@@ -124,7 +124,7 @@ class Relay:
             return
         if tap_open():
             if not self.outside:
-                log.info("another relay is running (relay.cmd?): leaving it be until it stops")
+                log.info("another relay is running (tools\\relay.cmd?): leaving it be until it stops")
                 self.outside = True
             self.retry_at = now + 5
             return
@@ -159,7 +159,7 @@ def main():
                     if relay is not None and not relay.outside:
                         relay.restart("its code changed")
                     else:
-                        log.warning("relay code changed: restart relay.cmd when convenient (it drops ~1s of game "
+                        log.warning("relay code changed: restart tools\\relay.cmd when convenient (it drops ~1s of game "
                                     "traffic); the dashboard is reloading now")
                 stop(proc)
                 proc = start(args)

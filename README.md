@@ -52,9 +52,16 @@ The window (`python -m companion.reloader`) runs the relay and the dashboard and
 dashboard restarts when its code changes (an edit or an update), and the relay when a file it runs changes,
 when its settings change, or if it stops. Closing the window stops both; game clients keep running.
 
+`start.cmd` is the only thing to run. The rest of the scripts are in `tools\`, for when you want a part on its own:
+
 ```
-companion.cmd    the same, without opening the browser (--no-relay: leave the relay to relay.cmd)
-relay.cmd        just the relay (python -m companion.relay); start.cmd's window leaves a relay it didn't start alone
+tools\companion.cmd      start.cmd without opening the browser (--no-relay: leave the relay to tools\relay.cmd)
+tools\relay.cmd          just the relay (python -m companion.relay); start.cmd's window leaves a relay it didn't start alone
+tools\relay-tint.cmd     the same with the experimental vendor backgrounds on (--tint-store)
+tools\relay-stop.cmd     stop a relay that's running (start.cmd's window and the two above do this first)
+tools\account1.cmd, account2.cmd   start the game for account 1 or 2 (the dashboard's play buttons do this)
+tools\unlock-client.cmd  clear the game's one-copy-at-a-time lock in running clients (launching does this)
+tools\bgpatch.cmd        make the background copy of the client (Settings › Game does this)
 ```
 
 Point the client at the relay: a launcher server entry with host `127.0.0.1`, port `9110`, or
@@ -80,7 +87,7 @@ draw the map and its walk grid from `cell.dat` the first time; they're cached in
 ### Launching accounts
 
 Settings › Accounts keeps your accounts. Each has a button on the right of the header: white **▶ name** starts
-`client-windows-3d-accel.exe` for it through the relay, logged in (`account1.cmd` / `account2.cmd` do the same
+`client-windows-3d-accel.exe` for it through the relay, logged in (`tools\account1.cmd` / `account2.cmd` do the same
 for accounts 1 and 2); blue once it's online -- its game running on this computer (read from the running
 clients' own command lines, however they were started; never the password) or connected through the relay --
 and a click shows its tab. They're
@@ -89,11 +96,11 @@ again, and launching takes only an account's number, so nothing can ask it to ru
 folder is Settings › Game (`launcher.local.json`): found from the registry or the usual places until you pick
 one. Before launching, `tools/aclaunch.py` closes the client's single-instance lock (the named semaphore
 "Empyrean Client") in any running client of yours, so a second client can start, with plain Windows calls
-(no administrator rights or extra tools). `unlock-client.cmd` only clears the lock. The launcher refuses to
+(no administrator rights or extra tools). `tools\unlock-client.cmd` only clears the lock. The launcher refuses to
 start if the relay isn't running. Check your server's rules on running more than one client.
 
 The stock client stops drawing when its window loses focus. Settings › Game › *Make the background copy*
-(or `bgpatch.cmd`; Windows asks for administrator rights, since it writes into Program Files) makes
+(or `tools\bgpatch.cmd`; Windows asks for administrator rights, since it writes into Program Files) makes
 `client-windows-3d-accel-bg.exe` next to the original with one instruction removed so losing focus no longer deactivates the game; the original exe is never changed. An
 account with *background* ticked (`"background": true`) starts that copy. See `tools/bgpatch.py`.
 
@@ -102,7 +109,7 @@ account with *background* ticked (`"background": true`) starts that copy. See `t
 Everything above only reads the game's traffic. Settings › Game › *Enable experimental features* (off by
 default) allows the one thing that changes it, on the way from the server to your game; check your server's
 rules first. With it on, *Vendor backgrounds* runs the relay with `--tint-store` (start.cmd's window restarts
-it; `relay-tint.cmd` does the same by hand): in a vendor's window, the spell components on your
+it; `tools\relay-tint.cmd` does the same by hand): in a vendor's window, the spell components on your
 shopping list and the rest show on backgrounds you pick (Comps › Order). It rewrites only the vendor's stock
 list on its way to your client (the item type that picks an icon's background); what you buy, and everything
 sent to the server, is untouched.
@@ -117,7 +124,7 @@ commit the header says so: **Update now** brings this install up to it (Settings
 - A downloaded copy has the new commit's files copied over it.
 - Your journals, database, caches, captures, checkpoints, settings, `runtime\` and `*.local.json` are never touched,
   and nothing is deleted. The dashboard and the relay restart themselves afterwards. (A relay you started
-  with `relay.cmd`: the header asks you to restart it. A change to the window's own code: the header asks you
+  with `tools\relay.cmd`: the header asks you to restart it. A change to the window's own code: the header asks you
   to run `start.cmd` again when it suits you.)
 
 The repository is `REPO` in `companion/updater.py` (or set it in Settings › Updates, kept in

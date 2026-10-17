@@ -13,7 +13,7 @@ Accounts live in accounts.local.json next to this repo's README (git-ignored, pl
     {"1": {"account": "name", "password": "..."},
      "2": {"account": "...", "password": "...", "dir": "C:\\...\\Asheron's Call2"}}
 "dir" (install folder: else the game folder, Settings > Game) and "exe" (client executable) are optional per account. "background": true uses
-the copy made by tools/bgpatch.py (bgpatch.cmd), which keeps drawing when its window loses focus.
+the copy made by tools/bgpatch.py (Settings > Game, or tools/bgpatch.cmd), which keeps drawing when its window loses focus.
 """
 
 import argparse
@@ -182,7 +182,7 @@ def launch(acct):
         if (folder / BACKGROUND_EXE).exists():
             exe_name = BACKGROUND_EXE
         else:
-            print(f"No {BACKGROUND_EXE} in {folder} yet (run bgpatch.cmd); starting the normal client.")
+            print(f"No {BACKGROUND_EXE} in {folder} yet (Settings > Game > Make the background copy); starting the normal client.")
     exe = folder / exe_name
     if not exe.exists():
         print(f"{exe} doesn't exist - check \"dir\"/\"exe\" for this account in {ACCOUNTS}.")
@@ -209,7 +209,7 @@ def main():
     if not acct:
         sys.exit(1)
     if not args.no_relay_check and not relay_running():
-        print("The relay isn't running - start relay.cmd first (or pass --no-relay-check).")
+        print("The relay isn't running - run start.cmd first (or pass --no-relay-check).")
         sys.exit(1)
     if not unlock():
         sys.exit(1)

@@ -43,7 +43,7 @@ class UpdaterTest(unittest.TestCase):
         for p in ("journals/x.cap", "accounts.local.json", "update.local.json", "companion.sqlite3", "cache/worldmap.png",
                   ".git/HEAD", "spellbook-layouts.json", "VERSION"):
             self.assertTrue(updater.kept(p), p)
-        for p in ("companion/tracker.py", "README.md", "relay.cmd", "companion/data/places.json"):
+        for p in ("companion/tracker.py", "README.md", "tools/relay.cmd", "companion/data/places.json"):
             self.assertFalse(updater.kept(p), p)
 
     def test_unpack_strips_the_top_folder_and_keeps_your_files(self):

@@ -1,6 +1,6 @@
 """Make a copy of the AC1999 client that keeps drawing when its window loses focus.
 
-    python tools/bgpatch.py                         # the default install folder
+    python tools/bgpatch.py                         # the game folder (Settings > Game) and accounts' own folders
     python tools/bgpatch.py "C:\\...\\Asheron's Call2"
 
 The client's main loop runs networking and physics every frame but only draws while its "app active"
@@ -26,7 +26,6 @@ TARGET = "client-windows-3d-accel-bg.exe"
 PATCH_VA = 0x0040859A
 ORIGINAL = bytes.fromhex("c705fcfd620001000000")   # mov dword ptr [0x62fdfc], 1
 PATCHED = b"\x90" * len(ORIGINAL)                    # nop x 10
-DEFAULT_DIR = Path(r"C:\Program Files (x86)\Microsoft Games\Asheron's Call")
 
 
 def file_offset(data, va):
@@ -46,8 +45,26 @@ def file_offset(data, va):
     raise ValueError(f"address {va:#x} isn't in any section")
 
 
+def default_folders():
+    """The game folder (Settings > Game) and each account's own "dir", once each."""
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+    from companion.launcher import accounts, game_dir
+    seen = []
+    for f in [game_dir(), *(a["dir"] for a in accounts(running={}) if a["dir"])]:
+        if Path(f) not in seen and (Path(f) / SOURCE).exists():
+            seen.append(Path(f))
+    return seen
+
+
 def main():
-    folder = Path(sys.argv[1]) if len(sys.argv) > 1 else DEFAULT_DIR
+    folders = [Path(a) for a in sys.argv[1:]] or default_folders()
+    if not folders:
+        print(f"No {SOURCE} found: pick the game folder in Settings > Game, or pass the folder.")
+        return 1
+    return max(patch(f) for f in folders)
+
+
+def patch(folder):
     src, dst = folder / SOURCE, folder / TARGET
     data = bytearray(src.read_bytes())
     off = file_offset(data, PATCH_VA)
