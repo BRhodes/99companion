@@ -1386,10 +1386,15 @@ function renderLauncher(L, sessions) {
     <div class="k">Play in the background</div><div class="col">
       ${g.background ? tick(true, "the background copy is made") : `<button class="chip" data-game-bg ${g.client ? "" : "disabled"}>Make the background copy</button>`}
       <span class="hint2">The game stops drawing when its window isn't the one in front. This makes a copy of it beside the original that keeps going (the original isn't changed). Windows asks for permission, since it writes into the game folder. Then tick "background" on an account.</span></div>
-    <div class="k">Vendor backgrounds</div><div class="col">
+    <div class="k">Experimental features</div><div class="col">
+      <label><input type="checkbox" data-launch-experimental ${L.experimental ? "checked" : ""}> enable experimental features</label>
+      <span class="hint2">Off, the companion only reads the game's traffic: everything is passed along exactly as it was sent. Experimental features
+        change some of what the server sends your game on its way (never what your game sends the server). Check your server's rules before you turn them on.</span></div>
+    ${L.experimental ? `<div class="k">Vendor backgrounds</div><div class="col">
       <label><input type="checkbox" data-launch-tint ${L.tint ? "checked" : ""}> in a vendor's window, show the spell components on your shopping list on their own background</label>
-      <span class="hint2">The backgrounds are picked in Comps › Order. It changes only how the vendor's list looks to you; what you buy is untouched. ${L.supervised
-        ? "The relay restarts when this changes (about a second; you stay logged in)." : "This window isn't running the relay: restart it with relay-tint.cmd (on) or relay.cmd (off)."}</span></div></div>`);
+      <span class="hint2">Experimental: rewrites the vendor's list on its way to your game (the item type that picks each icon's background). What you buy is untouched.
+        The backgrounds are picked in Comps › Order. ${L.supervised
+        ? "The relay restarts when this changes (about a second; you stay logged in)." : "This window isn't running the relay: restart it with relay-tint.cmd (on) or relay.cmd (off)."}</span></div>` : ""}</div>`);
   const box = $("cfgAccounts");
   if (cfgTab !== "accounts" || !box || typing(box)) return;
   const row = a => `<tr><td><input type="text" data-acct-name="${esc(a.key)}" value="${esc(a.account)}" style="width:150px"></td>
@@ -1458,6 +1463,7 @@ document.addEventListener("change", e => {
   const t = e.target, saved = r => { if (!r.ok) toast(r.error); };
   if (t.matches("[data-game-dir]") && t.value.trim()) launcherPost("/api/launcher/game", {dir: t.value.trim()}, "PUT").then(gameResult);
   else if (t.matches("[data-launch-tint]")) launcherPost("/api/launcher/settings", {tint: t.checked}, "PUT").then(saved);
+  else if (t.matches("[data-launch-experimental]")) launcherPost("/api/launcher/settings", {experimental: t.checked}, "PUT").then(saved);
   else if (t.matches("[data-acct-name]") && t.value.trim()) launcherPost(`/api/accounts/${encodeURIComponent(t.dataset.acctName)}`, {account: t.value.trim()}, "PUT").then(saved);
   else if (t.matches("[data-acct-pw]") && t.value) launcherPost(`/api/accounts/${encodeURIComponent(t.dataset.acctPw)}`, {password: t.value}, "PUT")
     .then(r => { t.value = ""; r.ok ? toast("Password saved") : toast(r.error); });
@@ -2981,12 +2987,12 @@ function renderOrderCfg(state, burn) {
     <div class="col">
       <label><input type="number" min="1" max="9999" data-comp-list="sellMin" value="${compLists.sellMin}"> components over</label>
       <span class="hint2">a component goes on the sell list once you carry that many more than its desired amount</span></div>
-    <div class="k" style="align-self:start;padding-top:6px">Vendor backgrounds</div>
+    ${(state.launcher || {}).experimental && state.launcher.tint ? `<div class="k" style="align-self:start;padding-top:6px">Vendor backgrounds</div>
     <div class="col">
       ${[["tint_buy", "To buy", cfg.tint_buy ?? 0x1000], ["tint_other", "The rest", cfg.tint_other ?? 0x80]].map(([k, label, cur]) =>
         `<div class="row bgpick"><span class="bglbl">${label}</span>${VENDOR_BG.map(([t, tex, name]) =>
           `<button class="bgsw${t === cur ? " on" : ""}" data-order-bg="${k}" data-type="${t}" title="${esc(name)}${t === 0x1000 ? " (components' own)" : ""}"><img src="/icon/0600${tex}.png" alt=""></button>`).join("")}</div>`).join("")}
-      <span class="hint2">in a vendor's window, while your buy list has anything on it: the components on it, and the rest (with relay-tint.cmd running)</span></div>
+      <span class="hint2">in a vendor's window, while your buy list has anything on it: the components on it, and the rest (experimental: Settings › Game)</span></div>` : ""}
   </div>
   <div class="ocfg-min"><div class="k" title="No component of a kind that a spell you know uses is kept below this; a component's own goes in its row below (Min)">At least, of each</div>
     ${ORDER_CATS.map(c => `<label class="cat" title="No ${c.toLowerCase()} a spell you know uses is kept below this"><input type="number" min="0" max="9999"

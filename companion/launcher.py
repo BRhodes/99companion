@@ -4,8 +4,10 @@ game client for an account.
 launcher.local.json (beside the README):
     {"game_dir": "C:\\...\\Asheron's Call",   the game folder (portal.dat, cell.dat, the client); found on its own
                                               (game_dir()) until one is picked
-     "tint": false}                           the relay runs with --tint-store (vendor backgrounds); start.cmd's
-                                              window restarts it when this changes
+     "experimental": false,                   experimental features: the ones that change what the game sends you
+                                              (off: the relay only ever forwards traffic as it is)
+     "tint": false}                           with experimental on, the relay runs with --tint-store (vendor
+                                              backgrounds); start.cmd's window restarts it when either changes
 accounts.local.json: the accounts (tools/aclaunch.py's format, which starts the client):
     {"1": {"account": "name", "password": "...", "background": true, ...}, "2": ...}
 A password is written here and read by aclaunch, and never goes back out: accounts() says only whether
@@ -318,6 +320,7 @@ class Launcher:
             values = settings()
             game = check_game(game_dir(values))
             game["picked"] = bool(values.get("game_dir"))
-            self._state = (time.time(), {"game": game, "tint": values.get("tint") is True, "accounts": accounts(),
+            self._state = (time.time(), {"game": game, "experimental": values.get("experimental") is True,
+                                         "tint": values.get("tint") is True, "accounts": accounts(),
                                          "supervised": bool(os.environ.get("COMPANION_SUPERVISED"))})
         return self._state[1]

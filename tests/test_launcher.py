@@ -117,9 +117,11 @@ class LauncherRoutesTest(unittest.TestCase):
         self.assertEqual(launcher.settings()["game_dir"], str(self.dir))
         self.assertFalse(self.app.restart)               # (not run from start.cmd's window: nothing restarts it)
 
-    def test_the_tint_setting(self):
+    def test_the_tint_and_experimental_settings(self):
         self.assertEqual(self.call("PUT", "/api/launcher/settings", {"tint": True})[1]["tint"], True)
-        self.assertEqual(launcher.settings()["tint"], True)
+        got = self.call("PUT", "/api/launcher/settings", {"experimental": True})[1]
+        self.assertEqual((got["tint"], got["experimental"]), (True, True))
+        self.assertEqual(launcher.settings(), {"tint": True, "experimental": True})
 
 
 if __name__ == "__main__":

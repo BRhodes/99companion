@@ -65,12 +65,15 @@ def stop(proc):
 
 
 def relay_flags():
-    """The relay's command-line flags launcher.local.json asks for: "tint" is --tint-store."""
+    """The relay's command-line flags launcher.local.json asks for: "tint" is --tint-store, and only with
+    "experimental" on (it changes what the server sends the client; everything else is read-only)."""
     try:
         values = json.loads(SETTINGS.read_text(encoding="utf-8"))
     except (OSError, ValueError):
         values = {}
-    return ["--tint-store"] if isinstance(values, dict) and values.get("tint") is True else []
+    if not isinstance(values, dict) or values.get("experimental") is not True:
+        return []
+    return ["--tint-store"] if values.get("tint") is True else []
 
 
 def tap_open():

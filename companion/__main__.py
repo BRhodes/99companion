@@ -318,8 +318,9 @@ class Companion:
                              {"error": "The background copy wasn't made" + ("" if started else " (Windows' prompt was declined)")})
             return background()
         if method == "PUT" and path == "/api/launcher/settings":
-            if "tint" in values:
-                launcher.save_settings({"tint": values["tint"] is True})
+            for k in ("tint", "experimental"):
+                if k in values:
+                    launcher.save_settings({k: values[k] is True})
             changed()
             return _json(200, self.launcher.state())
         if parts[:2] == ["api", "accounts"]:

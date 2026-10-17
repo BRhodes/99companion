@@ -19,7 +19,7 @@ Or start the game your usual way, pointed at host `127.0.0.1`, port `9110`.
 Next time, just double-click `start.cmd`. Updates come from GitHub on their own (see Updates).
 
 The relay forwards every packet unchanged before decoding a copy, so the server sees exactly the traffic it
-would without it. The companion never plays for you: everything in game is done by you; the dashboard shows,
+would without it (and so does your game, unless you turn on an experimental feature: see below). The companion never plays for you: everything in game is done by you; the dashboard shows,
 plans and guides.
 
 ## Architecture
@@ -97,10 +97,12 @@ The stock client stops drawing when its window loses focus. Settings › Game �
 `client-windows-3d-accel-bg.exe` next to the original with one instruction removed so losing focus no longer deactivates the game; the original exe is never changed. An
 account with *background* ticked (`"background": true`) starts that copy. See `tools/bgpatch.py`.
 
-### Vendor backgrounds (optional)
+### Experimental features: vendor backgrounds
 
-Settings › Game › *Vendor backgrounds* runs the relay with `--tint-store` (start.cmd's window restarts it;
-`relay-tint.cmd` does the same by hand): in a vendor's window, the spell components on your
+Everything above only reads the game's traffic. Settings › Game › *Enable experimental features* (off by
+default) allows the one thing that changes it, on the way from the server to your game; check your server's
+rules first. With it on, *Vendor backgrounds* runs the relay with `--tint-store` (start.cmd's window restarts
+it; `relay-tint.cmd` does the same by hand): in a vendor's window, the spell components on your
 shopping list and the rest show on backgrounds you pick (Comps › Order). It rewrites only the vendor's stock
 list on its way to your client (the item type that picks an icon's background); what you buy, and everything
 sent to the server, is untouched.

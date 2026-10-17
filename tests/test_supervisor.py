@@ -52,7 +52,10 @@ class SupervisorTest(unittest.TestCase):
         self.assertNotIn("--tint-store", self.started[-1].argv)
         r.tick()
         self.assertEqual(len(self.started), 1)
-        self.settings.write_text(json.dumps({"tint": True}))
+        self.settings.write_text(json.dumps({"tint": True}))      # without experimental features: nothing changes
+        r.tick()
+        self.assertEqual(len(self.started), 1)
+        self.settings.write_text(json.dumps({"tint": True, "experimental": True}))
         r.tick()
         self.assertEqual(len(self.started), 2)
         self.assertEqual(self.started[0].returncode, 1)          # the old one was stopped
