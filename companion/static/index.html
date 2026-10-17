@@ -1065,7 +1065,8 @@ function render() {
   if (!state) return;
   try { renderUpdate(state.update); } catch (e) { console.error("render update failed", e); }
   try { renderLauncher(state.launcher, state.sessions || []); } catch (e) { console.error("render launcher failed", e); }
-  const sessions = state.sessions || [];
+  // a tab per client that's connected; one that's gone has none (its account's ▶ is back in the header)
+  const sessions = (state.sessions || []).filter(s => !s.session.ended);
   let cur = sessions.find(s => s.session.id === selected && !s.session.ended);
   // the character you picked last wins over whatever logged in most recently
   if (!cur && preferred) cur = [...sessions].reverse().find(s => !s.session.ended && s.status.character === preferred);
@@ -1077,7 +1078,7 @@ function render() {
     const gain = xp.grant_gain ? `+${fmt(xp.grant_gain)}` : "";
     return `<button data-id="${esc(s.session.id)}" class="${s === cur ? "active" : ""} ${ended ? "ended" : ""}">
       <span class="dot ${s.status.connected ? "on" : ""}"></span>${esc(tabLabel(s))}
-      <span class="badge">${ended ? "logged out" : gain}</span>${readySkills(s) ? '<span class="ready" title="timed grant ready"></span>' : ""}</button>`;
+      <span class="badge">${ended ? "character select" : gain}</span>${readySkills(s) ? '<span class="ready" title="timed grant ready"></span>' : ""}</button>`;
   }).join(""));
   $("tabs").style.display = sessions.length ? "" : "none";
   $("none").style.display = sessions.length ? "none" : "";
@@ -1343,8 +1344,8 @@ function goalBar(goal) {
 
 // ---- the launcher (launcher.py): the header's launch buttons, Settings > Game and Settings > Accounts ----------
 const launching = new Set();          // account keys whose client is being started
-function onlineAccounts(sessions) {
-  return new Set(sessions.filter(s => !s.session.ended && !s.status.logged_out && s.status.account)
+function onlineAccounts(sessions) {   // accounts with a client connected (in the world or at character select)
+  return new Set(sessions.filter(s => !s.session.ended && s.status.account)
     .map(s => s.status.account.toLowerCase()));
 }
 function launchButton(a, online) {
@@ -1359,7 +1360,7 @@ function renderLauncher(L, sessions) {
   const online = onlineAccounts(sessions);
   setHTML(bar, !L.game.ok ? `<button class="chip act-now" data-goto-cfg="game">Set up the game folder</button>`
     : !L.accounts.length ? `<button class="chip act-soon" data-goto-cfg="accounts">＋ Add your account</button>`
-    : L.accounts.map(a => launchButton(a, online)).join(""));
+    : L.accounts.filter(a => !online.has(a.account.toLowerCase())).map(a => launchButton(a, online)).join(""));  // (logged in: its tab instead)
   if (page !== "config") return;
   const tick = (ok, what) => `<span class="${ok ? "have" : "miss"}">${ok ? "✓" : "✗"} ${what}</span>`;
   const g = L.game, game = $("cfgGame");
@@ -1948,7 +1949,7 @@ function renderOther(sessions, cur) {
   const s = otherSession(sessions, cur);
   if (!s) return setHTML($("otherCard"), `<div class="empty">No other character seen yet.</div>`);
   const head = [`<span class="who" data-second-id="${esc(s.session.id)}" title="Show this character">${esc(s.status.character)}</span>`];
-  if (s.session.ended || s.status.logged_out) head.push(`<span class="muted">logged out${s.status.last_seen ? ` ${dur(now() - s.status.last_seen)} ago` : ""}</span>`);
+  if (s.session.ended || s.status.logged_out) head.push(`<span class="muted">at character select${s.status.last_seen ? ` · left the world ${dur(now() - s.status.last_seen)} ago` : ""}</span>`);
   else if (!s.status.in_world) head.push(`<span class="muted">character select</span>`);
   for (const v of (s.status.in_world ? s.vitals || [] : [])) {
     const pct = v.max ? Math.min(100, 100 * v.current / v.max) : 0;
@@ -2869,7 +2870,7 @@ function renderInfo(state) {
   setHTML($("infoCard"), `<div class="namerow"><div class="name">${esc(st.character || (st.account ? "Character select" : "-"))}</div>${nav}</div>
     <div style="display:flex;align-items:baseline;justify-content:space-between;margin-top:2px">
       <span class="level" style="margin:0">${state.level ? `level ${state.level}` : ""}${st.logged_out
-        ? ` · <span title="As it was when it left the world">logged out${st.last_seen ? ` ${dur(now() - st.last_seen)} ago` : ""}</span>` : ""}</span>
+        ? ` · <span title="As it was when it left the world">character select${st.last_seen ? ` · left ${dur(now() - st.last_seen)} ago` : ""}</span>` : ""}</span>
       <span class="coins">${state.coins != null ? `<b>${fmt(state.coins)}</b> pyreals` : ""}</span></div>`);
   fitName($("infoCard").querySelector(".name"));
 }
