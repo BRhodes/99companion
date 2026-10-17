@@ -23,6 +23,12 @@ REGEN = [(3, "Regeneration"), (4, "Rejuvenation"), (5, "Mana Renewal")]   # heal
 WEAPON = [(44, "Blood Drinker"), (62, "Heart Seeker"), (49, "Swift Killer"), (29, "Defender")]
 ITEM_KEYS = {k for k, _ in BANES} | {k for k, _ in WEAPON}   # stats item spells raise
 WEAPON_TIME = 49           # Swift Killer lowers it: lower is better
+
+
+def item_beneficial(key, value):
+    """Whether a spell on an item helps it: raises its stat (Blood Drinker, a bane), or for the weapon's attack
+    time lowers it (Swift Killer). Their opposites (Blood Loather, Leaden Weapon, Brittlemail, a lure) don't."""
+    return value < 0 if key == WEAPON_TIME else value > 0
 # equipped-slot bits (EquipMask): what kind of item a spell landed on
 ARMOR_SLOTS = 0x1 | 0x20 | 0x100 | 0x200 | 0x400 | 0x800 | 0x1000 | 0x2000 | 0x4000
 CLOTHES_SLOTS = 0x2 | 0x4 | 0x8 | 0x10 | 0x40 | 0x80
@@ -222,14 +228,15 @@ def build(tr, now):
     def item_rows(keys):
         out = []
         for key, name in keys:
-            pieces = [b for b in tr.item_enchants.values() if b["key"] == key and b["expires"] > now]
+            # (only the helpful ones: an opposite cast on your own item -- practice, say -- isn't a buff)
+            pieces = [b for b in tr.item_enchants.values() if b["key"] == key and b["expires"] > now
+                      and item_beneficial(key, b["value"])]
             slots = {}
             for p in pieces:
                 slots[p.get("slot") or "other"] = slots.get(p.get("slot") or "other", 0) + 1
             out.append({"name": name, "pieces": len(pieces), "slots": slots, "on": sorted({p.get("target") for p in pieces if p.get("target")}),
                         "items": sorted({p["item"] for p in pieces}),
-                        "spells": [{"name": n, "harmful": any(p["value"] < 0 for p in pieces if p["spell"] == n)}
-                                   for n in sorted({p["spell"] for p in pieces})],
+                        "spells": [{"name": n, "harmful": False} for n in sorted({p["spell"] for p in pieces})],
                         "left": min((p["expires"] - now for p in pieces), default=None)})
         return out
     return {"attributes": attributes, "skills": skills, "prots": prots, "banes": item_rows(BANES),

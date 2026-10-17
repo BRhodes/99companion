@@ -34,7 +34,6 @@ from . import goals
 from . import comporder
 from . import appraisal
 
-BANE_KEYS = {k for k, _ in buffpanel.BANES}
 FOE_RECENT = 300.0               # the Monster card's < >: what you fought within this long of your latest fight
 FOE_HISTORY = 40              # remembered at most (a busy 5 minutes fits)
 STAND_IN_FOE = "Black Rabbit"
@@ -793,16 +792,17 @@ class Tracker:
                 "recast_name": self.spells.get(recast[0], {}).get("name") if recast else None,
                 "recast_weaker": bool(recast) and recast[1] < e["power"],
             })
-        out += self._bane_buffs(now)
+        out += self._item_buffs(now)
         return sorted(out, key=lambda b: (b["expires"] is None, b["expires"] or 0, b["name"]))
 
-    def _bane_buffs(self, now):
-        """Banes and Impenetrability on your items, one entry per item, at their estimated expiry (the server
-        never says): recast on that same item."""
+    def _item_buffs(self, now):
+        """The spells you've put on your items -- banes and Impenetrability, and Blood Drinker, Heart Seeker, Swift
+        Killer and Defender on a weapon -- one entry per item and kind, at their estimated expiry (the server never
+        says): recast on that same item. Only the helpful ones (an opposite cast for practice isn't a buff)."""
         by_name = None
         out = []
         for (target, key), b in self.item_enchants.items():
-            if key not in BANE_KEYS or b["expires"] <= now - 2 or b["value"] < 0:
+            if key not in buffpanel.ITEM_KEYS or b["expires"] <= now - 2 or not buffpanel.item_beneficial(key, b["value"]):
                 continue
             sid = b.get("spell_id")
             if sid is None:          # remembered before spell ids were kept: find it by name
