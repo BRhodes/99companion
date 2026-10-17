@@ -19,6 +19,7 @@ older checkpoints are ignored (a full replay rebuilds them).
 import logging
 import os
 import pickle
+import types
 import time
 from pathlib import Path
 
@@ -57,12 +58,15 @@ class Checkpoints:
         return out
 
     def save(self, view, offset=None):
+        self.saved_at[view.info.get("id")] = time.time()   # (a save that fails waits its turn too, not every tick)
         tr = view.tracker
         model, tr.ledger.model = tr.ledger.model, None      # the ledger points at the shared burn model
         try:
             data = pickle.dumps({
                 "version": VERSION, "seen": view.seen, "last_ts": view.last_ts, "ended": view.ended, "offset": offset,
-                "tracker": {k: v for k, v in tr.__dict__.items() if k not in SHARED},
+                # (functions the companion hands the tracker -- prefs, book_burden -- are its own: never saved)
+                "tracker": {k: v for k, v in tr.__dict__.items()
+                            if k not in SHARED and not isinstance(v, (types.FunctionType, types.MethodType))},
                 "reassemblers": view.pipeline.reassemblers, "stats": view.pipeline.stats,
             }, protocol=pickle.HIGHEST_PROTOCOL)
         finally:

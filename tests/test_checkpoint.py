@@ -40,6 +40,7 @@ class CheckpointTest(unittest.TestCase):
             first = view()
             for rec in records[:25]:
                 first.feed(*rec)
+            first.tracker.book_burden = lambda g: None         # (what the companion hands a tracker)
             store.save(first)
             again = view()                                     # the restarted companion
             self.assertTrue(store.restore(again))
