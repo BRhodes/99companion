@@ -54,7 +54,7 @@ def _parts(p, powers=None):
     (difficulty, spellcraft, mana, and about how long a full charge lasts worn: powers, {spell name: power}),
     needs (who can use it), crafter. Each a string, "" when the item hasn't got it."""
     got = {"value": f"{_n(p['value'])}p" if p.get("value") is not None else "",
-           "burden": f"{_n(p['burden'])} BU" if p.get("burden") is not None else ""}
+           "burden": f"{_n(p['burden'])}bu" if p.get("burden") is not None else ""}
     stats = []
     w = p.get("weapon")
     if w:
