@@ -55,7 +55,7 @@ def _parts(p, powers=None):
     needs (who can use it), crafter. Each a string, "" when the item hasn't got it."""
     got = {"value": f"{_n(p['value'])}p" if p.get("value") is not None else "",
            "burden": f"{_n(p['burden'])}bu" if p.get("burden") is not None else ""}
-    stats, clip = [], []         # the line's, and the clipboard's (its armor as 120al · 1.3s, 1.0p, ...)
+    stats = []
     w = p.get("weapon")
     if w:
         bits = [sk.skill_name(w["skill"])] if w.get("skill") else []
@@ -67,18 +67,14 @@ def _parts(p, powers=None):
             bits.append(f"Speed {w['speed']}")
         bits += [s for s in (_pct(w.get("offense", 1), "attack"), _pct(w.get("defense", 1), "defense")) if s]
         stats.append(", ".join(bits))
-        clip.append(stats[-1])
     if p.get("armor_level"):
         prot = p.get("protection")
         stats.append(f"AL {p['armor_level']}" + (f" ({', '.join(f'{k}{v:.1f}' for k, v in zip(PROTECTIONS, prot))})" if prot else ""))
-        clip.append(f"{p['armor_level']}al" + (f" · {', '.join(f'{v:.1f}{k.lower()}' for k, v in zip(PROTECTIONS, prot))}" if prot else ""))
-    rest = []
     if p.get("boost_type") in BOOSTS and p.get("boost"):
-        rest.append(f"Restores {p['boost']} {BOOSTS[p['boost_type']]}")
+        stats.append(f"Restores {p['boost']} {BOOSTS[p['boost_type']]}")
     if p.get("max_uses"):
-        rest.append(f"{p.get('uses') if p.get('uses') is not None else '?'}/{p['max_uses']} uses")
-    got["stats"] = " · ".join(s for s in stats + rest if s)
-    got["stats_clip"] = " · ".join(s for s in clip + rest if s)
+        stats.append(f"{p.get('uses') if p.get('uses') is not None else '?'}/{p['max_uses']} uses")
+    got["stats"] = " · ".join(s for s in stats if s)
     got["spells"] = ", ".join(short_spell(s) for s in p["spells"]) if p.get("spells") else ""
     magic = [f"Diff {p['difficulty']}" if p.get("difficulty") is not None else "",
              f"SC {p['spellcraft']}" if p.get("spellcraft") is not None else "",
@@ -87,7 +83,6 @@ def _parts(p, powers=None):
     if hours is not None:
         magic[2] += f" ({_duration(hours)})"
     got["magic"] = ", ".join(m for m in magic if m)
-    got["magic_clip"] = ", ".join(m for m in (magic[0], magic[2]) if m)     # (the clipboard leaves spellcraft out)
     needs = []
     if p.get("heritage"):
         needs.append(f"{p['heritage']} only")
@@ -114,10 +109,51 @@ def describe(name, p, powers=None):
 
 
 def clip_lines(p, powers=None):
-    """What the clipboard gets (no name: the game's chat already says it), as up to three lines: what it does
-    (weapon, armor as 120al · 1.3s, 1.0p, ..., restores, uses); value, burden and what it takes to use (difficulty, mana, limits,
-    crafter: only spaces between, no commas but the numbers'); its spells. Lines with nothing on them are left out."""
-    g = _parts(p, powers)
-    lines = [g["stats_clip"], " ".join(s for s in (g["value"], g["burden"], g["magic_clip"], g["needs"], g["crafter"]) if s).replace(", ", " "),
-             g["spells"]]
+    """What the clipboard gets (no name: the game's chat already says it), short, as up to three lines -- a number
+    first, then what it is, in lower case and against it (2,988bu, 105diff, 25speed):
+        what it does:      weapon (skill, 1-3slash/pierce, 25speed, +5%attack), armor (120al · 1.3s, 1.0p, ...),
+                           50health restored, 3/10uses
+        value and needs:   5,949p 2,988bu 105diff 242mana (~4h) 5+rank 200+bow 20+level, heritage, crafter
+                           (spaces between, no spellcraft)
+        its spells, short (Impen III)
+    Lines with nothing on them are left out."""
+    first = []
+    w = p.get("weapon")
+    if w:
+        bits = [sk.skill_name(w["skill"])] if w.get("skill") else []
+        if w.get("damage", 0) > 0:
+            lo = int(w["damage"] * (1 - (w.get("variance") or 0)) + 0.5)
+            kinds = "/".join(n.lower() for bit, n in DAMAGE_TYPES if w.get("damage_type", 0) & bit)
+            bits.append(f"{lo}-{w['damage']}{kinds}" if lo != w["damage"] else f"{w['damage']}{kinds}")
+        if w.get("speed"):
+            bits.append(f"{w['speed']}speed")
+        bits += [s.replace(" ", "") for s in (_pct(w.get("offense", 1), "attack"), _pct(w.get("defense", 1), "defense")) if s]
+        first.append(", ".join(bits))
+    if p.get("armor_level"):
+        prot = p.get("protection")
+        first.append(f"{p['armor_level']}al" + (f" · {', '.join(f'{v:.1f}{k.lower()}' for k, v in zip(PROTECTIONS, prot))}" if prot else ""))
+    if p.get("boost_type") in BOOSTS and p.get("boost"):
+        first.append(f"{p['boost']}{BOOSTS[p['boost_type']].lower()}")
+    if p.get("max_uses"):
+        first.append(f"{p.get('uses') if p.get('uses') is not None else '?'}/{p['max_uses']}uses")
+    second = [f"{_n(p['value'])}p" if p.get("value") is not None else "",
+              f"{_n(p['burden'])}bu" if p.get("burden") is not None else "",
+              f"{p['difficulty']}diff" if p.get("difficulty") is not None else ""]
+    if p.get("max_mana") is not None:
+        hours = mana_hours(p.get("max_mana"), p.get("spells"), powers or {})
+        second.append(f"{p['max_mana']}mana" + (f" ({_duration(hours)})" if hours is not None else ""))
+    if p.get("rank_limit") is not None:
+        second.append(f"{p['rank_limit']}+rank")
+    if p.get("skill_limit") is not None and p.get("skill_limit_type"):
+        second.append(f"{p['skill_limit']}+{sk.skill_name(p['skill_limit_type']).lower()}")
+    if p.get("min_level") is not None:
+        second.append(f"{p['min_level']}+level")
+    if p.get("max_level") is not None:
+        second.append(f"<={p['max_level']}level")
+    if p.get("heritage"):
+        second.append(f"{p['heritage']} only")
+    if p.get("crafter"):
+        second.append(f"made by {p['crafter']}")
+    third = ", ".join(short_spell(s) for s in p["spells"]) if p.get("spells") else ""
+    lines = [" · ".join(s for s in first if s), " ".join(s for s in second if s), third]
     return [line for line in lines if line]
