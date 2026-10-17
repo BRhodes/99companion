@@ -4,7 +4,7 @@
 
 - The companion restarts whenever its code changes (an edit, or an update), or when it asks to (exit code
   RESTART: a setting that needs a fresh start, such as the game folder).
-- The relay starts with the flags launcher.local.json asks for (launcher.relay_args), after any relay
+- The relay starts with the flags launcher.local.json asks for (relay_flags), after any relay
   already running is stopped (relay-stop.cmd). It restarts when a file it runs changes, when those flags
   change, and if it exits on its own. A restart drops about a second of game traffic; sessions carry on.
   A relay that someone else started meanwhile (relay.cmd) is left alone until it goes away.
@@ -12,6 +12,7 @@
 Closing the window stops both; game clients already started keep running.
 """
 
+import json
 import logging
 import os
 import socket
@@ -20,14 +21,13 @@ import sys
 import time
 from pathlib import Path
 
-from . import launcher
-
 PACKAGE = Path(__file__).parent
 ROOT = PACKAGE.parent
 WATCH_SUFFIXES = {".py", ".html", ".json"}
 RELAY_FILES = {"relay.py", "proxy.py", "capture.py", "storetint.py", "netcrc.py", "framing.py", "binreader.py",
-               "messages.py", "launcher.py"}  # modules the long-lived relay process runs
+               "messages.py"}  # modules the long-lived relay process runs
 RESTART = 3          # the companion's exit code for "start me again"
+SETTINGS = ROOT / "launcher.local.json"   # (companion/launcher.py writes it: Settings > Game)
 TAP = ("127.0.0.1", 9119)
 POLL = 0.5
 SETTLE = 0.4  # editors write files in several steps; wait for quiet before restarting
@@ -64,6 +64,15 @@ def stop(proc):
             proc.wait()
 
 
+def relay_flags():
+    """The relay's command-line flags launcher.local.json asks for: "tint" is --tint-store."""
+    try:
+        values = json.loads(SETTINGS.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        values = {}
+    return ["--tint-store"] if isinstance(values, dict) and values.get("tint") is True else []
+
+
 def tap_open():
     try:
         socket.create_connection(TAP, timeout=0.5).close()
@@ -86,7 +95,7 @@ class Relay:
     def start(self, take_over=False):
         if take_over:
             subprocess.run(["cmd", "/c", str(ROOT / "relay-stop.cmd")], cwd=ROOT)
-        self.flags = launcher.relay_args()
+        self.flags = relay_flags()
         log.info("starting relay%s", " " + " ".join(self.flags) if self.flags else "")
         self.proc = subprocess.Popen([sys.executable, "-m", "companion.relay", *self.flags], cwd=ROOT)
         self.started = time.monotonic()
@@ -99,7 +108,7 @@ class Relay:
 
     def tick(self):
         if self.proc is not None and self.proc.poll() is None:
-            if launcher.relay_args() != self.flags:
+            if relay_flags() != self.flags:
                 self.restart("its settings changed")
             return
         now = time.monotonic()

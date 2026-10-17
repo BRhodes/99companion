@@ -10,7 +10,11 @@ surroundings. Windows.
 2. Double-click **`start.cmd`**. The first time, it sets up its own Python inside the folder (a one-time
    download of about 40 MB: no administrator rights, nothing installed on the system). A window opens (leave
    it open while you play: closing it stops the companion) and the dashboard opens in your browser.
-3. Point the game at the relay: in your launcher, a server with host `127.0.0.1` and port `9110`.
+3. In the dashboard's **Settings › Accounts**, add your account (name and password). Its **▶** button, in the
+   header, starts the game logged in, through the companion. (The game folder is found on its own; if it
+   isn't, Settings › Game says so and lets you pick it.)
+
+Or start the game your usual way, pointed at host `127.0.0.1`, port `9110`.
 
 Next time, just double-click `start.cmd`. Updates come from GitHub on their own (see Updates).
 
@@ -75,24 +79,28 @@ draw the map and its walk grid from `cell.dat` the first time; they're cached in
 
 ### Launching accounts
 
-`account1.cmd` / `account2.cmd` start `client-windows-3d-accel.exe` for that account through the relay.
-Credentials come from `accounts.local.json` (git-ignored, plain text; the first run creates a blank template).
-Before launching, `tools/aclaunch.py` closes the client's single-instance lock (the named semaphore
+Settings › Accounts keeps your accounts; **▶ name** in the header starts `client-windows-3d-accel.exe`
+for one through the relay, logged in (`account1.cmd` / `account2.cmd` do the same for accounts 1 and 2). They're
+kept in `accounts.local.json` (git-ignored, plain text, this computer only); the dashboard never shows a password
+again, and launching takes only an account's number, so nothing can ask it to run another program. The game
+folder is Settings › Game (`launcher.local.json`): found from the registry or the usual places until you pick
+one. Before launching, `tools/aclaunch.py` closes the client's single-instance lock (the named semaphore
 "Empyrean Client") in any running client of yours, so a second client can start, with plain Windows calls
 (no administrator rights or extra tools). `unlock-client.cmd` only clears the lock. The launcher refuses to
 start if the relay isn't running. Check your server's rules on running more than one client.
 
-The stock client stops drawing when its window loses focus. `bgpatch.cmd` (asks for administrator rights,
-since it writes into Program Files) makes `client-windows-3d-accel-bg.exe` next to the original with one
-instruction removed so losing focus no longer deactivates the game; the original exe is never changed. An
-account with `"background": true` in `accounts.local.json` starts that copy. See `tools/bgpatch.py`.
+The stock client stops drawing when its window loses focus. Settings › Game › *Make the background copy*
+(or `bgpatch.cmd`; Windows asks for administrator rights, since it writes into Program Files) makes
+`client-windows-3d-accel-bg.exe` next to the original with one instruction removed so losing focus no longer deactivates the game; the original exe is never changed. An
+account with *background* ticked (`"background": true`) starts that copy. See `tools/bgpatch.py`.
 
 ### Vendor backgrounds (optional)
 
-`relay-tint.cmd` runs the relay with `--tint-store`: in a vendor's window, the spell components on your
+Settings › Game › *Vendor backgrounds* runs the relay with `--tint-store` (start.cmd's window restarts it;
+`relay-tint.cmd` does the same by hand): in a vendor's window, the spell components on your
 shopping list and the rest show on backgrounds you pick (Comps › Order). It rewrites only the vendor's stock
 list on its way to your client (the item type that picks an icon's background); what you buy, and everything
-sent to the server, is untouched. `relay.cmd` runs without it.
+sent to the server, is untouched.
 
 ## Updates
 

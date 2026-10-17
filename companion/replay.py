@@ -5,24 +5,24 @@
 
 import argparse
 import json
+from pathlib import Path
 
 from .capture import read_capture
 from .dat import DatFile, load_components, load_spells
 from .pipeline import Pipeline
 from .tracker import Tracker
-
-DEFAULT_DAT = r"C:\Program Files (x86)\Microsoft Games\Asheron's Call\portal.dat"
+from .launcher import game_dir
 
 
 def main():
     p = argparse.ArgumentParser(prog="companion.replay")
     p.add_argument("capture")
-    p.add_argument("--dat", default=DEFAULT_DAT)
+    p.add_argument("--dat", help="portal.dat (default: the game folder, Settings > Game)")
     p.add_argument("--events", action="store_true", help="print every decoded event")
     args = p.parse_args()
 
     try:
-        dat = DatFile(args.dat)
+        dat = DatFile(args.dat or str(Path(game_dir()) / "portal.dat"))
         spells, components = load_spells(dat), load_components(dat)
     except OSError:
         spells, components = {}, {}

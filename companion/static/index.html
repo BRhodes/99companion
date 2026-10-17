@@ -17,7 +17,7 @@
 * { box-sizing: border-box; }
 /* native controls (their dropdowns, date pickers, spinners, checkboxes) in the page's theme, light or dark */
 :root { color-scheme: light dark; }
-input[type=number], input[type=text], input[type=search], input:not([type]), input[type=datetime-local], select, textarea {
+input[type=number], input[type=text], input[type=password], input[type=search], input:not([type]), input[type=datetime-local], select, textarea {
   background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: 4px; font: inherit; }
 input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); }
 input[type=checkbox], input[type=range] { accent-color: var(--accent); }
@@ -557,6 +557,16 @@ td.num, th.num { text-align: right; }
 #xpStats #xpReset { margin-left: auto; }
 .vital.XP > i { background: #8e44ad88; }
 .vital.XP.goal > i { background: #2e9e8f88; }
+#launchBar { display: inline-flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+#launchBar .chip, table.accts .chip { color: var(--ink); }
+.chip.act-now { border-color: var(--bad); color: var(--bad) !important; background: color-mix(in srgb, var(--bad) 12%, transparent); font-weight: 600; }
+.chip.act-soon { border-color: var(--warn); color: var(--warn) !important; background: color-mix(in srgb, var(--warn) 12%, transparent); font-weight: 600; }
+:is(#launchBar, table.accts) .chip.on { border-color: #3a82f6; color: #3a82f6 !important; background: rgba(58,130,246,.12); cursor: default; }
+.ocfg .have { color: var(--good); } .ocfg .miss { color: var(--bad); font-weight: 600; }
+table.accts { border-collapse: collapse; font-size: 13px; width: auto; }
+table.accts th { text-align: left; font-weight: 600; color: var(--muted); font-size: 12px; padding: 0 10px 4px 0; }
+table.accts td { padding: 4px 10px 4px 0; vertical-align: middle; }
+table.accts tr.add td { border-top: 1px solid var(--line); padding-top: 8px; }
 #updBanner .upd { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; padding: 3px 10px; border-radius: 12px;
   border: 1px solid #3a82f6; color: var(--ink); background: rgba(58,130,246,.12); }
 @media (min-width: 1100px) { #expGrid { grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) minmax(0, 1fr); }
@@ -596,6 +606,7 @@ td.num, th.num { text-align: right; }
   <h1>'99 Companion</h1>
   <nav id="tabs" aria-label="Characters"></nav>
   <span class="stat" id="connStat"><span id="dot" class="dot"></span><span id="conn">waiting for client</span></span>
+  <span id="launchBar"></span>
   <span style="flex:1"></span>
   <span id="updBanner"></span>
 </header>
@@ -663,8 +674,10 @@ td.num, th.num { text-align: right; }
 <div class="page" id="page-config">
   <div class="grid">
     <nav class="subtabs wide" id="cfgTabs" aria-label="Config">
-      <button data-cfg-tab="dashboard">Dashboard</button><button data-cfg-tab="items">Items</button><button data-cfg-tab="updates">Updates</button>
+      <button data-cfg-tab="game">Game</button><button data-cfg-tab="accounts">Accounts</button><button data-cfg-tab="dashboard">Dashboard</button><button data-cfg-tab="items">Items</button><button data-cfg-tab="updates">Updates</button>
     </nav>
+    <section class="wide" data-cfg="game"><h2>Game</h2><div id="cfgGame"></div></section>
+    <section class="wide" data-cfg="accounts"><h2>Accounts</h2><div id="cfgAccounts"></div></section>
     <section class="wide" data-cfg="updates"><h2>Updates</h2><div id="cfgUpdates"></div></section>
     <section class="wide" data-cfg="items">
       <h2>Weapons and shields</h2>
@@ -1051,6 +1064,7 @@ document.addEventListener("pointerdown", e => {
 function render() {
   if (!state) return;
   try { renderUpdate(state.update); } catch (e) { console.error("render update failed", e); }
+  try { renderLauncher(state.launcher, state.sessions || []); } catch (e) { console.error("render launcher failed", e); }
   const sessions = state.sessions || [];
   let cur = sessions.find(s => s.session.id === selected && !s.session.ended);
   // the character you picked last wins over whatever logged in most recently
@@ -1326,6 +1340,116 @@ function goalBar(goal) {
   return `<div class="vital XP goal" title="${esc(goal.name)}: ${goal.still ? `${fmt(goal.still)} XP still to earn` : "enough XP to reach it now"} (the Experience page)">
     <i style="width:${goal.pct.toFixed(1)}%"></i><span>${esc(goal.name)} · ${goal.pct.toFixed(0)}% · ${goal.still ? `${big(goal.still)} to go` : "ready"}</span></div>`;
 }
+
+// ---- the launcher (launcher.py): the header's launch buttons, Settings > Game and Settings > Accounts ----------
+const launching = new Set();          // account keys whose client is being started
+function onlineAccounts(sessions) {
+  return new Set(sessions.filter(s => !s.session.ended && !s.status.logged_out && s.status.account)
+    .map(s => s.status.account.toLowerCase()));
+}
+function launchButton(a, online) {
+  if (online.has(a.account.toLowerCase())) return `<span class="chip on" title="Logged in">● ${esc(a.account)}</span>`;
+  if (launching.has(a.key)) return `<span class="chip">Starting ${esc(a.account)}…</span>`;
+  return a.password ? `<button class="chip" data-launch="${esc(a.key)}" title="Start the game for this account">▶ ${esc(a.account)}</button>`
+    : `<button class="chip" data-goto-cfg="accounts" title="No password saved for it">▶ ${esc(a.account)}?</button>`;
+}
+function renderLauncher(L, sessions) {
+  const bar = $("launchBar");
+  if (!L) { setHTML(bar, ""); return; }
+  const online = onlineAccounts(sessions);
+  setHTML(bar, !L.game.ok ? `<button class="chip act-now" data-goto-cfg="game">Set up the game folder</button>`
+    : !L.accounts.length ? `<button class="chip act-soon" data-goto-cfg="accounts">＋ Add your account</button>`
+    : L.accounts.map(a => launchButton(a, online)).join(""));
+  if (page !== "config") return;
+  const tick = (ok, what) => `<span class="${ok ? "have" : "miss"}">${ok ? "✓" : "✗"} ${what}</span>`;
+  const g = L.game, game = $("cfgGame");
+  if (cfgTab === "game" && game && !game.contains(document.activeElement)) setHTML(game, `<div class="ocfg" style="max-width:760px">
+    <div class="k">Game folder</div><div class="col">
+      <span><b>${esc(g.dir || "-")}</b> <span class="muted">${g.picked ? "picked" : g.ok ? "found on its own" : ""}</span></span>
+      <span class="row">${tick(g.portal, "portal.dat")} ${tick(g.cell, "cell.dat")} ${tick(g.client, "the game (client-windows-3d-accel.exe)")}</span>
+      <div class="row"><button class="chip ${g.ok ? "" : "act-now"}" data-game-browse>Choose the folder…</button><button class="chip" data-game-find>Find it for me</button>
+        <label>or type it: <input type="text" data-game-dir value="${esc(g.picked ? g.dir : "")}" placeholder="C:\\…\\Asheron's Call" style="width:340px"></label></div>
+      <span class="hint2">The folder the game's installed in. Spells, icons and the map come from its portal.dat and cell.dat; changing it restarts the companion.</span></div>
+    <div class="k">Play in the background</div><div class="col">
+      ${g.background ? tick(true, "the background copy is made") : `<button class="chip" data-game-bg ${g.client ? "" : "disabled"}>Make the background copy</button>`}
+      <span class="hint2">The game stops drawing when its window isn't the one in front. This makes a copy of it beside the original that keeps going (the original isn't changed). Windows asks for permission, since it writes into the game folder. Then tick "background" on an account.</span></div>
+    <div class="k">Vendor backgrounds</div><div class="col">
+      <label><input type="checkbox" data-launch-tint ${L.tint ? "checked" : ""}> in a vendor's window, show the spell components on your shopping list on their own background</label>
+      <span class="hint2">The backgrounds are picked in Comps › Order. It changes only how the vendor's list looks to you; what you buy is untouched. ${L.supervised
+        ? "The relay restarts when this changes (about a second; you stay logged in)." : "This window isn't running the relay: restart it with relay-tint.cmd (on) or relay.cmd (off)."}</span></div></div>`);
+  const box = $("cfgAccounts");
+  if (cfgTab !== "accounts" || !box || box.contains(document.activeElement)) return;
+  const row = a => `<tr><td><input type="text" data-acct-name="${esc(a.key)}" value="${esc(a.account)}" style="width:150px"></td>
+    <td><input type="password" data-acct-pw="${esc(a.key)}" placeholder="${a.password ? "saved: type to change" : "not saved yet"}" style="width:170px" autocomplete="new-password"></td>
+    <td><label><input type="checkbox" data-acct-bg="${esc(a.key)}" ${a.background ? "checked" : ""} ${g.background ? "" : "disabled"}> background</label></td>
+    <td>${launchButton(a, online)}</td><td><button class="chip" data-acct-del="${esc(a.key)}">Remove</button>${a.dir ? ` <span class="muted">from ${esc(a.dir)}</span>` : ""}</td></tr>`;
+  setHTML(box, `<table class="accts"><thead><tr><th>Account</th><th>Password</th><th></th><th></th><th></th></tr></thead><tbody>
+    ${L.accounts.map(row).join("")}
+    <tr class="add"><td><input type="text" id="acctNewName" placeholder="account name" style="width:150px"></td>
+      <td><input type="password" id="acctNewPw" placeholder="password" style="width:170px" autocomplete="new-password"></td>
+      <td><label><input type="checkbox" id="acctNewBg" ${g.background ? "" : "disabled"}> background</label></td>
+      <td><button class="chip ${L.accounts.length ? "" : "act-soon"}" data-acct-add>Add</button></td><td></td></tr></tbody></table>
+    <p class="hint2">Your accounts' log-ins, so ▶ in the header starts the game logged in, through the companion, and as many at once as you
+      have (each start clears the game's one-copy-at-a-time lock first). They're kept in accounts.local.json in this folder, on this computer
+      only: passwords are never shown again or sent anywhere but to the game.${g.background ? "" : " (Background: make the background copy in Settings › Game first.)"}</p>`);
+}
+function launcherPost(path, body, method = "POST") {
+  return fetch(path, {method, headers: {"Content-Type": "application/json", "X-Companion": "1"}, body: body ? JSON.stringify(body) : undefined})
+    .then(r => r.json().then(j => ({ok: r.ok, ...j}))).catch(() => ({ok: false, error: "Couldn't reach the companion."}));
+}
+function gameResult(r) {
+  if (r.cancelled) return;
+  if (!r.ok) return toast(r.error || "That didn't work");
+  toast(r.restart ? "Using it: the companion restarts to read it" : "Using it");
+}
+function addAccount() {
+  const name = $("acctNewName").value.trim(), pw = $("acctNewPw").value;
+  if (!name) return toast("Type the account name");
+  launcherPost("/api/accounts", {account: name, password: pw, background: $("acctNewBg").checked})
+    .then(r => { if (!r.ok) return toast(r.error); $("acctNewName").value = $("acctNewPw").value = ""; document.activeElement.blur(); toast(`Added ${name}`); });
+}
+document.addEventListener("click", e => {
+  const t = e.target;
+  const go = t.closest("[data-goto-cfg]");
+  if (go) {
+    cfgTab = go.dataset.gotoCfg;
+    try { localStorage.setItem("99companion.cfgTab", cfgTab); } catch (e2) {}
+    if (location.hash !== "#config") location.hash = "config"; else render();
+    return;
+  }
+  const l = t.closest("[data-launch]");
+  if (l) {
+    const key = l.dataset.launch;
+    launching.add(key); render();
+    launcherPost(`/api/accounts/${encodeURIComponent(key)}/launch`).then(r => {
+      toast(r.message || r.error || (r.ok ? "Started" : "Couldn't start it"));
+      setTimeout(() => { launching.delete(key); render(); }, r.ok ? 15000 : 0);   // (until its session shows up)
+    });
+  } else if (t.closest("[data-game-browse]")) {
+    toast("Pick the folder in the window that opened");
+    launcherPost("/api/launcher/game/browse").then(gameResult);
+  } else if (t.closest("[data-game-find]")) launcherPost("/api/launcher/game/find").then(gameResult);
+  else if (t.closest("[data-game-bg]")) {
+    toast("Windows will ask for permission…");
+    launcherPost("/api/launcher/game/background").then(r => toast(r.ok ? "The background copy is made" : r.error));
+  } else if (t.closest("[data-acct-add]")) addAccount();
+  else if (t.closest("[data-acct-del]")) {
+    const key = t.closest("[data-acct-del]").dataset.acctDel, a = ((state.launcher || {}).accounts || []).find(x => x.key === key);
+    if (a && confirm(`Remove ${a.account} from your accounts?`)) launcherPost(`/api/accounts/${encodeURIComponent(key)}`, null, "DELETE").then(r => r.ok || toast(r.error));
+  }
+});
+document.addEventListener("keydown", e => {
+  if (e.key === "Enter" && (e.target.id === "acctNewName" || e.target.id === "acctNewPw")) addAccount();
+});
+document.addEventListener("change", e => {
+  const t = e.target, saved = r => { if (!r.ok) toast(r.error); };
+  if (t.matches("[data-game-dir]") && t.value.trim()) launcherPost("/api/launcher/game", {dir: t.value.trim()}, "PUT").then(gameResult);
+  else if (t.matches("[data-launch-tint]")) launcherPost("/api/launcher/settings", {tint: t.checked}, "PUT").then(saved);
+  else if (t.matches("[data-acct-name]") && t.value.trim()) launcherPost(`/api/accounts/${encodeURIComponent(t.dataset.acctName)}`, {account: t.value.trim()}, "PUT").then(saved);
+  else if (t.matches("[data-acct-pw]") && t.value) launcherPost(`/api/accounts/${encodeURIComponent(t.dataset.acctPw)}`, {password: t.value}, "PUT")
+    .then(r => { t.value = ""; r.ok ? toast("Password saved") : toast(r.error); });
+  else if (t.matches("[data-acct-bg]")) launcherPost(`/api/accounts/${encodeURIComponent(t.dataset.acctBg)}`, {background: t.checked}, "PUT").then(saved);
+});
 
 // ---- updates (updater.py): the header's banner, and Settings > Updates -----------------------------------------
 function updPost(path, body, method = "POST") {

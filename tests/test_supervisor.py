@@ -7,7 +7,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from companion import launcher, reloader
+from companion import reloader
 
 
 class FakeProc:
@@ -34,7 +34,7 @@ class SupervisorTest(unittest.TestCase):
         def popen(argv, **kw):
             self.started.append(FakeProc(argv))
             return self.started[-1]
-        for p in (mock.patch.object(launcher, "SETTINGS", self.settings),
+        for p in (mock.patch.object(reloader, "SETTINGS", self.settings),
                   mock.patch.object(reloader.subprocess, "Popen", popen),
                   mock.patch.object(reloader.subprocess, "run"),
                   mock.patch.object(reloader, "tap_open", lambda: self.tap)):

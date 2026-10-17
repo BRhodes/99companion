@@ -15,6 +15,7 @@ import json
 import re
 import logging
 import os
+import sys
 import threading
 import time
 from concurrent.futures.process import BrokenProcessPool
@@ -29,6 +30,7 @@ from .checkpoint import Checkpoints
 from . import clipboard, research, routing
 from .itembook import ItemBook
 from .updater import Updater, save_settings as save_update_settings
+from . import launcher
 from .layouts import LayoutStore
 from .messages import decode
 from .pipeline import Pipeline
@@ -36,7 +38,7 @@ from .store import Store
 from .tracker import SPELL_MODS, Tracker
 from .web import WebServer
 
-DEFAULT_DAT = r"C:\Program Files (x86)\Microsoft Games\Asheron's Call\portal.dat"
+RESTART = 3            # the exit code that asks start.cmd's window (reloader.RESTART) to start the companion again
 KEEP_ENDED = 900.0
 STALE_AFTER = 60.0     # a duplicate session counts as stale once its client is this far behind the newest
 BACKLOG = "backlog"    # the "positions" asked on connecting: its answer means the replay is through
@@ -167,6 +169,9 @@ class Companion:
         self.writer = None      # tap connection, also used to send commands to the relay
         self.shoplists = {}     # session id -> (its character, the dashboard's shopping list {name: how many}), for the relay (--tint-store)
         self.updater = Updater(on_change=lambda: setattr(self, "dirty", True))   # new versions from GitHub
+        self.launcher = launcher.Launcher()   # the game folder, accounts and launching (Settings > Game / Accounts)
+        self.dat_path = Path(dat.path) if getattr(dat, "path", None) else None
+        self.restart = False    # a new game folder: run() ends and the window starts the companion again
 
     # ---- dashboard API -------------------------------------------------------------------------
     def _active_view(self, session_id):
@@ -200,6 +205,8 @@ class Companion:
                     return _json(200, saved)
                 except ValueError:
                     return _json(400, {"error": "bad prefs JSON"})
+        if path.startswith(("/api/launcher", "/api/accounts")):
+            return self._launcher_route(method, path, body)
         if path.startswith("/api/update"):          # the updater: its state, check now, update now, its settings
             if method == "GET" and path == "/api/update":
                 return _json(200, self.updater.state())
@@ -277,6 +284,79 @@ class Companion:
         if self.writer is not None and not self.writer.is_closing():
             self.writer.write(json.dumps({"cmd": "shoplist", "session": session_id, "amounts": amounts,
                                           "buy": got.get("tint_buy"), "other": got.get("tint_other")}).encode() + b"\n")
+
+    def _launcher_route(self, method, path, body):
+        """Settings > Game and Accounts, and the header's launch buttons (launcher.py)."""
+        try:
+            values = json.loads(body or b"{}")
+        except ValueError:
+            return _json(400, {"error": "bad JSON"})
+        if not isinstance(values, dict):
+            return _json(400, {"error": "bad JSON"})
+        parts = path.strip("/").split("/")
+        changed = lambda: (self.launcher.invalidate(), setattr(self, "dirty", True))
+        if method == "GET" and path == "/api/launcher":
+            return _json(200, self.launcher.state())
+        if method == "PUT" and path == "/api/launcher/game":
+            return self._use_game(values.get("dir"))
+        if method == "POST" and path == "/api/launcher/game/find":
+            found = launcher.find_game()
+            if not found:
+                return _json(404, {"error": "The game wasn't found in the usual places: pick its folder"})
+            return self._use_game(found, picked=False)
+        if method == "POST" and path == "/api/launcher/game/browse":
+            async def browse():
+                picked = await launcher.browse()
+                return self._use_game(picked) if picked else _json(200, {"cancelled": True})
+            return browse()
+        if method == "POST" and path == "/api/launcher/game/background":
+            async def background():
+                started = await launcher.make_background_copy(launcher.game_dir())
+                changed()
+                made = launcher.check_game(launcher.game_dir())["background"]
+                return _json(200 if made else 409, {"made": made} if made else
+                             {"error": "The background copy wasn't made" + ("" if started else " (Windows' prompt was declined)")})
+            return background()
+        if method == "PUT" and path == "/api/launcher/settings":
+            if "tint" in values:
+                launcher.save_settings({"tint": values["tint"] is True})
+            changed()
+            return _json(200, self.launcher.state())
+        if parts[:2] == ["api", "accounts"]:
+            key = parts[2] if len(parts) > 2 else None
+            try:
+                if method == "POST" and len(parts) == 2:
+                    key = launcher.save_account(values)
+                elif method == "PUT" and len(parts) == 3:
+                    launcher.save_account(values, key)
+                elif method == "DELETE" and len(parts) == 3:
+                    launcher.delete_account(key)
+                elif method == "POST" and len(parts) == 4 and parts[3] == "launch":
+                    async def launch():
+                        ok, said = await launcher.launch(key)
+                        return _json(200 if ok else 409, {"ok": ok, "message": said})
+                    return launch()
+                else:
+                    return None
+            except ValueError as e:
+                return _json(400, {"error": str(e)})
+            changed()
+            return _json(200, {"key": key, "accounts": launcher.accounts()})
+        return None
+
+    def _use_game(self, folder, picked=True):
+        """Use this game folder (picked: remembered; else found, and found again next time). A new one restarts
+        the companion so it reads that folder's portal.dat and cell.dat."""
+        got = launcher.check_game(folder) if isinstance(folder, str) and folder.strip() else None
+        if not got or not (got["portal"] and got["cell"]):
+            return _json(400, {"error": "That folder doesn't have portal.dat and cell.dat in it", "game": got})
+        launcher.save_settings({"game_dir": got["dir"] if picked else None})
+        self.launcher.invalidate()
+        self.dirty = True
+        restart = Path(got["dir"]) / "portal.dat" != self.dat_path
+        if restart and os.environ.get("COMPANION_SUPERVISED"):
+            self.restart = True
+        return _json(200, {"game": got, "restart": restart})
 
     def _map_png(self):
         if not self.cell_dat or not self.cell_dat.exists():
@@ -572,7 +652,7 @@ class Companion:
         for s in sessions:
             s["characters"] = [{"id": guid, "name": name} for guid, name in chars if name != s["status"].get("character")]
         return {"now": time.time(), "boot": BOOT_ID, "relay": self.relay_up, "sessions": sessions,
-                "update": self.updater.state()}
+                "update": self.updater.state(), "launcher": self.launcher.state()}
 
     def _last_seen(self, snap):
         """A session with its character in the world: remembered for its account. One without (character select,
@@ -639,6 +719,7 @@ class Companion:
 
 
 async def run(args):
+    args.dat = args.dat or str(Path(launcher.game_dir()) / "portal.dat")
     try:
         dat = DatFile(args.dat)
         spells, components = load_spells(dat), load_components(dat)
@@ -674,7 +755,7 @@ async def run(args):
             push["handle"] = loop.call_later(wait, publish_now)
     app.on_dirty = publish_soon
     try:
-        while True:
+        while not app.restart:
             await asyncio.sleep(0.5)
             app.tick()
             if app.dirty and push["handle"] is None:     # (the timer's a safety net; changes push themselves)
@@ -683,13 +764,14 @@ async def run(args):
         follower.cancel()
         web.close()
         store.close()
+    return app.restart
 
 
 def main():
     p = argparse.ArgumentParser(prog="companion", description="AC1999 companion dashboard (reads the relay tap)")
     p.add_argument("--tap", default="127.0.0.1:9119", help="relay tap address (default %(default)s)")
     p.add_argument("--web", type=int, default=8099, help="dashboard port (default %(default)s)")
-    p.add_argument("--dat", default=DEFAULT_DAT, help="portal.dat for spell data (default: the AC install)")
+    p.add_argument("--dat", help="portal.dat for spell data (default: the game folder, Settings > Game)")
     p.add_argument("--db", default="companion.sqlite3", help="event history database (default %(default)s)")
     p.add_argument("--checkpoints", default="checkpoints",
                    help="session checkpoints, for quick restarts (default %(default)s)")
@@ -698,7 +780,8 @@ def main():
     args = p.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s", datefmt="%H:%M:%S")
     try:
-        asyncio.run(run(args))
+        if asyncio.run(run(args)):
+            sys.exit(RESTART)       # start.cmd's window starts it again (reloader)
     except KeyboardInterrupt:
         pass
 

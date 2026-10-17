@@ -12,7 +12,7 @@ check. Your own processes allow this without administrator rights, so no Sysinte
 Accounts live in accounts.local.json next to this repo's README (git-ignored, plain text):
     {"1": {"account": "name", "password": "..."},
      "2": {"account": "...", "password": "...", "dir": "C:\\...\\Asheron's Call2"}}
-"dir" (install folder) and "exe" (client executable) are optional per account. "background": true uses
+"dir" (install folder: else the game folder, Settings > Game) and "exe" (client executable) are optional per account. "background": true uses
 the copy made by tools/bgpatch.py (bgpatch.cmd), which keeps drawing when its window loses focus.
 """
 
@@ -28,10 +28,10 @@ import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
-ACCOUNTS = REPO / "accounts.local.json"
-AC_DIR = Path(r"C:\Program Files (x86)\Microsoft Games\Asheron's Call")
-CLIENT_EXE = "client-windows-3d-accel.exe"
-BACKGROUND_EXE = "client-windows-3d-accel-bg.exe"
+sys.path.insert(0, str(REPO))
+from companion.launcher import ACCOUNTS, BACKGROUND_EXE, CLIENT_EXE, game_dir  # noqa: E402
+
+AC_DIR = Path(game_dir())     # Settings > Game (launcher.local.json), else the folder the game's found in
 LOCK_NAME = "Empyrean Client"
 RELAY = ("127.0.0.1", 9110)
 RELAY_TAP = ("127.0.0.1", 9119)

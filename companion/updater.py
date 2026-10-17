@@ -35,7 +35,7 @@ KEEP = ("journals/", "cache/", "captures/", "checkpoints/", ".git/", "runtime/",
         "VERSION")
 RELAY_FILES = {"companion/relay.py", "companion/proxy.py", "companion/capture.py", "companion/storetint.py",
                "companion/netcrc.py", "companion/framing.py", "companion/binreader.py", "companion/messages.py",
-               "companion/launcher.py", "relay.cmd", "relay-tint.cmd", "relay-stop.cmd"}
+               "relay.cmd", "relay-tint.cmd", "relay-stop.cmd"}
 WINDOW_FILES = {"companion/reloader.py"}   # what start.cmd's window itself runs: new only once it's opened again
 log = logging.getLogger(__name__)
 
