@@ -27,7 +27,7 @@ from . import buffpanel, walkmap, worldmap
 from .routing import Router
 from pathlib import Path
 from .checkpoint import Checkpoints
-from . import appraisal, clipboard, research, routing
+from . import clipboard, research, routing
 from .itembook import ItemBook
 from .updater import Updater, save_settings as save_update_settings
 from . import launcher
@@ -541,15 +541,15 @@ class Companion:
                 self.dirty = True
 
     def _copy_appraisal(self, view):
-        """An item you've just appraised, onto the clipboard as a line of text without its name (when the character
-        has it turned on, prefs copy_appraisals): each replaces the last, out of clipboard history. Never one from a
-        replay. (The dashboard shows and copies the whole line, name and all.)"""
+        """An item you've just appraised, onto the clipboard as up to three lines without its name (appraisal.clip_lines:
+        when the character has it turned on, prefs copy_appraisals): each replaces the last, out of clipboard history.
+        Never one from a replay. (The dashboard shows and copies the one line, name and all.)"""
         d = view.tracker.described
         if d is getattr(view, "copied", None):
             return
         view.copied = d
         prefs = view.prefs() if callable(getattr(view, "prefs", None)) else None
-        text = appraisal.without_name(d["text"]) if d else ""
+        text = "\r\n".join(d.get("clip") or []) if d else ""
         if text and getattr(view, "live", False) and (prefs or {}).get("copy_appraisals"):
             if clipboard.copy(text):
                 log.info("copied the appraisal of %s", d["name"])

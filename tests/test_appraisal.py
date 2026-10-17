@@ -70,8 +70,13 @@ class DescribeTest(unittest.TestCase):
     def test_short_spell_names_and_the_line_without_the_name(self):
         self.assertEqual([appraisal.short_spell(s) for s in ("Impenetrability III", "Impenetrability", "Strength Self II")],
                          ["Impen III", "Impen", "Strength Self II"])
-        self.assertEqual(appraisal.without_name("Steel Hauberk · 5,949p · 2,988 BU"), "5,949p · 2,988 BU")
-        self.assertEqual(appraisal.without_name("Rock"), "")
+        hauberk = {"value": 5949, "burden": 2988, "armor_level": 120, "protection": [1.3, 1.0, 1.0, 0.4, 0.4, 0.6, 0.4],
+                   "spells": ["Impenetrability III"], "difficulty": 105, "spellcraft": 105, "max_mana": 242, "rank_limit": 5}
+        self.assertEqual(appraisal.clip_lines(hauberk, {"Impenetrability III": 100}),
+                         ["AL 120 (S1.3, P1.0, B1.0, C0.4, F0.4, A0.6, L0.4)",
+                          "5,949p · 2,988 BU · Diff 105, SC 105, Mana 242 (~4h) · Rank 5+",
+                          "Impen III"])
+        self.assertEqual(appraisal.clip_lines({"value": 5, "burden": 10}), ["5p · 10 BU"])
 
     def test_how_long_a_full_charge_lasts(self):
         hauberk = {"value": 5949, "burden": 2988, "spells": ["Impenetrability III"], "difficulty": 105, "spellcraft": 105,
@@ -96,13 +101,13 @@ class CopyTest(unittest.TestCase):
         with mock.patch("companion.clipboard.copy", return_value=True) as copy:
             v = self.view()
             Companion._copy_appraisal(None, v)                     # nothing appraised yet
-            v.tracker.described = {"name": "Bow", "text": "Bow · 1p"}
+            v.tracker.described = {"name": "Bow", "text": "Bow · 1p · Bow, Speed 41", "clip": ["Bow, Speed 41", "1p"]}
             Companion._copy_appraisal(None, v)
             Companion._copy_appraisal(None, v)                     # the same one: not again
-            self.assertEqual([c.args[0] for c in copy.call_args_list], ["1p"])     # (without the name)
+            self.assertEqual([c.args[0] for c in copy.call_args_list], ["Bow, Speed 41\r\n1p"])     # (its lines, no name)
             off, replay = self.view(on=False), self.view(live=False)
             for w in (off, replay):
-                w.tracker.described = {"name": "Bow", "text": "x"}
+                w.tracker.described = {"name": "Bow", "text": "x", "clip": ["x"]}
                 Companion._copy_appraisal(None, w)
             self.assertEqual(copy.call_count, 1)
 

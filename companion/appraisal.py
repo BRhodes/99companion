@@ -33,12 +33,6 @@ def short_spell(name):
     return name
 
 
-def without_name(text):
-    """The line without the item's name in front (what the clipboard gets: the game's chat already names it)."""
-    head, sep, rest = text.partition(" · ")
-    return rest if sep else ""
-
-
 def _duration(hours):
     if hours * 60 < 90:
         return f"~{max(1, round(hours * 60))}m"
@@ -55,15 +49,13 @@ def _pct(mod, what):
     return f"{'+' if d > 0 else ''}{d}% {what}" if d else ""
 
 
-def describe(name, p, powers=None):
-    """One line: name · value · burden · what it does (weapon, armor, restores, uses) · spells · its magic (difficulty,
-    spellcraft, mana, and about how long a full charge lasts worn: powers, {spell name: power}) · who can use it.
-    Parts it doesn't have are left out."""
-    parts = [name or "Item"]
-    if p.get("value") is not None:
-        parts.append(f"{_n(p['value'])}p")
-    if p.get("burden") is not None:
-        parts.append(f"{_n(p['burden'])} BU")
+def _parts(p, powers=None):
+    """The line's parts, by what they are: value / burden, stats (weapon, armor, restores, uses), spells, magic
+    (difficulty, spellcraft, mana, and about how long a full charge lasts worn: powers, {spell name: power}),
+    needs (who can use it), crafter. Each a string, "" when the item hasn't got it."""
+    got = {"value": f"{_n(p['value'])}p" if p.get("value") is not None else "",
+           "burden": f"{_n(p['burden'])} BU" if p.get("burden") is not None else ""}
+    stats = []
     w = p.get("weapon")
     if w:
         bits = [sk.skill_name(w["skill"])] if w.get("skill") else []
@@ -74,24 +66,23 @@ def describe(name, p, powers=None):
         if w.get("speed"):
             bits.append(f"Speed {w['speed']}")
         bits += [s for s in (_pct(w.get("offense", 1), "attack"), _pct(w.get("defense", 1), "defense")) if s]
-        parts.append(", ".join(bits))
+        stats.append(", ".join(bits))
     if p.get("armor_level"):
         prot = p.get("protection")
-        parts.append(f"AL {p['armor_level']}" + (f" ({', '.join(f'{k}{v:.1f}' for k, v in zip(PROTECTIONS, prot))})" if prot else ""))
+        stats.append(f"AL {p['armor_level']}" + (f" ({', '.join(f'{k}{v:.1f}' for k, v in zip(PROTECTIONS, prot))})" if prot else ""))
     if p.get("boost_type") in BOOSTS and p.get("boost"):
-        parts.append(f"Restores {p['boost']} {BOOSTS[p['boost_type']]}")
+        stats.append(f"Restores {p['boost']} {BOOSTS[p['boost_type']]}")
     if p.get("max_uses"):
-        parts.append(f"{p.get('uses') if p.get('uses') is not None else '?'}/{p['max_uses']} uses")
-    if p.get("spells"):
-        parts.append(", ".join(short_spell(s) for s in p["spells"]))
+        stats.append(f"{p.get('uses') if p.get('uses') is not None else '?'}/{p['max_uses']} uses")
+    got["stats"] = " · ".join(s for s in stats if s)
+    got["spells"] = ", ".join(short_spell(s) for s in p["spells"]) if p.get("spells") else ""
     magic = [f"Diff {p['difficulty']}" if p.get("difficulty") is not None else "",
              f"SC {p['spellcraft']}" if p.get("spellcraft") is not None else "",
              f"Mana {p['max_mana']}" if p.get("max_mana") is not None else ""]     # its capacity (what's in it now changes)
     hours = mana_hours(p.get("max_mana"), p.get("spells"), powers or {}) if magic[2] else None
     if hours is not None:
         magic[2] += f" ({_duration(hours)})"
-    if any(magic):
-        parts.append(", ".join(m for m in magic if m))
+    got["magic"] = ", ".join(m for m in magic if m)
     needs = []
     if p.get("heritage"):
         needs.append(f"{p['heritage']} only")
@@ -103,8 +94,25 @@ def describe(name, p, powers=None):
         needs.append(f"Level {p['min_level']}+")
     if p.get("max_level") is not None:
         needs.append(f"Level {p['max_level']} or below")
-    if needs:
-        parts.append(", ".join(needs))
-    if p.get("crafter"):
-        parts.append(f"made by {p['crafter']}")
-    return " · ".join(parts)
+    got["needs"] = ", ".join(needs)
+    got["crafter"] = f"made by {p['crafter']}" if p.get("crafter") else ""
+    return got
+
+
+def describe(name, p, powers=None):
+    """One line: name · value · burden · what it does (weapon, armor, restores, uses) · spells · its magic (difficulty,
+    spellcraft, mana, and about how long a full charge lasts worn) · who can use it. Parts it doesn't have are left
+    out."""
+    g = _parts(p, powers)
+    parts = [name or "Item", g["value"], g["burden"], g["stats"], g["spells"], g["magic"], g["needs"], g["crafter"]]
+    return " · ".join(s for s in parts if s)
+
+
+def clip_lines(p, powers=None):
+    """What the clipboard gets (no name: the game's chat already says it), as up to three lines: what it does
+    (weapon, armor, restores, uses); value, burden and what it takes to use (difficulty, spellcraft, mana, limits,
+    crafter); its spells. Lines with nothing on them are left out."""
+    g = _parts(p, powers)
+    lines = [g["stats"], " · ".join(s for s in (g["value"], g["burden"], g["magic"], g["needs"], g["crafter"]) if s),
+             g["spells"]]
+    return [line for line in lines if line]

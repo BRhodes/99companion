@@ -253,12 +253,14 @@ class Tracker:
         obj = self.objects.get(ev["object"], {})
         # an item you appraised (not a creature or player), and it worked: a line to paste (appraisal.py)
         prof = ev.get("profile")
-        text = appraisal.describe(obj.get("name"), prof, self._spell_powers()) if ev["success"] and prof and not prof.get("creature") else None
+        item = ev["success"] and prof and not prof.get("creature")
+        powers = self._spell_powers() if item else None
+        text = appraisal.describe(obj.get("name"), prof, powers) if item else None
         if ev["success"] and prof and prof.get("burden") is not None:
             self.appraised_burden[ev["object"]] = prof["burden"]
         if text:
             self.described = {"ts": now, "object": ev["object"], "name": obj.get("name", "?"), "text": text,
-                              "profile": prof}   # (a new one each time)
+                              "clip": appraisal.clip_lines(prof, powers), "profile": prof}   # (a new one each time)
         for a in self.appraisals:
             if a["object"] == ev["object"] and a["success"] is None:
                 a["success"], a["text"] = ev["success"], text
