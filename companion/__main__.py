@@ -309,9 +309,21 @@ class Companion:
                 picked = await launcher.browse()
                 return self._use_game(picked) if picked else _json(200, {"cancelled": True})
             return browse()
+        if method == "POST" and path == "/api/launcher/pick-folder":      # (an account's own folder: just picked, not kept)
+            async def pick():
+                start = values.get("start") if isinstance(values.get("start"), str) else None
+                picked = await launcher.browse(start, "Pick the Asheron's Call folder this account starts from (the one "
+                                                      "with client-windows-3d-accel.exe in it)")
+                if not picked:
+                    return _json(200, {"cancelled": True})
+                try:
+                    return _json(200, {"dir": launcher.check_account_dir(picked)})
+                except ValueError as e:
+                    return _json(400, {"error": str(e)})
+            return pick()
         if method == "POST" and path == "/api/launcher/game/background":
             async def background():
-                started = await launcher.make_background_copy(launcher.game_dir())
+                started = await launcher.make_background_copy()
                 changed()
                 made = launcher.check_game(launcher.game_dir())["background"]
                 return _json(200 if made else 409, {"made": made} if made else

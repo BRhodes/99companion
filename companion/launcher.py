@@ -111,22 +111,38 @@ def _key_order(k):
 
 
 def accounts(path=None, running=None):
-    """[{key, account, password: there is one, background, dir, running: its client is running here}] -- never
-    a password itself. (running: from the clients' own command lines; running=None reads them now.)"""
+    """[{key, account, password: there is one, background, dir: its own game folder ("": the game folder),
+    has_background: the background copy is in the folder it starts from, running: its client is running here}]
+    -- never a password itself. (running: from the clients' own command lines; running=None reads them now.)"""
     out = []
     running = running_accounts() if running is None else running
+    game = None
     for k, a in sorted(_accounts_raw(path).items(), key=lambda kv: _key_order(kv[0])):
         if a.get("account"):
+            folder = a.get("dir") or (game := game or game_dir())
             out.append({"key": k, "account": str(a["account"]), "password": bool(a.get("password")),
                         "background": a.get("background") is True, "dir": str(a.get("dir") or ""),
+                        "has_background": (Path(folder) / BACKGROUND_EXE).is_file(),
                         "running": str(a["account"]).lower() in running})
     return out
 
 
+def check_account_dir(folder):
+    """An account's own game folder, as it's kept: one with the game's client in it ("" for the game folder).
+    ValueError for one without it -- launching only ever runs the client found there."""
+    folder = str(folder or "").strip()
+    if not folder:
+        return ""
+    if not (Path(folder) / CLIENT_EXE).is_file():
+        raise ValueError(f"That folder doesn't have the game ({CLIENT_EXE}) in it")
+    return str(Path(folder))
+
+
 def save_account(values, key=None, path=None):
     """Add an account (key None: the first free number) or change one: account, password (blank or missing:
-    keep the saved one), background. Anything else an account has (dir, exe) is kept. -> its key.
-    ValueError for a missing name or an unknown key."""
+    keep the saved one), background, dir (its own game folder, with the client in it; "" for the game folder).
+    Anything else an account has (exe) is kept. -> its key. ValueError for a missing name, a folder without the
+    game, or an unknown key."""
     raw = _accounts_raw(path)
     name = str(values.get("account") if values.get("account") is not None else (raw.get(key) or {}).get("account") or "").strip()
     if not name or len(name) > MAX_NAME or ":" in name:
@@ -134,6 +150,7 @@ def save_account(values, key=None, path=None):
     password = values.get("password")
     if password is not None and (not isinstance(password, str) or len(password) > MAX_PASSWORD):
         raise ValueError("a password of up to %d characters" % MAX_PASSWORD)
+    folder = check_account_dir(values["dir"]) if isinstance(values.get("dir"), str) else None
     if key is None:
         key = next(str(n) for n in range(1, len(raw) + 2) if not (raw.get(str(n)) or {}).get("account"))
     elif key not in raw:
@@ -143,6 +160,11 @@ def save_account(values, key=None, path=None):
         entry["password"] = password
     if "background" in values:
         entry["background"] = values["background"] is True
+    if folder is not None:
+        if folder:
+            entry["dir"] = folder
+        else:
+            entry.pop("dir", None)
     raw[key] = entry
     _write_accounts(raw, path)
     return key
@@ -265,16 +287,17 @@ BROWSE = r"""
 [Console]::OutputEncoding = [Text.Encoding]::UTF8
 Add-Type -AssemblyName System.Windows.Forms
 $d = New-Object System.Windows.Forms.FolderBrowserDialog
-$d.Description = "Pick your Asheron's Call folder (the one with portal.dat and cell.dat in it)"
+$d.Description = $env:COMPANION_BROWSE_TITLE
 $d.SelectedPath = $env:COMPANION_GAME_DIR
 $owner = New-Object System.Windows.Forms.Form -Property @{TopMost = $true; ShowInTaskbar = $false}
 if ($d.ShowDialog($owner) -eq 'OK') { $d.SelectedPath }
 """
 
 
-async def browse():
-    """Windows' folder picker, on top of everything. -> the folder picked, or None."""
-    env = dict(os.environ, COMPANION_GAME_DIR=game_dir())
+async def browse(start=None, title="Pick your Asheron's Call folder (the one with portal.dat and cell.dat in it)"):
+    """Windows' folder picker, on top of everything, starting at `start` (else the game folder). -> the folder
+    picked, or None."""
+    env = dict(os.environ, COMPANION_GAME_DIR=start or game_dir(), COMPANION_BROWSE_TITLE=title)
     proc = await asyncio.create_subprocess_exec("powershell", "-NoProfile", "-STA", "-Command", BROWSE, env=env,
                                                 stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.DEVNULL)
     out, _ = await proc.communicate()
@@ -282,12 +305,12 @@ async def browse():
     return picked or None
 
 
-async def make_background_copy(folder):
-    """tools/bgpatch.py on the game folder, as administrator (it writes into Program Files): Windows asks first.
-    -> False when it couldn't be started (the prompt declined)."""
+async def make_background_copy():
+    """tools/bgpatch.py, as administrator (it writes into Program Files: Windows asks first), on the game folder
+    and every account's own folder. -> False when it couldn't be started (the prompt declined)."""
     script = ("Start-Process -Verb RunAs -WindowStyle Hidden -Wait -FilePath $env:PY -ArgumentList "
-              "('\"' + $env:SCRIPT + '\"'), ('\"' + $env:GAME + '\"')")
-    env = dict(os.environ, PY=sys.executable, SCRIPT=str(ROOT / "tools" / "bgpatch.py"), GAME=str(folder))
+              "('\"' + $env:SCRIPT + '\"')")
+    env = dict(os.environ, PY=sys.executable, SCRIPT=str(ROOT / "tools" / "bgpatch.py"))
     proc = await asyncio.create_subprocess_exec("powershell", "-NoProfile", "-Command", script, env=env,
                                                 stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.DEVNULL)
     return await proc.wait() == 0

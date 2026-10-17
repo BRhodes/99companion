@@ -9,6 +9,8 @@ from unittest import mock
 
 from companion import launcher
 
+GAME_DIR = launcher.game_dir      # (the real one: setUp stands in a folder without the game for the rest)
+
 
 class LauncherTest(unittest.TestCase):
     def setUp(self):
@@ -17,7 +19,8 @@ class LauncherTest(unittest.TestCase):
         self.dir = Path(tmp.name)
         self.accounts = self.dir / "accounts.local.json"
         for p in (mock.patch.object(launcher, "ACCOUNTS", self.accounts),
-                  mock.patch.object(launcher, "SETTINGS", self.dir / "launcher.local.json")):
+                  mock.patch.object(launcher, "SETTINGS", self.dir / "launcher.local.json"),
+                  mock.patch.object(launcher, "game_dir", lambda values=None: str(self.dir / "nogame"))):
             p.start()
             self.addCleanup(p.stop)
 
@@ -32,7 +35,8 @@ class LauncherTest(unittest.TestCase):
         key = launcher.save_account({"account": "zorn", "password": "hunter2", "background": True})
         self.assertEqual(key, "1")
         self.assertEqual(launcher.accounts(running={"zorn": [42]}),
-                         [{"key": "1", "account": "zorn", "password": True, "background": True, "dir": "", "running": True}])
+                         [{"key": "1", "account": "zorn", "password": True, "background": True, "dir": "",
+                           "has_background": False, "running": True}])
         self.assertNotIn("hunter2", json.dumps(launcher.Launcher().state()))
         self.assertEqual(json.loads(self.accounts.read_text())["1"]["password"], "hunter2")   # (aclaunch reads it)
 
@@ -46,6 +50,19 @@ class LauncherTest(unittest.TestCase):
         launcher.delete_account("1")
         self.assertEqual([a["key"] for a in launcher.accounts()], ["2"])
 
+    def test_an_accounts_own_game_folder(self):
+        g = self.game(launcher.CLIENT_EXE)
+        with self.assertRaises(ValueError):
+            launcher.save_account({"account": "zorn", "dir": str(self.dir)})      # no game in it
+        key = launcher.save_account({"account": "zorn", "password": "p", "dir": str(g)})
+        self.assertEqual((launcher.accounts(running={})[0]["dir"], launcher.accounts(running={})[0]["has_background"]), (str(g), False))
+        self.game(launcher.BACKGROUND_EXE)
+        self.assertTrue(launcher.accounts(running={})[0]["has_background"])
+        launcher.save_account({"password": ""}, key)                            # (a change without it keeps it)
+        self.assertEqual(launcher.accounts(running={})[0]["dir"], str(g))
+        launcher.save_account({"dir": ""}, key)                                 # back to the game folder
+        self.assertEqual(launcher.accounts(running={})[0]["dir"], "")
+
     def test_bad_accounts_are_refused(self):
         for values, key in (({"account": ""}, None), ({"account": "a:b"}, None), ({"account": "x" * 65}, None),
                             ({"account": "zorn", "password": 5}, None), ({"account": "zorn"}, "9")):
@@ -58,7 +75,7 @@ class LauncherTest(unittest.TestCase):
         self.game(launcher.CLIENT_EXE)
         got = launcher.check_game(g)
         self.assertEqual((got["ok"], got["background"]), (True, False))
-        with mock.patch.object(launcher, "registry_dirs", lambda: [str(self.dir / "nowhere"), str(g)]):
+        with mock.patch.object(launcher, "registry_dirs", lambda: [str(self.dir / "nowhere"), str(g)]),                 mock.patch.object(launcher, "game_dir", GAME_DIR):
             self.assertEqual(launcher.find_game(), str(g))
             self.assertEqual(launcher.game_dir(), str(g))
             launcher.save_settings({"game_dir": "E:\\Picked"})

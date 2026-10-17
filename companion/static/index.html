@@ -569,6 +569,7 @@ td.num, th.num { text-align: right; }
 table.accts { border-collapse: collapse; font-size: 13px; width: auto; }
 table.accts th { text-align: left; font-weight: 600; color: var(--muted); font-size: 12px; padding: 0 10px 4px 0; }
 table.accts td { padding: 4px 10px 4px 0; vertical-align: middle; }
+table.accts td.dir { max-width: 300px; } table.accts td.dir > span { display: inline-block; max-width: 210px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: middle; }
 table.accts tr.add td { border-top: 1px solid var(--line); padding-top: 8px; }
 #updBanner .upd { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; padding: 3px 10px; border-radius: 12px;
   border: 1px solid #3a82f6; color: var(--ink); background: rgba(58,130,246,.12); }
@@ -1347,6 +1348,7 @@ function goalBar(goal) {
 
 // ---- the launcher (launcher.py): the header's launch buttons, Settings > Game and Settings > Accounts ----------
 const launching = new Set();          // account keys whose client is being started
+let newAcctDir = "";                    // the folder chosen for the account being added ("": the game folder)
 // Online: its game client is running on this computer (launcher.py reads the clients' own command lines, so one
 // started any way counts), or the relay has a session connected for it.
 function onlineAccounts(sessions, accounts) {
@@ -1397,19 +1399,24 @@ function renderLauncher(L, sessions) {
         ? "The relay restarts when this changes (about a second; you stay logged in)." : "This window isn't running the relay: restart it with tools\\relay-tint.cmd (on) or tools\\relay.cmd (off)."}</span></div>` : ""}</div>`);
   const box = $("cfgAccounts");
   if (cfgTab !== "accounts" || !box || typing(box)) return;
+  const folder = (dir, pick, clear) => `<span class="${dir ? "" : "muted"}" title="${esc(dir || g.dir)}">${dir ? esc(dir) : "the game folder"}</span>
+    <button class="chip mini" ${pick}>Choose…</button>${dir ? ` <button class="chip mini" ${clear} title="Start it from the game folder">×</button>` : ""}`;
   const row = a => `<tr><td><input type="text" data-acct-name="${esc(a.key)}" value="${esc(a.account)}" style="width:150px"></td>
     <td><input type="password" data-acct-pw="${esc(a.key)}" placeholder="${a.password ? "saved: type to change" : "not saved yet"}" style="width:170px" autocomplete="new-password"></td>
-    <td><label><input type="checkbox" data-acct-bg="${esc(a.key)}" ${a.background ? "checked" : ""} ${g.background ? "" : "disabled"}> background</label></td>
-    <td>${launchButton(a, online, sessions)}</td><td><button class="chip" data-acct-del="${esc(a.key)}">Remove</button>${a.dir ? ` <span class="muted">from ${esc(a.dir)}</span>` : ""}</td></tr>`;
-  setHTML(box, `<table class="accts"><thead><tr><th>Account</th><th>Password</th><th></th><th></th><th></th></tr></thead><tbody>
+    <td class="dir">${folder(a.dir, `data-acct-dir="${esc(a.key)}"`, `data-acct-dir-clear="${esc(a.key)}"`)}</td>
+    <td><label title="${a.has_background ? "" : "No background copy in its folder yet: Settings › Game"}"><input type="checkbox" data-acct-bg="${esc(a.key)}" ${a.background ? "checked" : ""} ${a.has_background ? "" : "disabled"}> background</label></td>
+    <td>${launchButton(a, online, sessions)}</td><td><button class="chip" data-acct-del="${esc(a.key)}">Remove</button></td></tr>`;
+  setHTML(box, `<table class="accts"><thead><tr><th>Account</th><th>Password</th><th>Starts from</th><th></th><th></th><th></th></tr></thead><tbody>
     ${L.accounts.map(row).join("")}
     <tr class="add"><td><input type="text" id="acctNewName" placeholder="account name" style="width:150px"></td>
       <td><input type="password" id="acctNewPw" placeholder="password" style="width:170px" autocomplete="new-password"></td>
+      <td class="dir">${folder(newAcctDir, "data-acct-new-dir", "data-acct-new-dir-clear")}</td>
       <td><label><input type="checkbox" id="acctNewBg" ${g.background ? "" : "disabled"}> background</label></td>
       <td><button class="chip ${L.accounts.length ? "" : "act-soon"}" data-acct-add>Add</button></td><td></td></tr></tbody></table>
     <p class="hint2">Your accounts' log-ins, so ▶ in the header starts the game logged in, through the companion, and as many at once as you
       have (each start clears the game's one-copy-at-a-time lock first). They're kept in accounts.local.json in this folder, on this computer
-      only: passwords are never shown again or sent anywhere but to the game.${g.background ? "" : " (Background: make the background copy in Settings › Game first.)"}</p>`);
+      only: passwords are never shown again or sent anywhere but to the game. An account starts the game in the game folder (Settings › Game) unless
+      you choose its own: another copy of the game, say.${g.background ? "" : " (Background: make the background copy in Settings › Game first.)"}</p>`);
 }
 function launcherPost(path, body, method = "POST") {
   return fetch(path, {method, headers: {"Content-Type": "application/json", "X-Companion": "1"}, body: body ? JSON.stringify(body) : undefined})
@@ -1423,8 +1430,17 @@ function gameResult(r) {
 function addAccount() {
   const name = $("acctNewName").value.trim(), pw = $("acctNewPw").value;
   if (!name) return toast("Type the account name");
-  launcherPost("/api/accounts", {account: name, password: pw, background: $("acctNewBg").checked})
-    .then(r => { if (!r.ok) return toast(r.error); $("acctNewName").value = $("acctNewPw").value = ""; document.activeElement.blur(); toast(`Added ${name}`); });
+  launcherPost("/api/accounts", {account: name, password: pw, background: $("acctNewBg").checked, dir: newAcctDir})
+    .then(r => { if (!r.ok) return toast(r.error); $("acctNewName").value = $("acctNewPw").value = ""; newAcctDir = ""; document.activeElement.blur(); toast(`Added ${name}`); });
+}
+// Windows' folder picker for an account's own game folder: -> the folder (checked: the game's in it), or null
+function pickAccountFolder(start) {
+  toast("Pick the folder in the window that opened");
+  return launcherPost("/api/launcher/pick-folder", {start: start || ""}).then(r => {
+    if (r.cancelled) return null;
+    if (!r.ok) { toast(r.error || "That didn't work"); return null; }
+    return r.dir;
+  });
 }
 document.addEventListener("click", e => {
   const t = e.target;
@@ -1451,6 +1467,15 @@ document.addEventListener("click", e => {
     toast("Windows will ask for permission…");
     launcherPost("/api/launcher/game/background").then(r => toast(r.ok ? "The background copy is made" : r.error));
   } else if (t.closest("[data-acct-add]")) addAccount();
+  else if (t.closest("[data-acct-dir]")) {
+    const key = t.closest("[data-acct-dir]").dataset.acctDir, a = ((state.launcher || {}).accounts || []).find(x => x.key === key);
+    pickAccountFolder(a && a.dir).then(dir => dir && launcherPost(`/api/accounts/${encodeURIComponent(key)}`, {dir}, "PUT")
+      .then(r => toast(r.ok ? "It starts from there now" : r.error)));
+  } else if (t.closest("[data-acct-dir-clear]")) {
+    launcherPost(`/api/accounts/${encodeURIComponent(t.closest("[data-acct-dir-clear]").dataset.acctDirClear)}`, {dir: ""}, "PUT")
+      .then(r => r.ok || toast(r.error));
+  } else if (t.closest("[data-acct-new-dir]")) pickAccountFolder(newAcctDir).then(dir => { if (dir) { newAcctDir = dir; render(); } });
+  else if (t.closest("[data-acct-new-dir-clear]")) { newAcctDir = ""; render(); }
   else if (t.closest("[data-acct-del]")) {
     const key = t.closest("[data-acct-del]").dataset.acctDel, a = ((state.launcher || {}).accounts || []).find(x => x.key === key);
     if (a && confirm(`Remove ${a.account} from your accounts?`)) launcherPost(`/api/accounts/${encodeURIComponent(key)}`, null, "DELETE").then(r => r.ok || toast(r.error));
