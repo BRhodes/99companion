@@ -9,6 +9,7 @@ from . import skills as sk
 DAMAGE_TYPES = [(0x1, "Slash"), (0x2, "Pierce"), (0x4, "Bludge"), (0x8, "Cold"), (0x10, "Fire"), (0x20, "Acid"),
                 (0x40, "Lightning")]
 PROTECTIONS = ["Slash", "Pierce", "Bludge", "Cold", "Fire", "Acid", "Lightning"]
+HERITAGE_SHORT = {"Aluvian": "Aluv", "Gharu'ndim": "Gharu", "Sho": "Sho"}   # the clipboard's (HeritageIndexName)
 PROT_LETTERS = "spbcfal"      # the same, as the clipboard has them (it's short of room)
 BOOSTS = {2: "Health", 4: "Stamina", 6: "Mana"}
 # spells' short names on the clipboard (it's short of room; the dashboard keeps the whole names): {"Impenetrability": "Impen"} makes "Impenetrability III" "Impen III" (add to it freely)
@@ -114,7 +115,7 @@ def clip_lines(p, powers=None):
     first, then what it is, in lower case and against it (2,988bu, 105diff, 25speed):
         what it does:      weapon (skill, 1-3slash/pierce, 25speed, +5%attack), armor (120al · 1.3s, 1.0p, ...),
                            50health restored, 3/10uses
-        value and needs:   5,949p · 2,988bu · 105lore 5+rank 200+bow 20+level, heritage · crafter
+        value and needs:   5,949p · 2,988bu · 105lore, 5+rank, 200+bow, 20+level, Aluv · crafter
                            (no spellcraft or mana)
         its spells, short (Impen III)
     Lines with nothing on them are left out."""
@@ -147,10 +148,10 @@ def clip_lines(p, powers=None):
     if p.get("max_level") is not None:
         needs.append(f"<={p['max_level']}level")
     if p.get("heritage"):
-        needs.append(f"{p['heritage']} only")
+        needs.append(HERITAGE_SHORT.get(p["heritage"], p["heritage"]))
     second = [f"{_n(p['value'])}p" if p.get("value") is not None else "",
               f"{_n(p['burden'])}bu" if p.get("burden") is not None else "",
-              " ".join(s for s in needs if s), f"made by {p['crafter']}" if p.get("crafter") else ""]
+              ", ".join(s for s in needs if s), f"made by {p['crafter']}" if p.get("crafter") else ""]
     third = ", ".join(short_spell(s) for s in p["spells"]) if p.get("spells") else ""
     lines = [" · ".join(s for s in first if s), " · ".join(s for s in second if s), third]
     return [line for line in lines if line]
