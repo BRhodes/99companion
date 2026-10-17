@@ -31,5 +31,10 @@
   "Creature Enchantment": "Critters",
   "Life Magic": "Life",
   "War Magic": "War",
-  "Item Enchantment": "Item"
+  "Item Enchantment": "Item",
+  "Melee Defense": "Melee Def",
+  "Missile Defense": "Missile Def",
+  "Magic Defense": "Magic Def",
+  "Assess": "As",
+  "Arcane Lore": "Lore"
 }

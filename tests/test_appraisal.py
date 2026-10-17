@@ -91,7 +91,7 @@ class DescribeTest(unittest.TestCase):
         raises = {"Sword Mastery Other III": "Sword", "Unarmed Combat Mastery Other II": "Unarmed Combat",
                   "Invulnerability Other V": "Melee Defense"}
         self.assertEqual([appraisal.short_spell(s, raises) for s in (*raises, "Weakness Other III", "Swift Killer IV")],
-                         ["Sword III", "UA II", "Melee Defense V", "Weakness III", "SK IV"])
+                         ["Sword III", "UA II", "Melee Def V", "Weakness III", "SK IV"])
 
     def test_how_long_a_full_charge_lasts(self):
         hauberk = {"value": 5949, "burden": 2988, "spells": ["Impenetrability III"], "difficulty": 105, "spellcraft": 105,
