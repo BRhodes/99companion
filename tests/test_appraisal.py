@@ -67,12 +67,18 @@ class DescribeTest(unittest.TestCase):
                                                            "C0.4, F0.4, A0.6, L0.4)")
 
 
+    def test_short_spell_names_and_the_line_without_the_name(self):
+        self.assertEqual([appraisal.short_spell(s) for s in ("Impenetrability III", "Impenetrability", "Strength Self II")],
+                         ["Impen III", "Impen", "Strength Self II"])
+        self.assertEqual(appraisal.without_name("Steel Hauberk · 5,949p · 2,988 BU"), "5,949p · 2,988 BU")
+        self.assertEqual(appraisal.without_name("Rock"), "")
+
     def test_how_long_a_full_charge_lasts(self):
         hauberk = {"value": 5949, "burden": 2988, "spells": ["Impenetrability III"], "difficulty": 105, "spellcraft": 105,
                    "max_mana": 242}
         powers = {"Impenetrability III": 100, "Strength Self VI": 300, "Swift Killer V": 250}
         # power 100: 0.01 mana a second, under loot's floor of 1 a minute -> 242 minutes
-        self.assertTrue(appraisal.describe("Hauberk", hauberk, powers).endswith("· Impenetrability III · Diff 105, SC 105, Mana 242 (~4h)"))
+        self.assertTrue(appraisal.describe("Hauberk", hauberk, powers).endswith("· Impen III · Diff 105, SC 105, Mana 242 (~4h)"))
         self.assertAlmostEqual(appraisal.mana_hours(600, ["Strength Self VI", "Swift Killer V"], powers), 600 / 0.055 / 3600)
         self.assertEqual(appraisal._duration(600 / 0.055 / 3600), "~3h")
         self.assertEqual(appraisal._duration(0.5), "~30m")
@@ -93,7 +99,7 @@ class CopyTest(unittest.TestCase):
             v.tracker.described = {"name": "Bow", "text": "Bow · 1p"}
             Companion._copy_appraisal(None, v)
             Companion._copy_appraisal(None, v)                     # the same one: not again
-            self.assertEqual([c.args[0] for c in copy.call_args_list], ["Bow · 1p"])
+            self.assertEqual([c.args[0] for c in copy.call_args_list], ["1p"])     # (without the name)
             off, replay = self.view(on=False), self.view(live=False)
             for w in (off, replay):
                 w.tracker.described = {"name": "Bow", "text": "x"}

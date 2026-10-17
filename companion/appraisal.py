@@ -1,12 +1,17 @@
 """An appraised item as one line of text, to paste into chat, a trade post or a note (messages.py decodes the
 appraisal: _appraisal_profile)."""
 
+import json
+from pathlib import Path
+
 from . import skills as sk
 
 DAMAGE_TYPES = [(0x1, "Slash"), (0x2, "Pierce"), (0x4, "Bludge"), (0x8, "Cold"), (0x10, "Fire"), (0x20, "Acid"),
                 (0x40, "Lightning")]
 PROTECTIONS = ["S", "P", "B", "C", "F", "A", "L"]   # slash, pierce, bludgeon, cold, fire, acid, lightning (a long line)
 BOOSTS = {2: "Health", 4: "Stamina", 6: "Mana"}
+# spells' short names on the line: {"Impenetrability": "Impen"} makes "Impenetrability III" "Impen III" (add to it freely)
+SPELL_SHORT = json.loads((Path(__file__).parent / "data" / "spell_short.json").read_text(encoding="utf-8"))
 MIN_DRAIN = 0.0166      # mana a second: loot never drains slower (TreasureFactory.cpp, MANA_RATE_FLOAT)
 
 
@@ -18,6 +23,20 @@ def mana_hours(mana, spells, powers):
         return None
     rate = max(sum(powers[s] for s in spells) / 10000.0, MIN_DRAIN)
     return mana / rate / 3600
+
+
+def short_spell(name):
+    """A spell's name as the line gives it: its start shortened by SPELL_SHORT ("Impenetrability III" -> "Impen III")."""
+    for long, short in SPELL_SHORT.items():
+        if name == long or name.startswith(long + " "):
+            return short + name[len(long):]
+    return name
+
+
+def without_name(text):
+    """The line without the item's name in front (what the clipboard gets: the game's chat already names it)."""
+    head, sep, rest = text.partition(" · ")
+    return rest if sep else ""
 
 
 def _duration(hours):
@@ -64,7 +83,7 @@ def describe(name, p, powers=None):
     if p.get("max_uses"):
         parts.append(f"{p.get('uses') if p.get('uses') is not None else '?'}/{p['max_uses']} uses")
     if p.get("spells"):
-        parts.append(", ".join(p["spells"]))
+        parts.append(", ".join(short_spell(s) for s in p["spells"]))
     magic = [f"Diff {p['difficulty']}" if p.get("difficulty") is not None else "",
              f"SC {p['spellcraft']}" if p.get("spellcraft") is not None else "",
              f"Mana {p['max_mana']}" if p.get("max_mana") is not None else ""]     # its capacity (what's in it now changes)
