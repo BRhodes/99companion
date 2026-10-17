@@ -117,7 +117,7 @@ def clip_lines(p, powers=None):
     first, then what it is, in lower case and against it (2,988bu, 105diff, 25speed):
         what it does:      weapon (skill, 1-3slash/pierce, 25speed, +5%attack), armor (120al · 1.3s, 1.0p, ...),
                            50health restored, 3/10uses
-        value and needs:   5,949p · 2,988bu · lore 105, rank 5, 200+bow, 20+level, Aluv · crafter
+        value and needs:   5,949p · 2,988bu · lore 105, rank 5, bow 200, lvl 20, Aluv · crafter
                            (no spellcraft or mana)
         its spells, short (Impen III)
     Lines with nothing on them are left out."""
@@ -144,11 +144,11 @@ def clip_lines(p, powers=None):
     if p.get("rank_limit") is not None:
         needs.append(f"rank {p['rank_limit']}")
     if p.get("skill_limit") is not None and p.get("skill_limit_type"):
-        needs.append(f"{p['skill_limit']}+{sk.skill_name(p['skill_limit_type']).lower()}")
+        needs.append(f"{sk.skill_name(p['skill_limit_type']).lower()} {p['skill_limit']}")
     if p.get("min_level") is not None:
-        needs.append(f"{p['min_level']}+level")
+        needs.append(f"lvl {p['min_level']}")
     if p.get("max_level") is not None:
-        needs.append(f"<={p['max_level']}level")
+        needs.append(f"lvl <={p['max_level']}")
     if p.get("heritage"):
         needs.append(HERITAGE_SHORT.get(p["heritage"], p["heritage"]))
     second = [f"{_n(p['value'])}p" if p.get("value") is not None else "",
