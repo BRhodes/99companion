@@ -1363,7 +1363,9 @@ function renderLauncher(L, sessions) {
   if (page !== "config") return;
   const tick = (ok, what) => `<span class="${ok ? "have" : "miss"}">${ok ? "✓" : "✗"} ${what}</span>`;
   const g = L.game, game = $("cfgGame");
-  if (cfgTab === "game" && game && !game.contains(document.activeElement)) setHTML(game, `<div class="ocfg" style="max-width:760px">
+  // (not while you're typing in one of its boxes; a button or tick box that keeps the focus doesn't hold it up)
+  const typing = box => box.contains(document.activeElement) && document.activeElement.matches("input[type=text], input[type=password]");
+  if (cfgTab === "game" && game && !typing(game)) setHTML(game, `<div class="ocfg" style="max-width:760px">
     <div class="k">Game folder</div><div class="col">
       <span><b>${esc(g.dir || "-")}</b> <span class="muted">${g.picked ? "picked" : g.ok ? "found on its own" : ""}</span></span>
       <span class="row">${tick(g.portal, "portal.dat")} ${tick(g.cell, "cell.dat")} ${tick(g.client, "the game (client-windows-3d-accel.exe)")}</span>
@@ -1378,7 +1380,7 @@ function renderLauncher(L, sessions) {
       <span class="hint2">The backgrounds are picked in Comps › Order. It changes only how the vendor's list looks to you; what you buy is untouched. ${L.supervised
         ? "The relay restarts when this changes (about a second; you stay logged in)." : "This window isn't running the relay: restart it with relay-tint.cmd (on) or relay.cmd (off)."}</span></div></div>`);
   const box = $("cfgAccounts");
-  if (cfgTab !== "accounts" || !box || box.contains(document.activeElement)) return;
+  if (cfgTab !== "accounts" || !box || typing(box)) return;
   const row = a => `<tr><td><input type="text" data-acct-name="${esc(a.key)}" value="${esc(a.account)}" style="width:150px"></td>
     <td><input type="password" data-acct-pw="${esc(a.key)}" placeholder="${a.password ? "saved: type to change" : "not saved yet"}" style="width:170px" autocomplete="new-password"></td>
     <td><label><input type="checkbox" data-acct-bg="${esc(a.key)}" ${a.background ? "checked" : ""} ${g.background ? "" : "disabled"}> background</label></td>
