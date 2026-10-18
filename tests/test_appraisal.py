@@ -84,7 +84,7 @@ class DescribeTest(unittest.TestCase):
         knife = {"value": 10, "burden": 38, "weapon": {"damage_type": 3, "speed": 25, "skill": 4, "damage": 3, "variance": 0.75,
                                                        "offense": 1.05, "defense": 1.0},
                  "skill_limit": 200, "skill_limit_type": 4, "min_level": 20, "max_level": 30, "heritage": "Aluvian"}
-        self.assertEqual(appraisal.clip_lines(knife), ["Dagger, 1-3slash/pierce, 25speed, +5%attack",
+        self.assertEqual(appraisal.clip_lines(knife), ["Dagger, 1-3sl/prc, 25spd, +5%att",
                                                        "10p · 38bu · dagger 200, lvl 20, lvl <=30, Aluv"])
         self.assertEqual(appraisal.clip_lines({"boost_type": 2, "boost": 50, "uses": 3, "max_uses": 10}), ["50health · 3/10uses"])
 

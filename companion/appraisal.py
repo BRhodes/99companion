@@ -11,7 +11,8 @@ DAMAGE_TYPES = [(0x1, "Slash"), (0x2, "Pierce"), (0x4, "Bludge"), (0x8, "Cold"),
                 (0x40, "Lightning")]
 PROTECTIONS = ["Slash", "Pierce", "Bludge", "Cold", "Fire", "Acid", "Lightning"]
 HERITAGE_SHORT = {"Aluvian": "Aluv", "Gharu'ndim": "Gharu", "Sho": "Sho"}   # the clipboard's (HeritageIndexName)
-PROT_LETTERS = "spbcfal"      # the same, as the clipboard has them (it's short of room)
+PROT_LETTERS = "spbcfal"
+MIXED_SHORT = {"slash": "sl", "pierce": "prc"}   # the clipboard's damage types on a weapon with more than one      # the same, as the clipboard has them (it's short of room)
 BOOSTS = {2: "Health", 4: "Stamina", 6: "Mana"}
 # spells' short words on the clipboard (it's short of room; the dashboard keeps the whole names), anywhere in a name:
 # {"Impenetrability": "Impen", "Protection": "Prot", "Other": ""} (add to it freely; "" drops the word)
@@ -123,7 +124,7 @@ def describe(name, p, powers=None):
 def clip_lines(p, powers=None, raises=None):
     """What the clipboard gets (no name: the game's chat already says it), short, as up to three lines -- a number
     first, then what it is, in lower case and against it (2,988bu, 105diff, 25speed):
-        what it does:      weapon (skill, 1-3slash/pierce, 25speed, +5%attack), armor (120al · 1.3s, 1.0p, ...),
+        what it does:      weapon (skill, 1-3sl/prc, 25spd, +5%att; one damage type in full), armor (120al · 1.3s, 1.0p, ...),
                            50health restored, 3/10uses
         value and needs:   5,949p · 2,988bu · lore 105, rank 5, bow 200, lvl 20, Aluv · crafter
                            (no spellcraft or mana)
@@ -135,11 +136,12 @@ def clip_lines(p, powers=None, raises=None):
         bits = [sk.skill_name(w["skill"])] if w.get("skill") else []
         if w.get("damage", 0) > 0:
             lo = int(w["damage"] * (1 - (w.get("variance") or 0)) + 0.5)
-            kinds = "/".join(n.lower() for bit, n in DAMAGE_TYPES if w.get("damage_type", 0) & bit)
+            kinds = [n.lower() for bit, n in DAMAGE_TYPES if w.get("damage_type", 0) & bit]
+            kinds = "/".join(MIXED_SHORT.get(k, k) for k in kinds) if len(kinds) > 1 else "".join(kinds)   # (one type: in full)
             bits.append(f"{lo}-{w['damage']}{kinds}" if lo != w["damage"] else f"{w['damage']}{kinds}")
         if w.get("speed"):
-            bits.append(f"{w['speed']}speed")
-        bits += [s.replace(" ", "") for s in (_pct(w.get("offense", 1), "attack"), _pct(w.get("defense", 1), "defense")) if s]
+            bits.append(f"{w['speed']}spd")
+        bits += [s.replace(" ", "") for s in (_pct(w.get("offense", 1), "att"), _pct(w.get("defense", 1), "def")) if s]
         first.append(", ".join(bits))
     if p.get("armor_level"):
         prot = p.get("protection")
