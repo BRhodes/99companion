@@ -12,7 +12,7 @@ check. Your own processes allow this without administrator rights, so no Sysinte
 Accounts live in accounts.local.json next to this repo's README (git-ignored, plain text):
     {"1": {"account": "name", "password": "..."},
      "2": {"account": "...", "password": "...", "dir": "C:\\...\\Asheron's Call2"}}
-"dir" (install folder: else the game folder, Settings > Game) and "exe" (client executable) are optional per account. "background": true uses
+"exe" (the game program to start, a path: else the game folder's, Settings > Game) is optional per account. "background": true uses
 the copy made by tools/bgpatch.py (Settings > Game, or tools/bgpatch.cmd), which keeps drawing when its window loses focus.
 """
 
@@ -29,7 +29,7 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO))
-from companion.launcher import ACCOUNTS, BACKGROUND_EXE, CLIENT_EXE, game_dir  # noqa: E402
+from companion.launcher import ACCOUNTS, account_exe, background_of, game_dir  # noqa: E402
 
 AC_DIR = Path(game_dir())     # Settings > Game (launcher.local.json), else the folder the game's found in
 LOCK_NAME = "Empyrean Client"
@@ -176,17 +176,16 @@ def launch(acct):
     # The client reads its own command line to find its install, and a quoted "C:\Program Files (x86)\..."
     # first token makes it report missing critical files. So the command line starts with the same
     # relative ".\client-....exe" the launcher uses, while `executable` tells Windows which file to run.
-    folder = Path(acct.get("dir") or AC_DIR)
-    exe_name = acct.get("exe") or CLIENT_EXE
-    if acct.get("background") and not acct.get("exe"):
-        if (folder / BACKGROUND_EXE).exists():
-            exe_name = BACKGROUND_EXE
-        else:
-            print(f"No {BACKGROUND_EXE} in {folder} yet (Settings > Game > Make the background copy); starting the normal client.")
-    exe = folder / exe_name
-    if not exe.exists():
-        print(f"{exe} doesn't exist - check \"dir\"/\"exe\" for this account in {ACCOUNTS}.")
+    exe = account_exe(acct, str(AC_DIR))
+    if exe is None or not exe.exists():
+        print(f"No game program to start ({exe or 'none found in ' + str(AC_DIR)}): pick it in Settings > Accounts.")
         return False
+    if acct.get("background"):
+        if background_of(exe).exists():
+            exe = background_of(exe)
+        else:
+            print(f"No {background_of(exe).name} yet (Settings > Game > Make the background copy); starting {exe.name}.")
+    folder, exe_name = exe.parent, exe.name
     args = [".\\" + exe_name, "-h", RELAY[0], "-p", str(RELAY[1]), "-a", f"{acct['account']}:{acct['password']}", "-db"]
     subprocess.Popen(args, executable=str(exe), cwd=folder,
                      creationflags=subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP)

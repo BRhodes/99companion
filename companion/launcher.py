@@ -25,8 +25,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 SETTINGS = ROOT / "launcher.local.json"
 ACCOUNTS = ROOT / "accounts.local.json"
-CLIENT_EXE = "client-windows-3d-accel.exe"
-BACKGROUND_EXE = "client-windows-3d-accel-bg.exe"
+CLIENTS = ("client-windows-3d-accel.exe", "client.exe")     # the game's program in its folder, first found (dgVoodoo's, else the plain one)
 DEFAULT_GAME_DIR = r"C:\Program Files (x86)\Microsoft Games\Asheron's Call"
 CANDIDATES = (DEFAULT_GAME_DIR, r"C:\Program Files\Microsoft Games\Asheron's Call", r"C:\Turbine\Asheron's Call",
               r"C:\Games\Asheron's Call", r"C:\AC\Asheron's Call", r"C:\Asheron's Call")
@@ -52,13 +51,26 @@ def save_settings(values, path=None):
 
 # ---- the game folder --------------------------------------------------------------------------------------------
 
+def background_of(exe):
+    """The background copy of a game program (tools/bgpatch.py makes it): client.exe -> client-bg.exe."""
+    exe = Path(exe)
+    return exe.with_name(exe.stem + "-bg" + exe.suffix)
+
+
+def default_exe(folder):
+    """The game program in a folder (CLIENTS, first there), or None."""
+    return next((Path(folder) / n for n in CLIENTS if folder and (Path(folder) / n).is_file()), None)
+
+
 def check_game(folder):
-    """What's in a folder: {dir, portal, cell, client, background, ok} (ok: everything the companion needs)."""
+    """What's in a folder: {dir, portal, cell, client: its game program's name ("" if none), background: that
+    program's background copy is there, ok: everything the companion needs}."""
     f = Path(folder) if folder else None
     has = lambda name: bool(f and (f / name).is_file())
+    exe = default_exe(f)
     got = {"dir": str(f) if f else "", "portal": has("portal.dat"), "cell": has("cell.dat"),
-           "client": has(CLIENT_EXE), "background": has(BACKGROUND_EXE)}
-    got["ok"] = got["portal"] and got["cell"] and got["client"]
+           "client": exe.name if exe else "", "background": bool(exe and background_of(exe).is_file())}
+    got["ok"] = got["portal"] and got["cell"] and bool(got["client"])
     return got
 
 
@@ -110,39 +122,55 @@ def _key_order(k):
     return (0, int(k)) if k.isdigit() else (1, k)
 
 
+def account_exe(a, game=None):
+    """The game program an account starts: its own "exe" (a path; or a name in its "dir", as older settings
+    have it), else its "dir"'s or the game folder's (default_exe). None if there's none."""
+    folder = a.get("dir") or game or game_dir()
+    if a.get("exe"):
+        exe = Path(a["exe"])
+        return exe if exe.is_absolute() else Path(folder) / exe
+    return default_exe(folder)
+
+
 def accounts(path=None, running=None):
-    """[{key, account, password: there is one, background, dir: its own game folder ("": the game folder),
-    has_background: the background copy is in the folder it starts from, running: its client is running here}]
-    -- never a password itself. (running: from the clients' own command lines; running=None reads them now.)"""
+    """[{key, account, password: there is one, background, exe: its own game program ("": the game folder's), dir: its folder,
+    starts: the program it starts, has_background: that program's background copy is there, running: its client
+    is running here}] -- never a password itself. (running: from the clients' own command lines; running=None
+    reads them now.)"""
     out = []
     running = running_accounts() if running is None else running
     game = None
     for k, a in sorted(_accounts_raw(path).items(), key=lambda kv: _key_order(kv[0])):
         if a.get("account"):
-            folder = a.get("dir") or (game := game or game_dir())
+            game = game or game_dir()
+            exe = account_exe(a, game)
+            own = bool(a.get("exe") or a.get("dir"))
             out.append({"key": k, "account": str(a["account"]), "password": bool(a.get("password")),
-                        "background": a.get("background") is True, "dir": str(a.get("dir") or ""),
-                        "has_background": (Path(folder) / BACKGROUND_EXE).is_file(),
+                        "background": a.get("background") is True, "exe": str(exe) if own and exe else "",
+                        "dir": str(exe.parent) if own and exe else "",       # (its folder: tools/bgpatch.py's)
+                        "starts": str(exe or ""), "has_background": bool(exe and background_of(exe).is_file()),
                         "running": str(a["account"]).lower() in running})
     return out
 
 
-def check_account_dir(folder):
-    """An account's own game folder, as it's kept: one with the game's client in it ("" for the game folder).
-    ValueError for one without it -- launching only ever runs the client found there."""
-    folder = str(folder or "").strip()
-    if not folder:
+def check_exe(exe):
+    """An account's own game program, as it's kept: an .exe beside the game's portal.dat and cell.dat ("" for
+    the game folder's). ValueError for anything else -- so nothing can make the companion run another program."""
+    exe = str(exe or "").strip().strip('"')
+    if not exe:
         return ""
-    if not (Path(folder) / CLIENT_EXE).is_file():
-        raise ValueError(f"That folder doesn't have the game ({CLIENT_EXE}) in it")
-    return str(Path(folder))
+    p = Path(exe)
+    if p.suffix.lower() != ".exe" or not p.is_file():
+        raise ValueError("Pick the game's program (an .exe)")
+    if not ((p.parent / "portal.dat").is_file() and (p.parent / "cell.dat").is_file()):
+        raise ValueError("That isn't in a game folder (no portal.dat and cell.dat beside it)")
+    return str(p)
 
 
 def save_account(values, key=None, path=None):
     """Add an account (key None: the first free number) or change one: account, password (blank or missing:
-    keep the saved one), background, dir (its own game folder, with the client in it; "" for the game folder).
-    Anything else an account has (exe) is kept. -> its key. ValueError for a missing name, a folder without the
-    game, or an unknown key."""
+    keep the saved one), background, exe (its own game program, check_exe; "" for the game folder's). -> its key.
+    ValueError for a missing name, a program that isn't the game's, or an unknown key."""
     raw = _accounts_raw(path)
     name = str(values.get("account") if values.get("account") is not None else (raw.get(key) or {}).get("account") or "").strip()
     if not name or len(name) > MAX_NAME or ":" in name:
@@ -150,7 +178,7 @@ def save_account(values, key=None, path=None):
     password = values.get("password")
     if password is not None and (not isinstance(password, str) or len(password) > MAX_PASSWORD):
         raise ValueError("a password of up to %d characters" % MAX_PASSWORD)
-    folder = check_account_dir(values["dir"]) if isinstance(values.get("dir"), str) else None
+    exe = check_exe(values["exe"]) if isinstance(values.get("exe"), str) else None
     if key is None:
         key = next(str(n) for n in range(1, len(raw) + 2) if not (raw.get(str(n)) or {}).get("account"))
     elif key not in raw:
@@ -160,11 +188,12 @@ def save_account(values, key=None, path=None):
         entry["password"] = password
     if "background" in values:
         entry["background"] = values["background"] is True
-    if folder is not None:
-        if folder:
-            entry["dir"] = folder
+    if exe is not None:
+        entry.pop("dir", None)          # (a program picked replaces an older folder setting)
+        if exe:
+            entry["exe"] = exe
         else:
-            entry.pop("dir", None)
+            entry.pop("exe", None)
     raw[key] = entry
     _write_accounts(raw, path)
     return key
@@ -283,6 +312,30 @@ async def launch(key):
     return code == 0, said.splitlines()[-1] if said else ("started" if code == 0 else "failed")
 
 
+PICK_EXE = r"""
+[Console]::OutputEncoding = [Text.Encoding]::UTF8
+Add-Type -AssemblyName System.Windows.Forms
+$d = New-Object System.Windows.Forms.OpenFileDialog
+$d.Title = $env:COMPANION_BROWSE_TITLE
+$d.Filter = "Programs (*.exe)|*.exe"
+$d.InitialDirectory = $env:COMPANION_GAME_DIR
+$owner = New-Object System.Windows.Forms.Form -Property @{TopMost = $true; ShowInTaskbar = $false}
+if ($d.ShowDialog($owner) -eq 'OK') { $d.FileName }
+"""
+
+
+async def pick_exe(start=None):
+    """Windows' file picker for a game program, on top of everything, starting in `start`'s folder (else the
+    game folder). -> the file picked, or None."""
+    folder = str(Path(start).parent) if start else game_dir()
+    env = dict(os.environ, COMPANION_GAME_DIR=folder,
+               COMPANION_BROWSE_TITLE="Pick the game program this account starts (client.exe, or the one you use)")
+    proc = await asyncio.create_subprocess_exec("powershell", "-NoProfile", "-STA", "-Command", PICK_EXE, env=env,
+                                                stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.DEVNULL)
+    out, _ = await proc.communicate()
+    return out.decode("utf-8", "replace").strip() or None
+
+
 BROWSE = r"""
 [Console]::OutputEncoding = [Text.Encoding]::UTF8
 Add-Type -AssemblyName System.Windows.Forms
@@ -306,8 +359,8 @@ async def browse(start=None, title="Pick your Asheron's Call folder (the one wit
 
 
 async def make_background_copy():
-    """tools/bgpatch.py, as administrator (it writes into Program Files: Windows asks first), on the game folder
-    and every account's own folder. -> False when it couldn't be started (the prompt declined)."""
+    """tools/bgpatch.py, as administrator (it writes into Program Files: Windows asks first), on the game folder's
+    program and every account's own. -> False when it couldn't be started (the prompt declined)."""
     script = ("Start-Process -Verb RunAs -WindowStyle Hidden -Wait -FilePath $env:PY -ArgumentList "
               "('\"' + $env:SCRIPT + '\"')")
     env = dict(os.environ, PY=sys.executable, SCRIPT=str(ROOT / "tools" / "bgpatch.py"))
