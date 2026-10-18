@@ -536,7 +536,6 @@ td.num, th.num { text-align: right; }
 .tag { font-size: 11px; padding: 1px 6px; border-radius: 10px; border: 1px solid var(--line); color: var(--muted); }
 .tag.ready { color: var(--good); border-color: var(--good); }
 .tag.climb { color: var(--warn); border-color: var(--warn); }
-@keyframes grantFlash { from { background: rgba(58, 130, 246, .6); } to { background: rgba(58, 130, 246, 0); } }
 .empty { color: var(--muted); padding: 8px 0; }
 .muted { color: var(--muted); }
 #tabs { display: flex; gap: 4px; overflow-x: auto; }
@@ -1611,7 +1610,7 @@ function renderSession(state, relayUp) {
     const isHidden = hidden.has(s.id);
     const tag = c >= 1 ? '<span class="tag ready">timed grant ready</span>'
               : s.climb ? '<span class="tag climb">climb now</span>' : "";
-    return `<tr style="${isHidden ? "opacity:.5;" : ""}${grantFlash(s)}"><td>${esc(s.name)} <span class="muted">${s.sac === 3 ? "spec" : ""}</span></td>
+    return `<tr style="${isHidden ? "opacity:.5" : ""}"${grantFlash(s)}><td>${esc(s.name)} <span class="muted">${s.sac === 3 ? "spec" : ""}</span></td>
       <td class="num" title="${stored == null ? "" : "Instant grant at difficulty " + (stored + 3) + " or more"}">${stored == null ? "-" : stored}${s.stored_confirmed === false ? "?" : ""}</td>
       <td class="num">${dur(sinceGrant)}</td>
       <td><span class="bar"><i style="width:${(c * 100).toFixed(1)}%"></i></span> ${(c * 100).toFixed(0)}%</td>
@@ -1619,6 +1618,7 @@ function renderSession(state, relayUp) {
       <td class="num">${fmt(s.grants)}</td><td class="num">${fmt(s.skill_xp)}</td>
       <td><button class="chip" data-hide-skill="${s.id}" title="${isHidden ? "Show this skill again" : "Hide this skill from the timers"}">${isHidden ? "Unhide" : "Hide"}</button></td></tr>`;
   }).join("");
+  flashGrants($("skills"));
 
   renderBuffs(state);
   const burn = state.burn || {components: [], spells: []};
@@ -2359,12 +2359,23 @@ function renderS2M(state) {
       cast chance and cost.</div>`);
 }
 
-// A skill that's just been granted bonus XP: its row bright blue, fading out over GRANT_FLASH seconds. The
-// animation starts as far back as the grant was, so a redraw carries on where it was rather than starting over.
+// A skill that's just been granted bonus XP: its row blue, fading out over GRANT_FLASH seconds. The row says which
+// grant (data-grant); flashGrants() starts the fade once per grant -- from the beginning when a new one lands, even
+// mid-fade -- and leaves a running one alone through redraws.
 const GRANT_FLASH = 10;
 function grantFlash(s) {
   const ago = s.granted_at != null ? now() - s.granted_at : null;
-  return ago != null && ago >= 0 && ago < GRANT_FLASH ? `animation:grantFlash ${GRANT_FLASH}s linear ${(-ago).toFixed(2)}s both;` : "";
+  return ago != null && ago >= 0 && ago < GRANT_FLASH ? ` data-grant="${s.granted_at}"` : "";
+}
+function flashGrants(box) {
+  for (const row of box ? box.querySelectorAll("tr[data-grant]") : []) {
+    if (row._grant === row.dataset.grant) continue;
+    row._grant = row.dataset.grant;
+    if (row._flash) row._flash.cancel();
+    const ago = Math.max(0, now() - +row.dataset.grant);
+    row._flash = row.animate([{background: "rgba(58, 130, 246, .6)"}, {background: "rgba(58, 130, 246, 0)"}],
+                             {duration: GRANT_FLASH * 1000, delay: -ago * 1000, easing: "linear", fill: "forwards"});
+  }
 }
 
 function renderXpMini(state, target = "xpMini", limit = 8) {
@@ -2375,11 +2386,12 @@ function renderXpMini(state, target = "xpMini", limit = 8) {
   // each: the difficulty of what last paid (anything 3+ harder pays at once) and the chance a use pays on the timer now
   setHTML($(target), list.length ? `<table><tbody>${list.map(s => {
     const c = chance(since(s)), d = s.stored_difficulty;
-    return `<tr style="${grantFlash(s)}"><td>${esc(s.name)}</td>
+    return `<tr${grantFlash(s)}><td>${esc(s.name)}</td>
       <td class="num muted" style="width:62px" title="Difficulty of what last paid: anything ${d != null ? d + 3 : "3"}+ pays at once">${d != null ? `diff ${fmt(d)}` : "-"}</td>
       <td style="width:90px"><span class="bar"><i style="width:${(c * 100).toFixed(0)}%"></i></span></td>
       <td class="num" style="width:44px;${c >= 1 ? "color:var(--good);font-weight:600" : ""}" title="Chance a use pays bonus XP now">${(c * 100).toFixed(0)}%</td></tr>`;
   }).join("")}</tbody></table>` : `<div class="empty">No trained skills seen yet.</div>`);
+  flashGrants($(target));
 }
 
 // ---- buff profiles ----------------------------------------------------------------------------------------------
