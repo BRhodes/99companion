@@ -81,6 +81,17 @@ def current_version(root=ROOT):
         return None
 
 
+def has_commit(root, sha):
+    """True when a git checkout's history already holds `sha` (it's that commit or ahead of it: your own commits
+    on top of the latest are no reason to update). False when it doesn't, or isn't a checkout."""
+    if not (root / ".git").exists():
+        return False
+    try:
+        return _git(root, "merge-base", "--is-ancestor", sha, "HEAD").returncode == 0
+    except (OSError, subprocess.SubprocessError):
+        return False
+
+
 def _get(url, timeout=20):
     req = urllib.request.Request(url, headers={"User-Agent": "99companion-updater", "Accept": "application/vnd.github+json"})
     with urllib.request.urlopen(req, timeout=timeout) as r:
@@ -129,6 +140,7 @@ class Updater:
         self.next_check = time.time() + 20
         self.lock = threading.Lock()
         self._current = (0.0, None)          # (when read, this install's version): read again every 30 s
+        self._holds = {}                     # (this version, the latest's sha) -> it's already in this checkout's history
 
     def state(self):
         cfg = settings(self.root / "update.local.json")
@@ -136,10 +148,16 @@ class Updater:
             self._current = (time.time(), current_version(self.root))
         cur = self._current[1]
         lat = self.info["latest"]
+        available = bool(lat and cur != lat["sha"] and not (cur and lat["sha"].startswith(cur)))
+        if available and cur:
+            k = (cur, lat["sha"])
+            if k not in self._holds:
+                self._holds = {k: has_commit(self.root, lat["sha"])}
+            available = not self._holds[k]
         return dict(self.info, repo=cfg["repo"], branch=cfg["branch"], auto=cfg["auto"], current=cur,
                     supervised=bool(os.environ.get("COMPANION_SUPERVISED")),
                     git=(self.root / ".git").exists(),
-                    available=bool(lat and cur != lat["sha"] and not (cur and lat["sha"].startswith(cur))))
+                    available=available)
 
     def _changed(self):
         if self.on_change:

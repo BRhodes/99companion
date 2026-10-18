@@ -77,6 +77,20 @@ class UpdaterTest(unittest.TestCase):
         self.assertEqual((st["current"], st["available"], st["relay"], st["error"]), (SHA, False, True, None))
         self.assertEqual((self.root / "VERSION").read_text(), SHA)
 
+    def test_a_checkout_ahead_of_the_latest_has_nothing_to_update(self):
+        import subprocess
+        run = lambda *a: subprocess.run(["git", *a], cwd=self.root, capture_output=True, text=True, check=True).stdout.strip()
+        run("init", "-q")
+        run("-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "--allow-empty", "-m", "published")
+        published = run("rev-parse", "HEAD")
+        run("-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "--allow-empty", "-m", "mine, not pushed yet")
+        (self.root / "update.local.json").write_text(json.dumps({"repo": "owner/repo"}))
+        u = updater.Updater(root=self.root, get=lambda url, timeout=20: b"")
+        u.info["latest"] = {"sha": published, "message": "published", "date": None}
+        self.assertFalse(u.state()["available"])                     # ahead of it: nothing to do
+        u.info["latest"] = {"sha": SHA, "message": "newer", "date": None}
+        self.assertTrue(u.state()["available"])                      # one this checkout hasn't got
+
     def test_nothing_without_a_repository(self):
         (self.root / "update.local.json").write_text(json.dumps({"repo": ""}))
         self.addCleanup(setattr, updater, "REPO", updater.REPO)
