@@ -690,6 +690,11 @@ table.accts tr.add td { border-top: 1px solid var(--line); padding-top: 8px; }
         Banes card's targets. With none ticked, whatever you're wielding or wearing is used.</div>
       <div id="cfgGear" class="pair"></div>
     </section>
+    <section class="wide" data-cfg="items">
+      <h2>Appraisals</h2>
+      <label title="Kept out of clipboard history (Win+V); each replaces the last"><input type="checkbox" data-copy-appraisals>
+        Copy each item I appraise to the clipboard (any character), short, as up to three lines without its name</label>
+    </section>
     <section data-cfg="dashboard">
       <h2>Dashboard cards</h2>
       <div id="cfgWidgets"></div>
@@ -886,9 +891,8 @@ table.accts tr.add td { border-top: 1px solid var(--line); padding-top: 8px; }
     <nav class="subtabs wide" aria-label="Info" id="infoTabs"><button data-info-tab="appraisals">Appraisals</button><button
       data-info-tab="s2m">S2M Table</button></nav>
     <section class="wide" data-info-pane="appraisals">
-      <h2 style="display:flex;align-items:center;gap:8px">Appraisals <label class="muted" style="margin-left:auto;font-size:12px;font-weight:400;
-        text-transform:none;letter-spacing:0" title="Each item you appraise in game goes onto the clipboard as a line of text, replacing the last one; kept out of clipboard history (Win+V)">
-        <input type="checkbox" data-copy-appraisals> Copy each item I appraise to the clipboard</label></h2>
+      <h2 style="display:flex;align-items:center;gap:8px">Appraisals <a href="#config" data-goto-cfg="items" id="apprCopyState" class="muted"
+        style="margin-left:auto;font-size:12px;font-weight:400;text-transform:none;letter-spacing:0"></a></h2>
       <div id="apprList"></div>
     </section>
     <section class="wide" data-info-pane="s2m">
@@ -1349,6 +1353,9 @@ function goalBar(goal) {
 // ---- the launcher (launcher.py): the header's launch buttons, Settings > Game and Settings > Accounts ----------
 // Vendor backgrounds are on: experimental features and the backgrounds both (Settings › Game). (The global state:
 // a page's renderer often has a character's own `state` in its place.)
+function launcherSetting(key) {     // (the same reason: the global state's launcher settings)
+  return !!(state && state.launcher && state.launcher[key]);
+}
 function tintOn() {
   const L = state && state.launcher;
   return !!(L && L.experimental && L.tint);
@@ -1375,6 +1382,8 @@ function launchButton(a, online, sessions) {
 function renderLauncher(L, sessions) {
   const bar = $("launchBar");
   if (!L) { setHTML(bar, ""); return; }
+  const copyBox = document.querySelector("[data-copy-appraisals]");
+  if (copyBox && document.activeElement !== copyBox) copyBox.checked = !!L.copy_appraisals;
   const online = onlineAccounts(sessions, L.accounts);
   setHTML(bar, !L.game.ok ? `<button class="chip act-now" data-goto-cfg="game">Set up the game folder</button>`
     : !L.accounts.length ? `<button class="chip act-soon" data-goto-cfg="accounts">＋ Add your account</button>`
@@ -2314,19 +2323,16 @@ document.addEventListener("click", e => {
 function renderAppraisals(state) {
   for (const b of document.querySelectorAll("#infoTabs [data-info-tab]")) b.classList.toggle("on", b.dataset.infoTab === infoTab);
   for (const el of document.querySelectorAll("#page-info [data-info-pane]")) el.style.display = el.dataset.infoPane === infoTab ? "" : "none";
-  const p = charPrefs((state.status || {}).character), box = document.querySelector("[data-copy-appraisals]");
-  if (box) { box.checked = !!(p && p.copy_appraisals); box.disabled = !p; }
+  const on = launcherSetting("copy_appraisals");
+  setHTML($("apprCopyState"), on ? "Copying each one to the clipboard · Settings" : "Not copying them to the clipboard · Settings");
   const items = (state.appraisals || []).filter(a => a.text);
   setHTML($("apprList"), items.length ? `<table class="apprs"><tbody>${items.map((a, i) => `<tr><td class="muted" style="white-space:nowrap">${clock(a.ts)}</td>
       <td class="txt">${esc(a.text)}</td><td><button class="chip mini" data-copy-appr="${i}">Copy</button></td></tr>`).join("")}</tbody></table>`
     : `<div class="empty">Appraise an item in game: it shows here as a line of text to copy.</div>`);
 }
 document.addEventListener("change", e => {
-  if (!e.target.matches || !e.target.matches("[data-copy-appraisals]") || !curSession) return;
-  const who = curSession.status.character, p = charPrefs(who);
-  if (!p) return;
-  p.copy_appraisals = e.target.checked;
-  savePrefs(who);
+  if (!e.target.matches || !e.target.matches("[data-copy-appraisals]")) return;
+  launcherPost("/api/launcher/settings", {copy_appraisals: e.target.checked}, "PUT").then(r => r.ok || toast(r.error));
 });
 document.addEventListener("click", e => {
   const b = e.target.closest("[data-copy-appr]");

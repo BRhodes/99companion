@@ -4,6 +4,8 @@ game client for an account.
 launcher.local.json (beside the README):
     {"game_dir": "C:\\...\\Asheron's Call",   the game folder (portal.dat, cell.dat, the client); found on its own
                                               (game_dir()) until one is picked
+     "copy_appraisals": true,                 each item you appraise onto the clipboard (Settings > Items), for every
+                                              character
      "experimental": false,                   experimental features: the ones that change what the game sends you
                                               (off: the relay only ever forwards traffic as it is)
      "tint": false}                           with experimental on, the relay runs with --tint-store (vendor
@@ -41,6 +43,19 @@ def settings(path=None):
     except (OSError, ValueError):
         got = {}
     return got if isinstance(got, dict) else {}
+
+
+def copy_appraisals(values=None):
+    """Whether an item you appraise goes onto the clipboard (any character). Until it's set: on if any character
+    had it on, as it used to be kept per character (spellbook-layouts.json's prefs)."""
+    values = settings() if values is None else values
+    if "copy_appraisals" in values:
+        return values["copy_appraisals"] is True
+    try:
+        layouts = json.loads((ROOT / "spellbook-layouts.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return False
+    return any(isinstance(v, dict) and v.get("copy_appraisals") is True for k, v in layouts.items() if k.startswith("prefs:"))
 
 
 def save_settings(values, path=None):
@@ -402,6 +417,7 @@ class Launcher:
             game = check_game(game_dir(values))
             game["picked"] = bool(values.get("game_dir"))
             self._state = (time.time(), {"game": game, "experimental": values.get("experimental") is True,
+                                         "copy_appraisals": copy_appraisals(values),
                                          "tint": values.get("tint") is True, "accounts": accounts(),
                                          "supervised": bool(os.environ.get("COMPANION_SUPERVISED"))})
         return self._state[1]

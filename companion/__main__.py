@@ -329,7 +329,7 @@ class Companion:
                              {"error": "The background copy wasn't made" + ("" if started else " (Windows' prompt was declined)")})
             return background()
         if method == "PUT" and path == "/api/launcher/settings":
-            for k in ("tint", "experimental"):
+            for k in ("tint", "experimental", "copy_appraisals"):
                 if k in values:
                     launcher.save_settings({k: values[k] is True})
             changed()
@@ -553,15 +553,14 @@ class Companion:
 
     def _copy_appraisal(self, view):
         """An item you've just appraised, onto the clipboard as up to three lines without its name (appraisal.clip_lines:
-        when the character has it turned on, prefs copy_appraisals): each replaces the last, out of clipboard history.
+        when it's turned on, Settings > Items, for every character): each replaces the last, out of clipboard history.
         Never one from a replay. (The dashboard shows and copies the one line, name and all.)"""
         d = view.tracker.described
         if d is getattr(view, "copied", None):
             return
         view.copied = d
-        prefs = view.prefs() if callable(getattr(view, "prefs", None)) else None
         text = "\r\n".join(d.get("clip") or []) if d else ""
-        if text and getattr(view, "live", False) and (prefs or {}).get("copy_appraisals"):
+        if text and getattr(view, "live", False) and launcher.copy_appraisals():
             if clipboard.copy(text):
                 log.info("copied the appraisal of %s", d["name"])
 

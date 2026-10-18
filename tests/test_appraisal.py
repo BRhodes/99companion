@@ -4,6 +4,7 @@ companion copying it (once, live only, when it's turned on)."""
 import struct
 import types
 import unittest
+from pathlib import Path
 from unittest import mock
 
 from companion import appraisal
@@ -108,23 +109,41 @@ class DescribeTest(unittest.TestCase):
 
 
 class CopyTest(unittest.TestCase):
-    def view(self, on=True, live=True):
-        tr = types.SimpleNamespace(described=None)
-        return types.SimpleNamespace(tracker=tr, live=live, prefs=lambda: {"copy_appraisals": on})
+    def view(self, live=True):
+        return types.SimpleNamespace(tracker=types.SimpleNamespace(described=None), live=live)
 
     def test_once_each_live_and_only_when_on(self):
-        with mock.patch("companion.clipboard.copy", return_value=True) as copy:
+        on = {"v": True}
+        with mock.patch("companion.clipboard.copy", return_value=True) as copy, \
+                mock.patch("companion.launcher.copy_appraisals", lambda values=None: on["v"]):
             v = self.view()
             Companion._copy_appraisal(None, v)                     # nothing appraised yet
-            v.tracker.described = {"name": "Bow", "text": "Bow · 1p · Bow, Speed 41", "clip": ["Bow, Speed 41", "1p"]}
+            v.tracker.described = {"name": "Bow", "text": "Bow \u00b7 1p \u00b7 Bow, Speed 41", "clip": ["Bow, Speed 41", "1p"]}
             Companion._copy_appraisal(None, v)
             Companion._copy_appraisal(None, v)                     # the same one: not again
             self.assertEqual([c.args[0] for c in copy.call_args_list], ["Bow, Speed 41\r\n1p"])     # (its lines, no name)
-            off, replay = self.view(on=False), self.view(live=False)
-            for w in (off, replay):
-                w.tracker.described = {"name": "Bow", "text": "x", "clip": ["x"]}
-                Companion._copy_appraisal(None, w)
+            replay = self.view(live=False)
+            replay.tracker.described = {"name": "Bow", "text": "x", "clip": ["x"]}
+            Companion._copy_appraisal(None, replay)               # never from a replay
+            on["v"] = False                                        # turned off (Settings > Items): any character
+            w = self.view()
+            w.tracker.described = {"name": "Bow", "text": "x", "clip": ["x"]}
+            Companion._copy_appraisal(None, w)
             self.assertEqual(copy.call_count, 1)
+
+    def test_the_setting_starts_from_what_characters_had(self):
+        import json
+        import tempfile
+        from companion import launcher
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            with mock.patch.object(launcher, "ROOT", root), mock.patch.object(launcher, "SETTINGS", root / "launcher.local.json"):
+                self.assertFalse(launcher.copy_appraisals())                       # nothing anywhere: off
+                (root / "spellbook-layouts.json").write_text(json.dumps({"prefs:A": {"copy_appraisals": False},
+                                                                          "prefs:B": {"copy_appraisals": True}}))
+                self.assertTrue(launcher.copy_appraisals())                        # one character had it on
+                launcher.save_settings({"copy_appraisals": False})
+                self.assertFalse(launcher.copy_appraisals())                       # set: that's it
 
 
 if __name__ == "__main__":

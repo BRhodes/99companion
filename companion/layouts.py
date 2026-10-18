@@ -121,7 +121,6 @@ def clean_prefs(prefs):
     active = prefs.get("active_profile") if prefs.get("active_profile") in names else None
     return {"hidden_skills": sorted({s for s in hidden if isinstance(s, int) and 0 < s < 1000}),
             "buff_profiles": profiles, "active_profile": active, "items": items,
-            "copy_appraisals": prefs.get("copy_appraisals") is True,     # an item you appraise onto the clipboard
             "goals": _goals(prefs.get("goals")),
             "goal_tracked": prefs.get("goal_tracked") if isinstance(prefs.get("goal_tracked"), int) else None,
             "restock": {"target_bu": target_bu, "min": mins, "since": comporder.since_of(got.get("since")),

@@ -100,7 +100,7 @@ class RoutesTest(unittest.TestCase):
         self.assertEqual(self.app.route("PUT", "/api/layout/Zorn", b"not json")[0], 400)
 
     def test_prefs_round_trip(self):
-        empty = {"hidden_skills": [], "buff_profiles": [], "active_profile": None, "items": {"weapons": [], "shields": []}, "copy_appraisals": False,
+        empty = {"hidden_skills": [], "buff_profiles": [], "active_profile": None, "items": {"weapons": [], "shields": []},
                  "goals": [], "goal_tracked": None,
                  "restock": {"target_bu": 5000, "min": {"Scarabs": 10, "Herbs": 10, "Powders": 10, "Potions": 10,
                                                         "Talismans": 10, "Tapers": 20}, "since": None, "target_mode": "bu", "target_pct": 50,
