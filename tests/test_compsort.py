@@ -147,6 +147,16 @@ class CompStepsTest(unittest.TestCase):
                          [("Hyssop", "move", 2, True), ("Sword", None, None, False)])
         self.assertEqual([(i["name"], i["kind"]) for i in layout[2]["items"]], [("Iron Scarab", None), ("Lead Scarab", None)])
 
+    def test_plus_only_where_a_pack_has_too_many_stacks(self):
+        tr = self.tr({"a": {"name": "Hyssop", "stack": 5, "max_stack": 100}, "b": {"name": "Hyssop", "stack": 3, "max_stack": 100}},
+                     {"me": [], "P1": [], "P2": ["a", "b"]})                 # two stacks where one will do: +
+        self.assertEqual([i["kind"] for i in compsort.comp_plan(tr)[1][2]["items"]], [None, "merge"])
+        tr = self.tr({"a": {"name": "Hyssop", "stack": 5, "max_stack": 100}, "b": {"name": "Hyssop", "stack": 3, "max_stack": 100}},
+                     {"me": [], "P1": ["b"], "P2": ["a"]})                   # the spare one apart: a move to merge there
+        layout = compsort.comp_plan(tr)[1]
+        self.assertEqual([(i["kind"], i["to"]) for i in layout[1]["items"]], [("move", 2)])
+        self.assertEqual([i["kind"] for i in layout[2]["items"]], [None])
+
     def test_every_pack_even_the_4th_6th_and_7th(self):
         tr = self.tr({"a": {"name": "Lead Scarab"}}, {"me": ["a"], **{f"P{n}": [] for n in range(1, 8)}})
         tr.pack_order = [f"P{n}" for n in range(1, 8)]

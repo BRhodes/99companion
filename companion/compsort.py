@@ -149,8 +149,8 @@ def comp_plan(tr):
     """(steps, layout). layout: every pack as the game shows it -- [{label: "Main pack" | "Pack N", pack: None | N,
     capacity, items: [{name, stack, component, kind, to}]}], each pack's items in their slot order (the side packs
     in the main pack left out, as the game shows them apart). kind: None (nothing to do), "move" (to: the side pack it
-    goes to), "merge" (a stack to drop on another of its component; to: the pack that's in, if it has to go there),
-    "noroom" (stays in the main pack: the packs are full).
+    goes to -- a spare stack too, to merge there), "merge" (a stack to drop on another of its component in the same
+    pack: only where the pack has more stacks of it than it needs), "noroom" (stays in the main pack: the packs are full).
 
     Sorting the components by hand into the side packs -- every one, filled from the last one up (the 8th first)
     -- the parts that matter (not their order inside a pack), worked out as if
@@ -234,6 +234,13 @@ def comp_plan(tr):
     steps += [{"kind": "noroom", "name": names[g], "stack": stack(g), "slot": slot.get(g)}
               for g in sorted(kept, key=lambda g: slot.get(g) or 0) if end[g] == main[0]]
     number = lambda c: None if c == main[0] else tr.pack_order.index(c) + 1
+    # too many stacks in a pack: more of a component's stacks there than it keeps there (and more than one)
+    crowded = set()
+    for name, gs in by_name.items():
+        for pack in {start[g] for g in gs}:
+            here = sum(1 for g in gs if start[g] == pack)
+            if here > max(1, sum(1 for g in keep[name] if end[g] == pack)):
+                crowded.add((name, pack))
     layout = []
     for c in [main[0], *tr.pack_order]:
         items = []
@@ -241,8 +248,10 @@ def comp_plan(tr):
             name = names.get(g)
             kind = to = None
             if name in rank:
-                if g in extra:
-                    kind, to = "merge", (number(end[g]) if end[g] != start[g] else None)
+                if g in extra and end[g] != start[g] and end[g] != main[0]:
+                    kind, to = "move", number(end[g])        # a spare stack apart from its kind: there, to merge
+                elif g in extra:
+                    kind = "merge" if (name, start[g]) in crowded else None
                 elif end[g] != start[g] and end[g] != main[0]:
                     kind, to = "move", number(end[g])
                 elif end[g] == start[g] == main[0]:
