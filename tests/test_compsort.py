@@ -136,6 +136,17 @@ class CompStepsTest(unittest.TestCase):
                      {"me": ["a", "sword"], "P1": [], "P2": ["c", "b"]})      # Iron before Lead: out of order, same pack
         self.assertEqual(compsort.comp_steps(tr), [{"kind": "move", "name": "Hyssop", "stack": 12, "from": "main pack", "to": "side pack 2", "slot": 1}])
 
+    def test_the_packs_laid_out_with_where_each_goes(self):
+        tr = self.tr({"a": {"name": "Hyssop", "stack": 12}, "b": {"name": "Lead Scarab"}, "c": {"name": "Iron Scarab"},
+                      "sword": {"name": "Sword"}},
+                     {"me": ["a", "P1", "sword"], "P1": [], "P2": ["c", "b"]})
+        layout = compsort.comp_plan(tr)[1]
+        self.assertEqual([(p["label"], p["pack"], p["capacity"]) for p in layout], [("Main pack", None, None), ("Pack 1", 1, 3), ("Pack 2", 2, 24)])
+        main = layout[0]["items"]                         # (its side pack isn't one of its items)
+        self.assertEqual([(i["name"], i["kind"], i["to"], i["component"]) for i in main],
+                         [("Hyssop", "move", 2, True), ("Sword", None, None, False)])
+        self.assertEqual([(i["name"], i["kind"]) for i in layout[2]["items"]], [("Iron Scarab", None), ("Lead Scarab", None)])
+
     def test_every_pack_even_the_4th_6th_and_7th(self):
         tr = self.tr({"a": {"name": "Lead Scarab"}}, {"me": ["a"], **{f"P{n}": [] for n in range(1, 8)}})
         tr.pack_order = [f"P{n}" for n in range(1, 8)]

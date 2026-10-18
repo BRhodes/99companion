@@ -231,6 +231,21 @@ a { color: var(--accent); }
 .shop-sellrow { display: flex; flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden; gap: 4px; padding: 9px 4px 4px 0;
   scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
 .shop-sellrow .shop-t { flex: none; }
+.sortgrids { display: flex; flex-wrap: wrap; gap: 14px 18px; align-items: flex-start; }
+.sortpack h4 { margin: 0 0 4px; font-size: 12px; font-weight: 600; color: var(--muted); }
+.sortpack h4 .n { color: var(--ink); font-weight: 700; }
+.sgrid { display: grid; gap: 2px; }
+.st { position: relative; width: 30px; height: 30px; border-radius: 3px; background: var(--bar); display: block; }
+.st img, .st i { width: 28px; height: 28px; display: block; margin: 1px; }
+.st:not(.act) img { filter: grayscale(1); opacity: .32; }
+.st.stay img { opacity: .55; }
+.st i.other { background: var(--line); opacity: .45; border-radius: 2px; }
+.st.empty { background: none; box-shadow: inset 0 0 0 1px var(--line); opacity: .5; }
+.st.act { box-shadow: 0 0 0 1px var(--ink); }
+.st .to { position: absolute; right: 1px; bottom: -1px; font: 800 15px/1 system-ui, sans-serif; color: #fff;
+  -webkit-text-stroke: 3px #000; paint-order: stroke fill; letter-spacing: -.02em; pointer-events: none; }
+.st.slot6 { box-shadow: 0 0 0 2px #3a82f6; }
+.sortkey { margin-top: 8px; font-size: 12px; color: var(--muted); }
 .sortgrp { display: inline-block; vertical-align: top; min-width: 150px; margin: 0 24px 10px 0; }
 .sortgrp h4 { margin: 0 0 4px; font-size: 12px; font-weight: 600; color: var(--muted); }
 .sortline { display: flex; align-items: center; gap: 6px; font-size: 13px; padding: 2px 0; }
@@ -3251,6 +3266,32 @@ document.addEventListener("change", e => {
 });
 // Sort (at the bottom of the shop): sorting the components by hand -- the parts that
 // matter: a stack in the wrong pack, a component in more stacks than it needs (worked out again as you go).
+// The packs as the game shows them, a tight grid each, in slot order: a component that has to move shows the number of
+// the pack it goes to; "+" one to drop on another stack of it; everything else greyed out (nothing to do). The side
+// packs show their empty slots too, as the game does.
+const SORT_COLS = 6;
+function sortGrids(layout) {
+  if (!layout || !layout.length) return "";
+  const todo = layout.some(p => p.items.some(i => i.kind === "move" || i.kind === "merge"));
+  const tile = (i, n, main) => {
+    const tip = `${i.name || "?"}${i.stack > 1 ? ` ×${fmt(i.stack)}` : ""}${main ? ` · slot ${n}` : ""}${
+      i.kind === "move" ? ` → Pack ${i.to}` : i.kind === "merge" ? ` → drop it on another stack of it${i.to ? ` in Pack ${i.to}` : ""}`
+      : i.kind === "noroom" ? " · stays here: your packs are full" : i.component ? " · where it belongs" : ""}`;
+    const act = i.kind === "move" || i.kind === "merge";
+    const mark = i.kind === "move" ? `<b class="to">${i.to}</b>` : i.kind === "merge" ? `<b class="to">+${i.to ?? ""}</b>` : "";
+    return `<span class="st${act ? " act" : ""}${i.kind === "noroom" ? " stay" : ""}${main && n === 6 ? " slot6" : ""}" title="${esc(tip)}">${
+      i.icon ? `<img src="/icon/${i.icon}.png?v=2" alt="" draggable="false">` : `<i class="${i.component ? "noicon" : "other"}"></i>`}${mark}</span>`;
+  };
+  const grid = p => {
+    const main = p.pack == null, n = p.items.filter(i => i.kind === "move" || i.kind === "merge").length;
+    const empty = p.capacity ? Math.max(0, p.capacity - p.items.length) : 0;
+    return `<div class="sortpack"><h4>${esc(p.label)}${n ? ` <span class="n">${n}</span>` : ""}</h4><div class="sgrid" style="grid-template-columns:repeat(${SORT_COLS}, 30px)">${
+      p.items.map((i, k) => tile(i, k + 1, main)).join("")}${"<span class=\"st empty\"></span>".repeat(empty)}</div></div>`;
+  };
+  return `<div class="sortgrids">${layout.filter(p => p.items.length || p.pack != null).map(grid).join("")}</div>
+    <div class="hint2 sortkey">${todo ? "The number: the pack it goes to · +: drop it on another stack of it · grey: nothing to do" : "Your components are sorted."}</div>`;
+}
+
 function sortPanel(steps) {
   if (!steps.length) return `<div class="empty">Your components are sorted.</div>`;
   const pack = l => l === "main pack" ? "Main pack" : l.replace("side pack ", "Pack ");
@@ -3350,7 +3391,8 @@ function renderShop(state, burn) {
   }) + (shownExtra.length && !(compLists.onlyCats && !shownExtra.some(bought)) ? `<div class="shop-sec"><h4>Not sold here</h4><div class="shop-tiles">${shownExtra.map(buyTile).join("")}</div></div>` : "");
   const sellHtml = toSell.length ? `<div class="shop-sellrow">${toSell.map(r => tile(r, "sell", over(r), "−")).join("")}</div>`
     : `<div class="empty">Nothing over its desired amount by ${fmt(compLists.sellMin)} or more.</div>`;
-  setHTML($("shopSort"), state.comp_sort ? sortPanel(state.comp_sort) : `<div class="empty">Your side packs aren't known yet.</div>`);
+  setHTML($("shopSort"), state.comp_layout && state.comp_layout.length ? sortGrids(state.comp_layout)
+    : `<div class="empty">Your side packs aren't known yet.</div>`);
   setHTML($("shopSortN"), state.comp_sort && state.comp_sort.length ? `${state.comp_sort.length} to do` : "");
   setHTML($("shopBuy"), list.length ? (toBuy.some(bought) || !compLists.onlyBuy ? buyHtml : "") || `<div class="empty">Nothing to buy.</div>` : `<div class="empty">No components yet: they show once you carry some or cast.</div>`);
   setHTML($("shopSell"), sellHtml);

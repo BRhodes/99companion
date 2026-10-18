@@ -141,7 +141,18 @@ def plan(main, packs, is_comp, key=None, groups=None):
 
 
 def comp_steps(tr):
-    """Sorting the components by hand into the side packs -- every one, filled from the last one up (the 8th first)
+    """comp_plan's steps."""
+    return comp_plan(tr)[0]
+
+
+def comp_plan(tr):
+    """(steps, layout). layout: every pack as the game shows it -- [{label: "Main pack" | "Pack N", pack: None | N,
+    capacity, items: [{name, stack, component, kind, to}]}], each pack's items in their slot order (the side packs
+    in the main pack left out, as the game shows them apart). kind: None (nothing to do), "move" (to: the side pack it
+    goes to), "merge" (a stack to drop on another of its component; to: the pack that's in, if it has to go there),
+    "noroom" (stays in the main pack: the packs are full).
+
+    Sorting the components by hand into the side packs -- every one, filled from the last one up (the 8th first)
     -- the parts that matter (not their order inside a pack), worked out as if
     each component were already in as few stacks as it fits in (the packs' room counted that way: the stacks that
     merge away free their slots). In order:
@@ -155,7 +166,7 @@ def comp_steps(tr):
     don't count: the game shows them apart from its grid). Worked out from where things are now, so it shrinks as
     you go."""
     if not getattr(tr, "components", None) or not getattr(tr, "pack_order", None) or tr.player is None:
-        return []
+        return [], []
     rank = component_rank(tr.components)
     names = {g: o.get("name") for g, o in tr.objects.items()}
     stack = lambda g: (tr.objects.get(g) or {}).get("stack") or 1
@@ -222,4 +233,22 @@ def comp_steps(tr):
     # what the packs can't hold: in the main pack, staying there
     steps += [{"kind": "noroom", "name": names[g], "stack": stack(g), "slot": slot.get(g)}
               for g in sorted(kept, key=lambda g: slot.get(g) or 0) if end[g] == main[0]]
-    return steps
+    number = lambda c: None if c == main[0] else tr.pack_order.index(c) + 1
+    layout = []
+    for c in [main[0], *tr.pack_order]:
+        items = []
+        for g in (x for x in lists[c] if x not in tr.pack_order):
+            name = names.get(g)
+            kind = to = None
+            if name in rank:
+                if g in extra:
+                    kind, to = "merge", (number(end[g]) if end[g] != start[g] else None)
+                elif end[g] != start[g] and end[g] != main[0]:
+                    kind, to = "move", number(end[g])
+                elif end[g] == start[g] == main[0]:
+                    kind = "noroom"
+            items.append({"name": name, "stack": stack(g), "component": name in rank, "kind": kind, "to": to})
+        layout.append({"label": "Main pack" if c == main[0] else f"Pack {number(c)}", "pack": number(c),
+                       "capacity": None if c == main[0] else (tr.objects.get(c, {}).get("items_capacity") or PACK_CAPACITY),
+                       "items": items})
+    return steps, layout

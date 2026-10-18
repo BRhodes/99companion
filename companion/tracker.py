@@ -1342,6 +1342,14 @@ class Tracker:
         items = self.order.setdefault(container, [])
         items.insert(min(slot, len(items)), guid)
 
+    def _comp_sort(self):
+        """The Sort panel's steps (comp_sort) and its packs laid out as the game shows them (comp_layout)."""
+        steps, layout = compsort.comp_plan(self)
+        for pack in layout:
+            for i in pack["items"]:
+                i["icon"] = COMPONENT_ICONS.get(i["name"]) if i["component"] else None
+        return {"comp_sort": [dict(s, icon=COMPONENT_ICONS.get(s["name"])) for s in steps], "comp_layout": layout}
+
     def pack_contents(self, container):
         """Items in a container in their order: the known order, then any it holds that the order missed."""
         known = [g for g in self.order.get(container, []) if self.objects.get(g, {}).get("container") == container]
@@ -1399,7 +1407,7 @@ class Tracker:
             "skills": skills,
             "grants": list(self.grants)[:25],
             "chat": list(self.chat)[-200:],
-            "comp_sort": [dict(s, icon=COMPONENT_ICONS.get(s["name"])) for s in compsort.comp_steps(self)],
+            **self._comp_sort(),
             "stance": self.stance_snapshot(),
             "foe": self._foe_snapshot(),
             "foes": self._foes_snapshot(now),
