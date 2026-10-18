@@ -1382,6 +1382,7 @@ class Tracker:
                 "stored_difficulty": st.get("stored_difficulty"), "stored_confirmed": st.get("stored_confirmed"),
                 "last_grant_ts": st.get("last_grant_ts"), "grants": st["grants"], "skill_xp": st["skill_xp"],
                 "climb": bool(g and now - g["ts"] < 20),
+                "granted_at": g["ts"] if g else None,      # the last bonus XP grant seen (the dashboard flashes it)
             })
         skills.sort(key=lambda s: s["name"])
         burn = self.ledger.snapshot(inv, self._session_hours(now), {sid: s["name"] for sid, s in self.spells.items()})
