@@ -11,9 +11,10 @@ check. Your own processes allow this without administrator rights, so no Sysinte
 
 Accounts live in accounts.local.json next to this repo's README (git-ignored, plain text):
     {"1": {"account": "name", "password": "..."},
-     "2": {"account": "...", "password": "...", "dir": "C:\\...\\Asheron's Call2"}}
-"exe" (the game program to start, a path: else the game folder's, Settings > Game) is optional per account. "background": true uses
-the copy made by tools/bgpatch.py (Settings > Game, or tools/bgpatch.cmd), which keeps drawing when its window loses focus.
+     "2": {"account": "...", "password": "...", "exe": "C:\\...\\Asheron's Call2\\client.exe"}}
+"exe" (the game program to start, a path: else the game folder's, Settings > Game) is optional per account. To play
+in the background, pick the copy tools/bgpatch.py makes (Settings > Game, or tools/bgpatch.cmd), which keeps drawing
+when its window loses focus. (Older settings' "dir" and "background": true still work.)
 """
 
 import argparse
@@ -29,7 +30,7 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO))
-from companion.launcher import ACCOUNTS, account_exe, background_of, game_dir  # noqa: E402
+from companion.launcher import ACCOUNTS, account_exe, game_dir  # noqa: E402
 
 AC_DIR = Path(game_dir())     # Settings > Game (launcher.local.json), else the folder the game's found in
 LOCK_NAME = "Empyrean Client"
@@ -180,11 +181,6 @@ def launch(acct):
     if exe is None or not exe.exists():
         print(f"No game program to start ({exe or 'none found in ' + str(AC_DIR)}): pick it in Settings > Accounts.")
         return False
-    if acct.get("background"):
-        if background_of(exe).exists():
-            exe = background_of(exe)
-        else:
-            print(f"No {background_of(exe).name} yet (Settings > Game > Make the background copy); starting {exe.name}.")
     folder, exe_name = exe.parent, exe.name
     args = [".\\" + exe_name, "-h", RELAY[0], "-p", str(RELAY[1]), "-a", f"{acct['account']}:{acct['password']}", "-db"]
     subprocess.Popen(args, executable=str(exe), cwd=folder,

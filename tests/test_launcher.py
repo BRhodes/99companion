@@ -32,20 +32,19 @@ class LauncherTest(unittest.TestCase):
         return g
 
     def test_accounts_never_give_a_password_back(self):
-        key = launcher.save_account({"account": "zorn", "password": "hunter2", "background": True})
+        key = launcher.save_account({"account": "zorn", "password": "hunter2"})
         self.assertEqual(key, "1")
         self.assertEqual(launcher.accounts(running={"zorn": [42]}),
-                         [{"key": "1", "account": "zorn", "password": True, "background": True, "exe": "", "dir": "",
-                           "starts": "", "has_background": False, "running": True}])
+                         [{"key": "1", "account": "zorn", "password": True, "exe": "", "dir": "", "starts": "", "running": True}])
         self.assertNotIn("hunter2", json.dumps(launcher.Launcher().state()))
         self.assertEqual(json.loads(self.accounts.read_text())["1"]["password"], "hunter2")   # (aclaunch reads it)
 
     def test_a_blank_password_keeps_the_saved_one_and_other_fields_stay(self):
         self.accounts.write_text(json.dumps({"1": {"account": "zorn", "password": "old", "dir": "D:\\AC2"},
                                              "2": {"account": "", "password": ""}}))
-        launcher.save_account({"account": "zorn2", "password": "", "background": False}, "1")
+        launcher.save_account({"account": "zorn2", "password": ""}, "1")
         saved = json.loads(self.accounts.read_text())["1"]
-        self.assertEqual((saved["account"], saved["password"], saved["dir"], saved["background"]), ("zorn2", "old", "D:\\AC2", False))
+        self.assertEqual((saved["account"], saved["password"], saved["dir"]), ("zorn2", "old", "D:\\AC2"))
         self.assertEqual(launcher.save_account({"account": "alt", "password": "p"}), "2")    # the blank template's slot
         launcher.delete_account("1")
         self.assertEqual([a["key"] for a in launcher.accounts()], ["2"])
@@ -59,9 +58,7 @@ class LauncherTest(unittest.TestCase):
             launcher.save_account({"account": "zorn", "exe": str(g / "portal.dat")})        # not a program
         key = launcher.save_account({"account": "zorn", "password": "p", "exe": str(g / "client.exe")})
         a = launcher.accounts(running={})[0]
-        self.assertEqual((a["exe"], a["starts"], a["has_background"]), (str(g / "client.exe"), str(g / "client.exe"), False))
-        self.game("client-bg.exe")
-        self.assertTrue(launcher.accounts(running={})[0]["has_background"])
+        self.assertEqual((a["exe"], a["starts"]), (str(g / "client.exe"), str(g / "client.exe")))
         launcher.save_account({"password": ""}, key)                                    # (a change without it keeps it)
         self.assertEqual(launcher.accounts(running={})[0]["exe"], str(g / "client.exe"))
         launcher.save_account({"exe": ""}, key)                                         # back to the game folder's
@@ -72,6 +69,14 @@ class LauncherTest(unittest.TestCase):
         self.accounts.write_text(json.dumps({"1": {"account": "zorn", "password": "p", "dir": str(g)}}))
         a = launcher.accounts(running={})[0]
         self.assertEqual((a["exe"], a["dir"]), (str(g / "client-windows-3d-accel.exe"), str(g)))   # dgVoodoo's first
+        self.accounts.write_text(json.dumps({"1": {"account": "zorn", "password": "p", "background": True}}))
+        self.game("client-windows-3d-accel-bg.exe")
+        with mock.patch.object(launcher, "game_dir", lambda values=None: str(g)):
+            a = launcher.accounts(running={})[0]
+        self.assertEqual((a["exe"], a["starts"]), (str(g / "client-windows-3d-accel-bg.exe"),) * 2)   # an older background tick
+        self.game("portal.dat", "cell.dat")
+        launcher.save_account({"exe": str(g / "client.exe")}, "1")                     # picking one replaces it
+        self.assertNotIn("background", json.loads(self.accounts.read_text())["1"])
 
     def test_bad_accounts_are_refused(self):
         for values, key in (({"account": ""}, None), ({"account": "a:b"}, None), ({"account": "x" * 65}, None),
@@ -127,8 +132,9 @@ class LauncherRoutesTest(unittest.TestCase):
         status, got = self.call("POST", "/api/accounts", {"account": "zorn", "password": "pw"})
         self.assertEqual((status, got["key"]), (200, "1"))
         self.assertNotIn("pw", json.dumps(self.app.snapshot()["launcher"]))
-        self.assertEqual(self.call("PUT", "/api/accounts/1", {"background": True})[0], 200)
-        self.assertTrue(launcher.accounts()[0]["background"])
+        self.assertEqual(self.call("PUT", "/api/accounts/1", {"account": "zorn2"})[0], 200)
+        self.assertEqual(launcher.accounts()[0]["account"], "zorn2")
+        self.assertEqual(self.call("PUT", "/api/accounts/1", {"exe": "C:/Windows/notepad.exe"})[0], 400)   # not the game
         self.assertEqual(self.call("PUT", "/api/accounts/7", {"account": "x"})[0], 400)
         self.assertEqual(self.call("DELETE", "/api/accounts/1")[0], 200)
         self.assertEqual(launcher.accounts(), [])

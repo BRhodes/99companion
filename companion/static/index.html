@@ -1393,7 +1393,7 @@ function renderLauncher(L, sessions) {
       <span class="hint2">The folder the game's installed in. Spells, icons and the map come from its portal.dat and cell.dat; changing it restarts the companion.</span></div>
     <div class="k">Play in the background</div><div class="col">
       ${g.background ? tick(true, "the background copy is made") : `<button class="chip" data-game-bg ${g.client ? "" : "disabled"}>Make the background copy</button>`}
-      <span class="hint2">The game stops drawing when its window isn't the one in front. This makes a copy of it beside the original that keeps going (the original isn't changed). Windows asks for permission, since it writes into the game folder. Then tick "background" on an account.</span></div>
+      <span class="hint2">The game stops drawing when its window isn't the one in front. This makes a copy of it beside the original that keeps going (the original isn't changed). Windows asks for permission, since it writes into the game folder. Then pick it (client-windows-3d-accel-bg.exe) as an account's game in Settings › Accounts.</span></div>
     <div class="k">Experimental features</div><div class="col">
       <label><input type="checkbox" data-launch-experimental ${L.experimental ? "checked" : ""}> enable experimental features</label>
       <span class="hint2">Off, the companion only reads the game's traffic: everything is passed along exactly as it was sent. Experimental features
@@ -1411,19 +1411,18 @@ function renderLauncher(L, sessions) {
   const row = a => `<tr><td><input type="text" data-acct-name="${esc(a.key)}" value="${esc(a.account)}" style="width:150px"></td>
     <td><input type="password" data-acct-pw="${esc(a.key)}" placeholder="${a.password ? "saved: type to change" : "not saved yet"}" style="width:170px" autocomplete="new-password"></td>
     <td class="dir">${program(a.exe, a.starts, `data-acct-exe="${esc(a.key)}"`, `data-acct-exe-clear="${esc(a.key)}"`)}</td>
-    <td><label title="${a.has_background ? "" : "No background copy in its folder yet: Settings › Game"}"><input type="checkbox" data-acct-bg="${esc(a.key)}" ${a.background ? "checked" : ""} ${a.has_background ? "" : "disabled"}> background</label></td>
     <td>${launchButton(a, online, sessions)}</td><td><button class="chip" data-acct-del="${esc(a.key)}">Remove</button></td></tr>`;
-  setHTML(box, `<table class="accts"><thead><tr><th>Account</th><th>Password</th><th>Game</th><th></th><th></th><th></th></tr></thead><tbody>
+  setHTML(box, `<table class="accts"><thead><tr><th>Account</th><th>Password</th><th>Game</th><th></th><th></th></tr></thead><tbody>
     ${L.accounts.map(row).join("")}
     <tr class="add"><td><input type="text" id="acctNewName" placeholder="account name" style="width:150px"></td>
       <td><input type="password" id="acctNewPw" placeholder="password" style="width:170px" autocomplete="new-password"></td>
       <td class="dir">${program(newAcctExe, newAcctExe || (g.client ? g.dir + "\\" + g.client : ""), "data-acct-new-exe", "data-acct-new-exe-clear")}</td>
-      <td><label><input type="checkbox" id="acctNewBg" ${g.background ? "" : "disabled"}> background</label></td>
       <td><button class="chip ${L.accounts.length ? "" : "act-soon"}" data-acct-add>Add</button></td><td></td></tr></tbody></table>
     <p class="hint2">Your accounts' log-ins, so ▶ in the header starts the game logged in, through the companion, and as many at once as you
       have (each start clears the game's one-copy-at-a-time lock first). They're kept in accounts.local.json in this folder, on this computer
       only: passwords are never shown again or sent anywhere but to the game. An account starts the game folder's program (Settings › Game) unless you
-      choose its own: another copy of the game, or the program you use (client.exe, say).${g.background ? "" : " (Background: make the background copy in Settings › Game first.)"}</p>`);
+      choose its own: another copy of the game, the program you use (client.exe, say), or the background copy (Settings › Game) to keep it
+      drawing when its window isn't in front.</p>`);
 }
 function launcherPost(path, body, method = "POST") {
   return fetch(path, {method, headers: {"Content-Type": "application/json", "X-Companion": "1"}, body: body ? JSON.stringify(body) : undefined})
@@ -1437,7 +1436,7 @@ function gameResult(r) {
 function addAccount() {
   const name = $("acctNewName").value.trim(), pw = $("acctNewPw").value;
   if (!name) return toast("Type the account name");
-  launcherPost("/api/accounts", {account: name, password: pw, background: $("acctNewBg").checked, exe: newAcctExe})
+  launcherPost("/api/accounts", {account: name, password: pw, exe: newAcctExe})
     .then(r => { if (!r.ok) return toast(r.error); $("acctNewName").value = $("acctNewPw").value = ""; newAcctExe = ""; document.activeElement.blur(); toast(`Added ${name}`); });
 }
 // Windows' file picker for an account's own game program: -> the program (checked: it's in a game folder), or null
@@ -1499,7 +1498,6 @@ document.addEventListener("change", e => {
   else if (t.matches("[data-acct-name]") && t.value.trim()) launcherPost(`/api/accounts/${encodeURIComponent(t.dataset.acctName)}`, {account: t.value.trim()}, "PUT").then(saved);
   else if (t.matches("[data-acct-pw]") && t.value) launcherPost(`/api/accounts/${encodeURIComponent(t.dataset.acctPw)}`, {password: t.value}, "PUT")
     .then(r => { t.value = ""; r.ok ? toast("Password saved") : toast(r.error); });
-  else if (t.matches("[data-acct-bg]")) launcherPost(`/api/accounts/${encodeURIComponent(t.dataset.acctBg)}`, {background: t.checked}, "PUT").then(saved);
 });
 
 // ---- updates (updater.py): the header's banner, and Settings > Updates -----------------------------------------

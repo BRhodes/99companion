@@ -9,7 +9,8 @@ launcher.local.json (beside the README):
      "tint": false}                           with experimental on, the relay runs with --tint-store (vendor
                                               backgrounds); start.cmd's window restarts it when either changes
 accounts.local.json: the accounts (tools/aclaunch.py's format, which starts the client):
-    {"1": {"account": "name", "password": "...", "background": true, ...}, "2": ...}
+    {"1": {"account": "name", "password": "...", "exe": "C:\\...\\client-windows-3d-accel-bg.exe"}, "2": ...}
+(an older "background": true starts the program's background copy, as picking it does now)
 A password is written here and read by aclaunch, and never goes back out: accounts() says only whether
 there is one. Launching takes an account's key and nothing else -- the client is always the one in the game
 folder -- so nothing that reaches the dashboard can choose a program to run.
@@ -124,18 +125,22 @@ def _key_order(k):
 
 def account_exe(a, game=None):
     """The game program an account starts: its own "exe" (a path; or a name in its "dir", as older settings
-    have it), else its "dir"'s or the game folder's (default_exe). None if there's none."""
+    have it), else its "dir"'s or the game folder's (default_exe) -- the background copy instead when an older
+    setting asks ("background": true) and it's there. None if there's none."""
     folder = a.get("dir") or game or game_dir()
     if a.get("exe"):
         exe = Path(a["exe"])
-        return exe if exe.is_absolute() else Path(folder) / exe
-    return default_exe(folder)
+        exe = exe if exe.is_absolute() else Path(folder) / exe
+    else:
+        exe = default_exe(folder)
+    if exe is not None and a.get("background") is True and background_of(exe).is_file():
+        exe = background_of(exe)
+    return exe
 
 
 def accounts(path=None, running=None):
-    """[{key, account, password: there is one, background, exe: its own game program ("": the game folder's), dir: its folder,
-    starts: the program it starts, has_background: that program's background copy is there, running: its client
-    is running here}] -- never a password itself. (running: from the clients' own command lines; running=None
+    """[{key, account, password: there is one, exe: its own game program ("": the game folder's), dir: its folder,
+    starts: the program it starts, running: its client is running here}] -- never a password itself. (running: from the clients' own command lines; running=None
     reads them now.)"""
     out = []
     running = running_accounts() if running is None else running
@@ -144,11 +149,11 @@ def accounts(path=None, running=None):
         if a.get("account"):
             game = game or game_dir()
             exe = account_exe(a, game)
-            own = bool(a.get("exe") or a.get("dir"))
+            own = bool(a.get("exe") or a.get("dir") or a.get("background"))
             out.append({"key": k, "account": str(a["account"]), "password": bool(a.get("password")),
-                        "background": a.get("background") is True, "exe": str(exe) if own and exe else "",
+                        "exe": str(exe) if own and exe else "",
                         "dir": str(exe.parent) if own and exe else "",       # (its folder: tools/bgpatch.py's)
-                        "starts": str(exe or ""), "has_background": bool(exe and background_of(exe).is_file()),
+                        "starts": str(exe or ""),
                         "running": str(a["account"]).lower() in running})
     return out
 
@@ -169,7 +174,8 @@ def check_exe(exe):
 
 def save_account(values, key=None, path=None):
     """Add an account (key None: the first free number) or change one: account, password (blank or missing:
-    keep the saved one), background, exe (its own game program, check_exe; "" for the game folder's). -> its key.
+    keep the saved one), exe (its own game program, check_exe; "" for the game folder's: either replaces an older
+    folder or background setting). -> its key.
     ValueError for a missing name, a program that isn't the game's, or an unknown key."""
     raw = _accounts_raw(path)
     name = str(values.get("account") if values.get("account") is not None else (raw.get(key) or {}).get("account") or "").strip()
@@ -186,10 +192,9 @@ def save_account(values, key=None, path=None):
     entry = dict(raw.get(key) or {}, account=name)
     if password:
         entry["password"] = password
-    if "background" in values:
-        entry["background"] = values["background"] is True
     if exe is not None:
-        entry.pop("dir", None)          # (a program picked replaces an older folder setting)
+        entry.pop("dir", None)          # (a program picked replaces an older folder or background setting)
+        entry.pop("background", None)
         if exe:
             entry["exe"] = exe
         else:
