@@ -245,8 +245,8 @@ a { color: var(--accent); }
 .st .to { position: absolute; right: 1px; bottom: -1px; font: 800 15px/1 system-ui, sans-serif; color: #fff;
   -webkit-text-stroke: 3px #000; paint-order: stroke fill; letter-spacing: -.02em; pointer-events: none; }
 .st.slot6 { box-shadow: 0 0 0 2px #3a82f6; }
-.st.now { box-shadow: 0 0 0 2px var(--bad); background: color-mix(in srgb, var(--bad) 22%, var(--bar)); }
-.sortkey .nowkey { color: var(--bad); font-weight: 700; }
+.st.now { box-shadow: 0 0 0 2px #3a82f6; background: color-mix(in srgb, #3a82f6 26%, var(--bar)); }
+.sortkey .nowkey { color: #3a82f6; font-weight: 700; }
 .sortkey { margin-top: 8px; font-size: 12px; color: var(--muted); }
 .sortgrp { display: inline-block; vertical-align: top; min-width: 150px; margin: 0 24px 10px 0; }
 .sortgrp h4 { margin: 0 0 4px; font-size: 12px; font-weight: 600; color: var(--muted); }
@@ -3271,7 +3271,7 @@ document.addEventListener("change", e => {
 // The packs as the game shows them, a tight grid each, in slot order: a component that has to move shows the number of
 // the pack it goes to; "+" one to drop on another stack of it there (a pack with too many); everything else greyed out
 // (nothing to do). The side packs show their empty slots too, as the game does. Only packs with something to do (in or
-// out) show. Red: the batch to do now -- what goes into the lowest-numbered pack that still takes something, and
+// out) show. Blue: the batch to do now -- what goes into the lowest-numbered pack that still takes something, and
 // what's in that pack that doesn't belong there.
 const SORT_COLS = 6;
 function sortGrids(layout) {
@@ -3298,7 +3298,7 @@ function sortGrids(layout) {
   const busy = p => into.has(p.pack) || p.items.some(i => i.kind === "move" || i.kind === "merge");
   return `<div class="sortgrids">${layout.filter(busy).map(grid).join("")}</div>
     <div class="hint2 sortkey">${todo ? `The number: the pack it goes to · +: drop it on another stack of it in that pack · grey: nothing to do${
-      focus ? ` · <span class="nowkey">red</span>: do these first (into Pack ${focus}, and what has to leave it)` : ""}` : "Your components are sorted."}</div>`;
+      focus ? ` · <span class="nowkey">blue</span>: do these first (into Pack ${focus}, and what has to leave it)` : ""}` : "Your components are sorted."}</div>`;
 }
 
 function sortPanel(steps) {
