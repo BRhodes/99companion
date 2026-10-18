@@ -1723,7 +1723,7 @@ const SOCIAL = ["tell", "channel", "say"];
 const chatKey = (who, kinds) => `${who}|${kinds.join(",")}`;
 function chatKinds(kinds) { return kinds.flatMap(k => k === "tell" ? ["tell", "tell_out"] : [k]); }
 const CHAT_PAGE = 300;   // lines per request; history keeps paging back until a short page says that's all
-function loadChatHistory(key, who, kinds, before, more) {
+function loadChatHistory(key, who, kinds, before, more, first) {
   if (chatLoading[key] || (!more && chatEarlier[key])) return;
   chatLoading[key] = true;
   const got = [];
@@ -1735,6 +1735,7 @@ function loadChatHistory(key, who, kinds, before, more) {
   page(before).then(() => {
     chatEarlier[key] = got.reverse().concat(more ? chatEarlier[key] || [] : []);
     chatEarlier[key].fetched = before;
+    chatEarlier[key].first = first;
     render();
   }).catch(() => {}).finally(() => { chatLoading[key] = false; });
 }
@@ -1778,21 +1779,25 @@ function chatLines(state, kinds, limit) {
   const st = state.status || {}, who = st.character || (st.account ? `@${st.account}` : null);
   const live = (state.chat || []).filter(c => c.kind === "login" || c.kind === "logout" || kinds.includes(chatKindOf(c)));
   if (!who) return [];
+  // this login's first line: when it changes (a new login starts the live lines over), what was saved is fetched
+  // again -- else the lines between the last fetch and the new login would be in neither
+  const first = (state.chat || []).length ? state.chat[0].ts : null;
   if (limit) {                 // the newest few: this login's lines, topped up from one page of history if short
     if (live.length >= limit) return withLogins(live).slice(-limit);
     const rkey = chatKey(who, kinds) + "|recent";
+    if (chatEarlier[rkey] && chatEarlier[rkey].first !== first) delete chatEarlier[rkey];
     if (!chatEarlier[rkey] && !chatLoading[rkey]) {
       chatLoading[rkey] = true;
       fetch(`/api/chat/${encodeURIComponent(who)}/${Date.now() / 1000 + 1}/${chatKinds(kinds).join(",")}`)
-        .then(r => r.json()).then(rows => { chatEarlier[rkey] = rows.reverse(); render(); })
+        .then(r => r.json()).then(rows => { chatEarlier[rkey] = rows.reverse(); chatEarlier[rkey].first = first; render(); })
         .catch(() => {}).finally(() => { chatLoading[rkey] = false; });
     }
     const seen = new Set(live.map(c => c.ts.toFixed(6)));
     return withLogins((chatEarlier[rkey] || []).filter(c => !seen.has(c.ts.toFixed(6))).concat(live)).slice(-limit);
   }
   const key = chatKey(who, kinds), saved = chatEarlier[key];
-  if (saved && live.length && state.chat[0].ts > (saved.fetched || 0)) delete chatEarlier[key];   // a gap: refetch
-  loadChatHistory(key, who, kinds, Date.now() / 1000 + 1, false);
+  if (saved && ((live.length && state.chat[0].ts > (saved.fetched || 0)) || saved.first !== first)) delete chatEarlier[key];   // a gap: refetch
+  loadChatHistory(key, who, kinds, Date.now() / 1000 + 1, false, first);
   const earlier = chatEarlier[key] || [];
   const sig = `${earlier.length}:${earlier.fetched}:${live.length}:${live.length ? live[live.length - 1].ts : 0}`;
   if (chatMerged[key] && chatMerged[key].sig === sig) return chatMerged[key].lines;
