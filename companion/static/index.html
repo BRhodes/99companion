@@ -1654,6 +1654,7 @@ const DG_NEAR = 4;                                   // floors above and below d
 const DG_FADE = [1, .34, .22, .14, .08];             // how faint, by floors away
 const dgAway = z => Math.round(Math.abs(z - DG.floor) / 6);       // (a dungeon's floors are 6 m apart)
 const dgLevel = z => Math.round(z / 6) * 6;                        // the floor a height is on
+const dgLabel = (d, z) => (d.labels || {})[String(z)] || `${z > 0 ? "+" : ""}${z} m`;     // ("-54 / -60 m": floors that are one)
 const dgHeat = (lv, lo, hi) => { const t = hi > lo ? (lv - lo) / (hi - lo) : 0; return `hsl(${Math.round(190 - 190 * t)} 72% ${t > .5 ? 50 : 44}%)`; };
 const mmss = s => s >= 3600 ? `${Math.floor(s / 3600)}h${String(Math.floor(s % 3600 / 60)).padStart(2, "0")}` : `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
 function dgLoad(lb) {
@@ -1690,7 +1691,7 @@ function renderDungeon(state) {
   const points = live && live.landblock === lb ? live.points : d.spawns.map(() => ({state: "unknown"}));
   const here = live && live.landblock === lb && live.here && pos && (pos.cell >>> 16) === parseInt(lb, 16) ? pos : null;
   if (DG.lb !== lb) { DG.lb = lb; DG.floor = null; DG.drawn = null; DG.vb = null; }
-  const myFloor = here && here.z != null ? dgLevel(here.z) : null;
+  const myFloor = here && here.z != null ? ((d.merged || {})[String(dgLevel(here.z))] ?? dgLevel(here.z)) : null;
   if (myFloor != null && DG.follow) DG.floor = myFloor;
   if (DG.floor == null) DG.floor = d.levels.map(z => [z, d.spawns.filter(s => s.floor === z).length]).sort((a, b) => b[1] - a[1])[0][0];
   const t = now();
@@ -1702,7 +1703,7 @@ function renderDungeon(state) {
   setHTML($("dgFloors"), d.levels.map(z => {
     const on = d.spawns.map((s, i) => [s, points[i]]).filter(([s]) => s.floor === z);
     const dead = on.filter(([, p]) => p.state === "dead").length;
-    return `<button data-dg-floor="${z}" aria-pressed="${z === DG.floor}">${z > 0 ? "+" : ""}${z} m${on.length ? ` <span class="n">${on.length}</span>` : ""}${dead ? ` <span class="d">${dead}✝</span>` : ""}${z === myFloor ? ` <span class="me">●</span>` : ""}</button>`;
+    return `<button data-dg-floor="${z}" aria-pressed="${z === DG.floor}">${dgLabel(d, z)}${on.length ? ` <span class="n">${on.length}</span>` : ""}${dead ? ` <span class="d">${dead}✝</span>` : ""}${z === myFloor ? ` <span class="me">●</span>` : ""}</button>`;
   }).join(""));
   // the plan (redrawn only when the floor changes)
   const svg = $("dgMap");
@@ -1773,7 +1774,7 @@ function renderDungeonOverview(d, points, here, myFloor, t) {
       const polys = (d.byFloorAll[z] || []);
       const spawns = d.spawns.filter(s => s.floor === z).length;
       const joins = d.connections.filter(c => c.a === z || c.b === z);
-      return `<figure class="dgov" data-ov-floor="${z}"><figcaption><b>${z > 0 ? "+" : ""}${z} m</b>${spawns ? ` · ${spawns} spawn${spawns > 1 ? "s" : ""}` : ""}</figcaption>
+      return `<figure class="dgov" data-ov-floor="${z}"><figcaption><b>${dgLabel(d, z)}</b>${spawns ? ` · ${spawns} spawn${spawns > 1 ? "s" : ""}` : ""}</figcaption>
         <svg viewBox="${vb.join(" ")}" style="width:${Math.max(70, vb[2] * scale)}px;height:${Math.max(50, vb[3] * scale)}px">
           <defs><pattern id="hatch${String(z).replace("-", "m").replace(".", "_")}" width="1.6" height="1.6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
             <rect width="1.6" height="1.6" fill="${fill}"></rect><rect width=".55" height="1.6" fill="rgba(0,0,0,.45)"></rect></pattern></defs>
