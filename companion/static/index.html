@@ -1667,6 +1667,9 @@ const dgLevel = (d, z) => (d.floors || [Math.round(z / 6) * 6]).reduce((a, f) =>
 const dgLabel = (d, z) => (d.labels || {})[String(z)] || `${z > 0 ? "+" : ""}${z} m`;     // ("-54 / -60 m": floors that are one)
 const dgHeat = (lv, lo, hi) => { const t = hi > lo ? (lv - lo) / (hi - lo) : 0; return `hsl(${Math.round(190 - 190 * t)} 72% ${t > .5 ? 50 : 44}%)`; };
 const mmss = s => s >= 3600 ? `${Math.floor(s / 3600)}h${String(Math.floor(s % 3600 / 60)).padStart(2, "0")}` : `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
+const dgInside = (poly, x, y) => { let h = false; for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+  const [x1, y1] = poly[i], [x2, y2] = poly[j]; if ((y1 > y) !== (y2 > y) && x < x1 + (y - y1) * (x2 - x1) / (y2 - y1)) h = !h; } return h; };
+const DG_OVERLAP = 3;            // m^2 of two floors' ground over each other that make them collide
 function dgLoad(lb) {
   if (DG.data[lb] !== undefined) return DG.data[lb];
   DG.data[lb] = null;
@@ -1680,6 +1683,16 @@ function dgLoad(lb) {
     }
     d.connections = d.connections || [];
     d.levels = Object.keys(d.byFloor).map(Number).sort((a, b) => b - a);
+    d.cover = {};                // each floor's level ground, by the square metres it covers (not ramps: their ends are on two)
+    for (const z of d.levels) {
+      const got = d.cover[z] = new Set();
+      for (const [poly, sloped] of d.byFloorAll[z]) {
+        if (sloped) continue;
+        const xs = poly.map(q => q[0]), ys = poly.map(q => q[1]);
+        for (let x = Math.floor(Math.min(...xs)); x < Math.max(...xs); x++)
+          for (let y = Math.floor(Math.min(...ys)); y < Math.max(...ys); y++) if (dgInside(poly, x + .5, y + .5)) got.add(`${x},${y}`);
+      }
+    }
     d.spawns.forEach(s => { s.floor = s.floor ?? dgLevel(d, s.z); });
     d.exits.forEach(s => { s.floor = s.floor ?? dgLevel(d, s.z); });
     const lv = d.spawns.map(s => s.level);
@@ -1726,10 +1739,17 @@ function renderDungeon(state) {
   // the plan (redrawn only when the floor changes)
   const svg = $("dgMap");
   const whole = dgView === "whole";
-  // the whole map: every floor, the lowest drawn first so a higher one hides what's under it -- but the one you're on
-  // (on a ramp: the one you're heading to, then the one you're on) over all; not following you, the floor picked
+  // the whole map: the floor you're on (on a ramp: the one you're heading to, and the one you're on) whole, and every
+  // other floor whole too unless it collides with one shown -- then not at all; the higher ones first. Not following
+  // you, the floor picked in place of yours
   const top = DG.follow && here ? [toward, myFloor].filter((z, i, a) => z != null && a.indexOf(z) === i) : [DG.floor];
-  const order = [...d.levels].reverse().filter(z => !top.includes(z)).concat([...top].reverse());
+  const shown = [];
+  for (const z of [...top, ...d.levels.filter(z => !top.includes(z))]) {
+    const mine = d.cover[z];
+    if (top.includes(z) || !shown.some(s => { let n = 0; for (const k of mine) if (d.cover[s].has(k) && ++n >= DG_OVERLAP) return true; return false; }))
+      shown.push(z);
+  }
+  const order = [...d.levels].reverse().filter(z => shown.includes(z) && !top.includes(z)).concat([...top].reverse());
   const key = whole ? `${lb}:whole:${order.join(",")}` : `${lb}:${DG.floor}`;
   if (whole && DG.drawn !== key) {
     DG.drawn = key;
@@ -1739,10 +1759,8 @@ function renderDungeon(state) {
     const fill = z => z === top[0] ? "hsl(36 48% 60%)" : shade(z);       // (the top one bright)
     $("dgCells").innerHTML = order.map(z => `<g>${(d.byFloor[z] || []).map(p =>
       `<polygon class="wfl" fill="${fill(z)}" stroke="${fill(z)}" points="${p.map(([x, y]) => `${x},${-y}`).join(" ")}"></polygon>`).join("")}</g>`).join("");
-    // what's hidden: a spawn point or an exit under a floor drawn over its own
-    const inside = (poly, x, y) => { let h = false; for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
-      const [x1, y1] = poly[i], [x2, y2] = poly[j]; if ((y1 > y) !== (y2 > y) && x < x1 + (y - y1) * (x2 - x1) / (y2 - y1)) h = !h; } return h; };
-    const covered = s => order.slice(order.indexOf(s.floor) + 1).some(z => (d.byFloor[z] || []).some(p => inside(p, s.x, s.y)));
+    // what's hidden: the spawn points and exits of the floors not shown (and any under a floor drawn over theirs)
+    const covered = s => !order.includes(s.floor) || order.slice(order.indexOf(s.floor) + 1).some(z => (d.byFloor[z] || []).some(p => dgInside(p, s.x, s.y)));
     DG.hidden = {spawns: new Set(d.spawns.map((s, i) => covered(s) ? i : -1)), exits: new Set(d.exits.map((s, i) => covered(s) ? i : -1))};
     if (!DG.vb || !(DG.follow && here)) dgFit(d);
   }
