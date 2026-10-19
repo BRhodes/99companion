@@ -209,6 +209,15 @@ def crosses(a, b, poly):
     return any(side(a, b, c) * side(a, b, d) < 0 and side(c, d, a) * side(c, d, b) < 0 for c, d in zip(poly, poly[1:] + poly[:1]))
 
 
+def along(f, a, ux, uy, nx, ny, lo, hi, gap):
+    """Whether a wall's foot runs along one of a strip's long sides (its edge at 0 or at gap out from a, between lo and
+    hi along u) for half a metre or more."""
+    s1, s2 = ((f[0] - a[0]) * ux + (f[1] - a[1]) * uy), ((f[2] - a[0]) * ux + (f[3] - a[1]) * uy)
+    g1, g2 = ((f[0] - a[0]) * nx + (f[1] - a[1]) * ny), ((f[2] - a[0]) * nx + (f[3] - a[1]) * ny)
+    on_side = any(abs(g1 - g) < 0.1 and abs(g2 - g) < 0.1 for g in (0, gap))
+    return on_side and min(hi, max(s1, s2)) - max(lo, min(s1, s2)) >= 0.5
+
+
 def fill_thresholds(cells):
     """The bare strip at a doorway: two pieces of level floor at one height, edge facing edge under THRESHOLD apart with
     no wall between, have the strip between them filled in (added to the first one's cell). How many were filled."""
@@ -246,6 +255,8 @@ def fill_thresholds(cells):
             inner = [(a[0] + ux * s + nx * g, a[1] + uy * s + ny * g) for s, g in ((lo + .3, 0), (hi - .3, 0), (hi - .3, gap), (lo + .3, gap))]
             if any(abs(f[4] - a[2]) < 2 and crosses((f[0], f[1]), (f[2], f[3]), inner) for _c, f in feet):
                 continue                          # (a wall in it, or across it -- not just touching its ends: a door frame)
+            if any(abs(f[4] - a[2]) < 2 and along(f, a, ux, uy, nx, ny, lo, hi, gap) for _c, f in feet):
+                continue                          # (a wall along it: the gap is a wall's thickness, between two rooms)
             c["raw"].append((strip[::-1], 1.0))   # (wound counter-clockwise, as the rest)
             added += 1
     return added
