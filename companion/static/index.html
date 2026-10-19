@@ -591,6 +591,7 @@ table.accts tr.add td { border-top: 1px solid var(--line); padding-top: 8px; }
 /* the Dungeon page: a dungeon's floor plan with its spawn points and their respawn timers (dungeons.py) */
 .dgwrap { display: flex; flex-direction: column; gap: 10px; }
 .dghead { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px; }
+.dghead h2 { font-size: 18px; }
 .dghead h2 { margin: 0; }
 .dgfloors { display: flex; flex-wrap: wrap; gap: 5px; }
 .dgfloors button { font: 500 12px/1 ui-monospace, Consolas, monospace; padding: 5px 8px; border-radius: 6px; border: 1px solid var(--line);
@@ -611,6 +612,19 @@ table.accts tr.add td { border-top: 1px solid var(--line); padding-top: 8px; }
 .dgmap .back { font: 700 3.2px ui-monospace, Consolas, monospace; fill: var(--ink); paint-order: stroke; stroke: var(--bar); stroke-width: .8; pointer-events: none; }
 .dgmap .exit { fill: none; stroke: #3a82f6; stroke-width: .6; }
 .dgmap .me { fill: #3a82f6; stroke: #fff; stroke-width: .4; }
+.bcardtabs { margin-left: auto; display: inline-flex; gap: 4px; }
+/* the map in the dashboard's Buffs card: the card's height, a narrower list beside it */
+section[data-widget="buffpanel"]:has(#dashDungeon:not([hidden])) { display: flex; flex-direction: column; overflow: hidden; }
+#dashDungeon { display: flex; flex-direction: column; min-height: 0; flex: 1 1 0; }
+#dashDungeon[hidden] { display: none; }
+#dashDungeon .dgwrap { gap: 6px; flex: 1 1 0; min-height: 0; }
+#dashDungeon .dghead h2 { display: none; }
+#dashDungeon .dghead { font-size: 12px; }
+#dashDungeon .dgfloors button { padding: 3px 6px; font-size: 11px; }
+#dashDungeon .dgmain { grid-template-columns: minmax(0, 1fr) 170px; grid-template-rows: minmax(0, 1fr); flex: 1 1 0; min-height: 260px; }
+#dashDungeon .dgmap { height: 100%; min-height: 0; }
+#dashDungeon .dgside { padding: 8px; font-size: 12px; overflow-y: auto; min-height: 0; }
+#dashDungeon .dgkey, #dashDungeon #dgNote { display: none; }
 .dghint { position: absolute; left: 8px; bottom: 6px; font-size: 11px; pointer-events: none; }
 .dgtip { position: absolute; pointer-events: none; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 6px 9px; font-size: 12px; max-width: 230px; }
 .dgside { border: 1px solid var(--line); border-radius: 8px; padding: 10px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
@@ -722,8 +736,10 @@ table.accts tr.add td { border-top: 1px solid var(--line); padding-top: 8px; }
           id="foeLevel" class="muted" style="font-size:13px;font-weight:400"></span><span id="foeAge" class="muted" style="font-size:12px;font-weight:400"></span>
           <span id="foeStats" style="margin-left:auto;font-size:12px;font-weight:400"></span></h2>
         <div id="monsterCard"></div></section>
-      <section data-widget="buffpanel"><h2 style="display:flex;align-items:center;gap:8px">Buffs</h2>
-        <div id="buffPanel" class="bpanel"></div></section>
+      <section data-widget="buffpanel"><h2 style="display:flex;align-items:center;gap:8px"><span id="bcardTitle">Buffs</span>
+          <span class="bcardtabs" role="group" aria-label="Show"><button class="chip mini" data-bcard="buffs">Buffs</button><button
+            class="chip mini" data-bcard="dungeon">Dungeon</button></span></h2>
+        <div id="buffPanel" class="bpanel"></div><div id="dashDungeon" hidden></div></section>
     </div>
   </div>
 </div>
@@ -928,13 +944,13 @@ table.accts tr.add td { border-top: 1px solid var(--line); padding-top: 8px; }
 </div>
 
 <div class="page" id="page-dungeon">
-  <div class="dgwrap">
-    <section class="dghead">
+  <div class="dgwrap" id="dgRoot">
+    <div class="dghead">
       <h2 id="dgName">Dungeon</h2>
       <span class="muted" id="dgSummary"></span>
       <span style="flex:1"></span>
       <label class="muted" id="dgPickWrap">Map <select id="dgPick"></select></label>
-    </section>
+    </div>
     <div class="dgfloors" id="dgFloors" role="group" aria-label="Floor"></div>
     <div class="dgmain">
       <div class="dgmap" id="dgMapWrap">
@@ -1192,7 +1208,10 @@ function render() {
   if (page === "buffs") safely("buff profiles", renderProfiles);
   if (page === "xp") safely("xp", renderXpMini);
   if (page === "exp") safely("experience", renderExperience);
-  if (page === "dungeon") safely("dungeon", renderDungeon);
+  if (page === "dungeon") safely("dungeon", s => {
+    if ($("dgRoot").parentElement !== $("page-dungeon")) { $("page-dungeon").appendChild($("dgRoot")); DG.drawn = null; }   // (back from the card)
+    renderDungeon(s);
+  });
   if (page === "items") safely("items", renderItems);
   if (page === "info") { safely("s2m", renderS2M); safely("appraisals", renderAppraisals); }
   safely("chat badge", renderChatBadge);
@@ -2258,7 +2277,7 @@ const AMMO_PARTS = /Arrowhead|Arrowshaft|Quarrelshaft|Bundle of/;
 const SUPPLIES = /Healing Kit|Potion|Elixir|Draught|Lockpick|Mana Stone/;
 // a card shows unless turned off; Consumables only when turned on
 const widgetOn = k => k === "consumables" ? dash.widgets[k] === true : dash.widgets[k] !== false;
-let dash = {widgets: {}, ammo: true, ammoWarn: 50, supplyWarn: 3, items: [], buffWarnMin: 3};
+let dash = {widgets: {}, ammo: true, ammoWarn: 50, supplyWarn: 3, items: [], buffWarnMin: 3, buffCard: "buffs"};
 try { dash = Object.assign(dash, JSON.parse(localStorage.getItem("99companion.dash") || "{}")); } catch (e) {}
 function saveDash() { try { localStorage.setItem("99companion.dash", JSON.stringify(dash)); } catch (e) {} render(); }
 
@@ -3190,9 +3209,24 @@ function renderDashboard(state) {
     return `<div class="item"><div class="muted" style="font-size:12px">${esc(r.name)}</div>
       <div class="big${low ? " low" : ""}">${fmt(r.count)}</div></div>`;
   }).join("")}</div>` : `<div class="empty">No arrows, kits or potions in your pack. Add others on <a href="#config">Settings</a>.</div>`);
-  renderBuffPanel(state);
+  // the Buffs card shows your buffs or the dungeon map (the Dungeon page's, moved in): its tabs pick
+  const dungeonCard = dash.buffCard === "dungeon";
+  for (const b of document.querySelectorAll("[data-bcard]")) b.classList.toggle("on", b.dataset.bcard === dash.buffCard);
+  $("bcardTitle").textContent = dungeonCard ? "Dungeon" : "Buffs";
+  $("buffPanel").hidden = dungeonCard;
+  $("dashDungeon").hidden = !dungeonCard;
+  if (dungeonCard) {
+    if ($("dgRoot").parentElement !== $("dashDungeon")) { $("dashDungeon").appendChild($("dgRoot")); DG.drawn = null; }
+    try { renderDungeon(state); } catch (e) { console.error("render dungeon card failed", e); }
+  } else renderBuffPanel(state);
   renderComps(state);
 }
+document.addEventListener("click", e => {
+  const b = e.target.closest("[data-bcard]");
+  if (!b) return;
+  dash.buffCard = b.dataset.bcard;
+  saveDash();
+});
 
 // Comps table: click a header to sort by it, again to reverse (kept in this browser)
 let compSort = {key: "hours_left", dir: 1};
