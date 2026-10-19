@@ -1692,6 +1692,7 @@ const DG_OVERLAP = 3;            // m^2 of two floors' ground over each other th
 // ---- the Walk view: the ground spread over from where you stand, as you'd walk it (ramps, stairs: not drops), the
 // way you're facing counting nearer -- where two pieces of ground lie over each other, the one reached first shows
 const DG_FACE = .8;              // how much further ground behind you counts than ground ahead (0: not at all)
+const DG_OVER = 3;               // metres: ground this far above a wall's foot is another floor over it (the wall's cut there)
 const DG_LOW = 1.5;              // metres: a wall at least this tall can't be stepped over (build_dungeon.py's LOW_WALL)
 const DG_STEP = 1.3;             // metres up or down from one square metre of ground to the next that still joins them
 function dgWalkPrep(d) {
@@ -1752,6 +1753,32 @@ function dgWalkPrep(d) {
   return d.walk = {nodes, at, near, polyNodes};
 }
 // how far each square metre of ground is from the seeds, walking (Dijkstra), ahead of `face` from `from` counting nearer
+const segDist = (x, y, w) => { const vx = w[2] - w[0], vy = w[3] - w[1], l2 = vx * vx + vy * vy || 1;
+  const k = Math.max(0, Math.min(1, ((x - w[0]) * vx + (y - w[1]) * vy) / l2)); return Math.hypot(x - w[0] - k * vx, y - w[1] - k * vy); };
+// the walls in runs: pieces end to end in one line at one height (a corridor's side, cut in pieces at each cell), once
+function dgWallRuns(d) {
+  if (d.wallRuns) return d.wallRuns;
+  const ws = d.walls || [], left = new Set(ws.map((_, i) => i)), key = (x, y) => `${Math.round(x * 10)},${Math.round(y * 10)}`;
+  const byEnd = new Map();
+  ws.forEach((w, i) => { for (const k of [key(w[0], w[1]), key(w[2], w[3])]) { const l = byEnd.get(k) || []; l.push(i); byEnd.set(k, l); } });
+  const dir = w => { const l = Math.hypot(w[2] - w[0], w[3] - w[1]) || 1; return [(w[2] - w[0]) / l, (w[3] - w[1]) / l]; };
+  const runs = [];
+  for (const i of ws.keys()) {
+    if (!left.has(i)) continue;
+    left.delete(i);
+    const run = [ws[i]], [ux, uy] = dir(ws[i]), stack = [ws[i]];
+    while (stack.length) {
+      const w = stack.pop();
+      for (const k of [key(w[0], w[1]), key(w[2], w[3])]) for (const j of byEnd.get(k) || []) {
+        if (!left.has(j)) continue;
+        const v = ws[j], [vx, vy] = dir(v);
+        if (Math.abs(ux * vx + uy * vy) > .99 && Math.abs(v[4] - w[4]) < .3) { left.delete(j); run.push(v); stack.push(v); }
+      }
+    }
+    runs.push(run);
+  }
+  return d.wallRuns = runs;
+}
 function dgWalkFill(W, seeds, from, face) {
   const dist = new Float64Array(W.nodes.length).fill(Infinity), heap = [];
   const push = (i, v) => { heap.push([v, i]); let k = heap.length - 1;
@@ -1903,34 +1930,77 @@ function renderDungeon(state) {
     });
     pieces.sort((a, b) => b[0] - a[0]);         // (the nearest drawn last, over the rest)
     $("dgGhosts").innerHTML = "";
-    // the walls: a wall's foot where the ground just beside it is what shows there, at its height
     const shownAt = (x, y) => (W.at.get(`${Math.floor(x)},${Math.floor(y)}`) || []).find(i => won[i]);
-    // a wall's open side: the side the ground at its height is on (shown there, from its foot up its height)
-    const besides = (w, mx, my, nx, ny) => [1, -1].filter(s => { const i = shownAt(mx + s * .7 * nx, my + s * .7 * ny);
-      return i !== undefined && W.nodes[i].z - w[4] > -1 && W.nodes[i].z - w[4] < Math.max(1, w[5] ?? 0); });
-    const walled = [];
-    for (const w of d.walls || []) {
-      const [x1, y1, x2, y2] = w, len = Math.hypot(x2 - x1, y2 - y1) || 1, nx = (y2 - y1) / len, ny = -(x2 - x1) / len;
-      const sides = besides(w, (x1 + x2) / 2, (y1 + y2) / 2, nx, ny);
-      if (sides.length) walled.push([w, sides[0] * nx, sides[0] * ny]);
-    }
-    // ...cut where higher ground shows over the ground on its open side, every half metre along (a cut end square, a
-    // wall's own end round -- where walls meet, the round ends join them)
+    // walls in runs (pieces carrying on one another in a line, at one height), each run drawn whole or not at all: whole
+    // when the ground on its open side is its own (shown there, from its foot up its height) along at least half of it --
+    // cut only where another floor (DG_OVER up) shows over that ground
+    const runs = dgWallRuns(d);
+    // (a run's end out in the open -- floor all round it, no other wall there -- isn't a wall's: the side of a ramp or a
+    // trench fading into the floor, a corridor's wall carrying on into a room -- trimmed back to where a wall meets it)
+    const ends0 = new Map();
+    for (const w of d.walls || []) for (const [x, y] of [[w[0], w[1]], [w[2], w[3]]]) {
+      const k = `${Math.round(x)},${Math.round(y)}`, l = ends0.get(k) || []; l.push([x, y, w]); ends0.set(k, l); }
+    // (two walls meet when they're within a metre and a half of each other in height: an arch's wall above a doorway
+    // stands on the walls either side)
+    const near = (o, w) => o[4] <= w[4] + (w[5] ?? 3) + 1.5 && o[4] + (o[5] ?? 3) >= w[4] - 1.5;
+    const meets = (run, x, y, w) => {
+      for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++)
+        for (const [ex, ey, o] of ends0.get(`${Math.round(x) + dx},${Math.round(y) + dy}`) || [])
+          if (!run.includes(o) && Math.hypot(ex - x, ey - y) < .6 && near(o, w)) return true;
+      // (or against another wall's length: the stem of a T)
+      return (d.walls || []).some(o => !run.includes(o) && near(o, w) && segDist(x, y, o) < .6);
+    };
+    const loose = (x, y, w) => [[1, 0], [-1, 0], [0, 1], [0, -1]].every(([ox, oy]) => { const i = shownAt(x + ox * .8, y + oy * .8);
+      return i !== undefined && Math.abs(W.nodes[i].z - w[4]) < Math.max(1, w[5] ?? 0); });
+    // the stretch of a run to draw, along its line from its first piece's start ([from, to]), or null for none
+    const span = run => {
+      const w0 = run[0], l0 = Math.hypot(w0[2] - w0[0], w0[3] - w0[1]) || 1, ux = (w0[2] - w0[0]) / l0, uy = (w0[3] - w0[1]) / l0;
+      const along = (x, y) => (x - w0[0]) * ux + (y - w0[1]) * uy;
+      const pts = run.flatMap(w => [[w[0], w[1], w], [w[2], w[3], w]]).map(([x, y, w]) => [along(x, y), x, y, w]);
+      const lo = Math.min(...pts.map(q => q[0])), hi = Math.max(...pts.map(q => q[0]));
+      const anchors = [];
+      for (const [s, x, y, w] of pts) {
+        const end = s - lo < .05 || hi - s < .05;
+        if (meets(run, x, y, w) || (end && !loose(x, y, w))) anchors.push(s);
+      }
+      // (and where another wall's end touches it partway: a T)
+      for (const o of d.walls || []) if (!run.includes(o) && near(o, w0))
+        for (const [x, y] of [[o[0], o[1]], [o[2], o[3]]]) {
+          const s = along(x, y);
+          if (s > lo - .3 && s < hi + .3 && Math.abs((x - w0[0]) * uy - (y - w0[1]) * ux) < .6) anchors.push(Math.max(lo, Math.min(hi, s)));
+        }
+      if (anchors.length < 2) return anchors.length && (anchors[0] - lo < .05 || hi - anchors[0] < .05) && !pts.some(([s, x, y, w]) =>
+        (s - lo < .05 || hi - s < .05) && loose(x, y, w)) ? [lo, hi] : null;
+      return [Math.min(...anchors), Math.max(...anchors), ux, uy, w0];
+    };
     const lines = [], ends = [];
-    for (const [w, ox, oy] of walled) { const [x1, y1, x2, y2, z] = w;
-      const n = Math.max(1, Math.ceil(Math.hypot(x2 - x1, y2 - y1) / .5));
-      const under = k => { const i = shownAt(x1 + (x2 - x1) * k / n + .4 * ox, y1 + (y2 - y1) * k / n + .4 * oy);
-        return i !== undefined && W.nodes[i].z - z > 1.5; };
-      let from = null;
-      for (let k = 0; k <= n; k++) {
-        const open = !under(k);
-        if (open && from === null) from = k;
-        if ((!open || k === n) && from !== null) {
-          const to = open ? k : k - 1;
-          if (to > from) lines.push([x1 + (x2 - x1) * from / n, y1 + (y2 - y1) * from / n, x1 + (x2 - x1) * to / n, y1 + (y2 - y1) * to / n]);
-          if (from === 0) ends.push([x1, y1]);
-          if (to === n) ends.push([x2, y2]);
-          from = null;
+    for (const run of runs) {
+      const [w0] = run, len0 = Math.hypot(w0[2] - w0[0], w0[3] - w0[1]) || 1, nx = (w0[3] - w0[1]) / len0, ny = -(w0[2] - w0[0]) / len0;
+      const samples = run.flatMap(w => { const n = Math.max(1, Math.ceil(Math.hypot(w[2] - w[0], w[3] - w[1]) / .5));
+        return Array.from({length: n + 1}, (_, k) => [w, k, n, w[0] + (w[2] - w[0]) * k / n, w[1] + (w[3] - w[1]) * k / n]); });
+      const at = (x, y, s) => shownAt(x + s * .4 * nx, y + s * .4 * ny);
+      const own = (i, w) => i !== undefined && W.nodes[i].z - w[4] > -1 && W.nodes[i].z - w[4] < Math.max(1, w[5] ?? 0);
+      const score = s => samples.filter(([w, , , x, y]) => own(at(x, y, s), w)).length;
+      const s = score(1) >= score(-1) ? 1 : -1;
+      if (score(s) * 2 < samples.length) continue;
+      const keep = span(run);
+      if (!keep) continue;
+      const [kLo, kHi] = keep, kw = run[0], kl = Math.hypot(kw[2] - kw[0], kw[3] - kw[1]) || 1;
+      const inSpan = (x, y) => { const v = ((x - kw[0]) * (kw[2] - kw[0]) + (y - kw[1]) * (kw[3] - kw[1])) / kl; return v > kLo - .05 && v < kHi + .05; };
+      const covered = ([w, , , x, y]) => { if (!inSpan(x, y)) return true; const i = at(x, y, s); return i !== undefined && W.nodes[i].z - w[4] > DG_OVER; };
+      for (const w of run) {
+        const mine = samples.filter(q => q[0] === w), n = mine[0][2];
+        let from = null;
+        for (const q of mine) {
+          const k = q[1], open = !covered(q);
+          if (open && from === null) from = k;
+          if ((!open || k === n) && from !== null) {
+            const to = open ? k : k - 1;
+            if (to > from) lines.push([w[0] + (w[2] - w[0]) * from / n, w[1] + (w[3] - w[1]) * from / n, w[0] + (w[2] - w[0]) * to / n, w[1] + (w[3] - w[1]) * to / n]);
+            if (from === 0) ends.push([w[0], w[1]]);
+            if (to === n) ends.push([w[2], w[3]]);
+            from = null;
+          }
         }
       }
     }
