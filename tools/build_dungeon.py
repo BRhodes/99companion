@@ -115,6 +115,7 @@ def rotate(q, v):
 
 FLOOR_STEP = 6.0       # metres between a dungeon's floors
 WALKABLE = 0.8         # a polygon's normal z at least this (up to ~37 degrees: ramps yes, the curve of a cave's walls no)
+STAIRS = 0.93          # steeper than this (~22 degrees) is drawn as stairs / a ramp; gentler is a cave's uneven floor
 
 
 def level(z):
@@ -123,7 +124,8 @@ def level(z):
 
 
 def floors(portal_dat, c):
-    """A cell's floor: its walkable upward-facing polygons, each [floor it's on (by its own height), [[x, y]...]]."""
+    """A cell's floor: its walkable upward-facing polygons, each [floor it's on (by its own height), [[x, y]...], sloped
+    (1: a ramp or stairs, 0: level)]."""
     got = cell_structure(portal_dat, c["env"], c["struct"])
     if not got:
         return []
@@ -137,9 +139,52 @@ def floors(portal_dat, c):
         nz = (bx - ax) * (cy - ay) - (by - ay) * (cx - ax)
         nx = (by - ay) * (cz - az) - (bz - az) * (cy - ay)
         ny = (bz - az) * (cx - ax) - (bx - ax) * (cz - az)
-        if nz / (math.sqrt(nx * nx + ny * ny + nz * nz) or 1) > WALKABLE:
-            out.append([level(sum(p[2] for p in w) / len(w)), [[round(x, 2), round(y, 2)] for x, y, _z in w]])
+        up = nz / (math.sqrt(nx * nx + ny * ny + nz * nz) or 1)
+        if up > WALKABLE:
+            out.append([level(sum(p[2] for p in w) / len(w)), [[round(x, 2), round(y, 2)] for x, y, _z in w], int(up < STAIRS)])
     return out
+
+
+def connections(cells):
+    """Where the floors join: a cell with floor on two floors (a ramp, stairs) joins them; neighbouring ones joining
+    the same pair are one way through. [{n: its number, a: the upper floor, b: the lower, x, y}], top down."""
+    joins = []
+    for c in cells:
+        levels = sorted({f[0] for f in c["floors"]})
+        if len(levels) < 2:
+            continue
+        pts = [pt for f in c["floors"] for pt in f[1]]
+        x, y = sum(p[0] for p in pts) / len(pts), sum(p[1] for p in pts) / len(pts)
+        for a, b in zip(levels[1:], levels[:-1]):
+            joins.append((a, b, x, y))
+    groups = []
+    for a, b, x, y in joins:
+        g = next((g for g in groups if g["a"] == a and g["b"] == b and math.dist((g["x"], g["y"]), (x, y)) < 15), None)
+        if g:
+            g["pts"].append((x, y))
+            g["x"], g["y"] = sum(p[0] for p in g["pts"]) / len(g["pts"]), sum(p[1] for p in g["pts"]) / len(g["pts"])
+        else:
+            groups.append({"a": a, "b": b, "x": x, "y": y, "pts": [(x, y)]})
+    groups.sort(key=lambda g: (-g["a"], g["x"], -g["y"]))
+    return [{"n": n, "a": g["a"], "b": g["b"], "x": round(g["x"], 1), "y": round(g["y"], 1)} for n, g in enumerate(groups, 1)]
+
+
+def entrance(landblock):
+    """Where the dungeon's entered from (companion/data/places.json): {ns, ew, min_level, lifestone: {ns, ew, away},
+    town: {name, away}}, or None."""
+    places = json.loads((ROOT / "companion" / "data" / "places.json").read_text(encoding="utf-8"))
+    ins = [p for p in places["portals"] if p["to"]["cell"] >> 16 == landblock and p["at"].get("ns") is not None]
+    if not ins:
+        return None
+    a = ins[0]["at"]
+    away = lambda o: round(math.hypot(o["ns"] - a["ns"], o["ew"] - a["ew"]), 1)
+    ls = min(places["lifestones"], key=away)
+    town = min(places["towns"], key=away)
+    to = ins[0]["to"]
+    return {"ns": round(a["ns"], 1), "ew": round(a["ew"], 1), "min_level": ins[0].get("min_level"),
+            "arrival": {"x": round(to["x"], 1), "y": round(to["y"], 1), "cell": to["cell"] & 0xFFFF},
+            "lifestone": {"ns": round(ls["ns"], 1), "ew": round(ls["ew"], 1), "away": away(ls)},
+            "town": {"name": town["name"], "away": away(town)}}
 
 
 def weenie_files(core):
@@ -186,7 +231,13 @@ def build(landblock, name, core):
     spawns.sort(key=lambda s: (s["cell"], s["x"], s["y"]))
     exits = [{"name": n, "x": round(x, 2), "y": round(y, 2), "z": round(z, 2), "floor": level(z), "cell": cid & 0xFFFF}
              for _g, (w, cid, x, y, z, n) in placed.items() if "Surface" in n or "Portal" in n]
-    return {"name": name, "landblock": landblock, "cells": cells, "spawns": spawns, "exits": exits}
+    door = entrance(landblock)
+    if door:                                  # (the floor you arrive on: your cell's)
+        cell = next((c for c in cells if c["id"] == door["arrival"]["cell"]), None)
+        levels = [f[0] for f in cell["floors"]] if cell else []
+        door["arrival"]["floor"] = max(set(levels), key=levels.count) if levels else (cell or {}).get("z")
+    return {"name": name, "landblock": landblock, "cells": cells, "spawns": spawns, "exits": exits,
+            "connections": connections(cells), "entrance": door}
 
 
 def main():

@@ -612,13 +612,43 @@ table.accts tr.add td { border-top: 1px solid var(--line); padding-top: 8px; }
 .dgmap .back { font: 700 3.2px ui-monospace, Consolas, monospace; fill: var(--ink); paint-order: stroke; stroke: var(--bar); stroke-width: .8; pointer-events: none; }
 .dgmap .exit { fill: none; stroke: #3a82f6; stroke-width: .6; }
 .dgmap .me { fill: #3a82f6; stroke: #fff; stroke-width: .4; }
+.dgviews { display: inline-flex; gap: 4px; }
+#dgOverview { display: flex; flex-direction: column; gap: 10px; }
+#dgOverview[hidden], .dgmain[hidden], .dgfloors[hidden] { display: none; }
+.dgovhead { display: flex; flex-wrap: wrap; gap: 4px 18px; font-size: 13px; color: var(--muted); }
+.dgovhead b { color: var(--ink); }
+.dgovs { display: flex; flex-wrap: wrap; gap: 14px 18px; align-items: flex-start; }
+.dgov { margin: 0; display: flex; flex-direction: column; gap: 3px; cursor: pointer; }
+.dgov figcaption { font-size: 12px; color: var(--muted); }
+.dgov figcaption b { color: var(--ink); font-family: ui-monospace, Consolas, monospace; }
+.dgov figcaption .me { color: #3a82f6; font-weight: 700; }
+.dgov svg { display: block; max-width: 100%; height: auto; }
+.dgov.here svg { outline: 2px solid #3a82f6; outline-offset: 3px; border-radius: 2px; }
+.dgov .edge polygon { fill: #3b2a1a; stroke: #3b2a1a; stroke-width: 1.3; stroke-linejoin: round; }
+.dgov .join circle { fill: #fff; stroke: #222; stroke-width: .35; }
+.dgov .join text { font: 700 3.1px system-ui, sans-serif; text-anchor: middle; fill: #111; }
+.dgov .ovexit, .dgovkey .ovexit { font: 800 5.2px system-ui, sans-serif; fill: #d4219e; text-anchor: middle; }
+.dgov .ovdoor, .dgovkey .ovdoor { font: 800 5.2px system-ui, sans-serif; fill: #2445d6; text-anchor: middle; }
+.dgov .ovpt { fill: #e01b1b; stroke: #fff; stroke-width: .35; cursor: pointer; }
+.dgov .ovpt.dead { fill: #777; }
+.dgov .ovpt.due { fill: #e01b1b; stroke: #f0b04a; stroke-width: .8; }
+.dgov .ovpt.unknown { fill: none; stroke: #e01b1b; stroke-width: .6; }
+.dgov .ovback { font: 700 3px ui-monospace, Consolas, monospace; fill: #111; paint-order: stroke; stroke: #fff; stroke-width: .7; }
+.dgov .ovme { fill: #3a82f6; stroke: #fff; stroke-width: .4; }
+.dgovkey { display: flex; flex-wrap: wrap; gap: 4px 18px; font-size: 12px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 8px; }
+.dgovkey b.ovexit, .dgovkey b.ovdoor { font-size: 14px; }
+.dgovkey .ovexit { color: #d4219e; } .dgovkey .ovdoor { color: #2445d6; }
+.dgovkey i { display: inline-block; vertical-align: -2px; margin-right: 4px; }
+.dgovkey .jk { width: 14px; height: 14px; border-radius: 50%; background: #fff; border: 1px solid #222; color: #111; font: 700 9px/14px system-ui; text-align: center; font-style: normal; }
+.dgovkey .hk { width: 14px; height: 10px; background: repeating-linear-gradient(45deg, #c98a4a 0 2px, #6b4520 2px 3px); }
+.dgovkey .dk { width: 9px; height: 9px; border-radius: 50%; background: #e01b1b; }
 .bcardtabs { margin-left: auto; display: inline-flex; gap: 4px; }
 /* the map in the dashboard's Buffs card: the card's height, a narrower list beside it */
 section[data-widget="buffpanel"]:has(#dashDungeon:not([hidden])) { display: flex; flex-direction: column; overflow: hidden; }
 #dashDungeon { display: flex; flex-direction: column; min-height: 0; flex: 1 1 0; }
 #dashDungeon[hidden] { display: none; }
 #dashDungeon .dgwrap { gap: 6px; flex: 1 1 0; min-height: 0; }
-#dashDungeon .dghead h2 { display: none; }
+#dashDungeon .dghead h2, #dashDungeon .dgviews { display: none; }
 #dashDungeon .dghead { font-size: 12px; }
 #dashDungeon .dgfloors button { padding: 3px 6px; font-size: 11px; }
 #dashDungeon .dgmain { grid-template-columns: minmax(0, 1fr) 170px; grid-template-rows: minmax(0, 1fr); flex: 1 1 0; min-height: 260px; }
@@ -949,8 +979,11 @@ section[data-widget="buffpanel"]:has(#dashDungeon:not([hidden])) { display: flex
       <h2 id="dgName">Dungeon</h2>
       <span class="muted" id="dgSummary"></span>
       <span style="flex:1"></span>
+      <span class="dgviews" role="group" aria-label="View"><button class="chip mini" data-dg-view="overview">Overview</button><button
+        class="chip mini" data-dg-view="floor">Floor</button></span>
       <label class="muted" id="dgPickWrap">Map <select id="dgPick"></select></label>
     </div>
+    <div id="dgOverview" hidden></div>
     <div class="dgfloors" id="dgFloors" role="group" aria-label="Floor"></div>
     <div class="dgmain">
       <div class="dgmap" id="dgMapWrap">
@@ -1629,8 +1662,12 @@ function dgLoad(lb) {
   fetch(`/api/dungeon/${lb}`).then(r => r.ok ? r.json() : null).then(d => {
     if (!d) return;
     // every floor piece by the floor its own height is on (build_dungeon.py), and what's on each floor
-    d.byFloor = {};
-    for (const c of d.cells) for (const [z, poly] of c.floors) (d.byFloor[z] = d.byFloor[z] || []).push(poly);
+    d.byFloor = {}; d.byFloorAll = {};
+    for (const c of d.cells) for (const [z, poly, sloped] of c.floors) {
+      (d.byFloor[z] = d.byFloor[z] || []).push(poly);
+      (d.byFloorAll[z] = d.byFloorAll[z] || []).push([poly, sloped]);
+    }
+    d.connections = d.connections || [];
     d.levels = Object.keys(d.byFloor).map(Number).sort((a, b) => b - a);
     d.spawns.forEach(s => { s.floor = s.floor ?? dgLevel(s.z); });
     d.exits.forEach(s => { s.floor = s.floor ?? dgLevel(s.z); });
@@ -1704,8 +1741,86 @@ function renderDungeon(state) {
   setHTML($("dgNext"), waiting.length ? `<div class="dgnext">${waiting.slice(0, 14).map(([s, p]) => `<span class="dot" style="background:${d.colour[s.name]}"></span>
       <span>${esc(s.name)} <span class="fl">${s.floor} m</span></span><span class="t ${p.state === "due" ? "due" : ""}">${p.state === "due" ? "due" : mmss(Math.max(0, p.back - t))}</span>`).join("")}</div>`
     : `<div class="empty">Nothing killed yet${live && live.landblock === lb ? "" : " (you haven't been in here this login)"}.</div>`);
+  // the overview (every floor at once) or one floor: the page's choice; the dashboard card always shows one floor
+  const overview = dgView === "overview" && $("dgRoot").parentElement === $("page-dungeon");
+  for (const b of document.querySelectorAll("[data-dg-view]")) b.classList.toggle("on", b.dataset.dgView === (overview ? "overview" : "floor"));
+  $("dgOverview").hidden = !overview;
+  document.querySelector("#dgRoot .dgmain").hidden = overview;
+  $("dgFloors").hidden = overview;
+  if (overview) renderDungeonOverview(d, points, here, myFloor, t);
   setHTML($("dgNote"), `Each spawn point comes back ${mmss((d.spawns.find(s => s.delay) || {}).delay || 0)} after its creature dies. Timers are what you've seen: a kill out of view isn't known, and after about 15 minutes away the whole dungeon has reset.`);
 }
+// ---- the Dungeon page's overview: every floor at once, laid out side by side (as a hand-drawn dungeon map pulls them
+// apart), one scale for all; ramps hatched, where they join two floors a number at both ends, spawn points live
+let dgView = "overview";
+try { dgView = localStorage.getItem("99companion.dgView") || "overview"; } catch (e) {}
+const DG_OV = {built: null};
+const dgDepthFill = (z, top, bottom) => { const t = top > bottom ? (top - z) / (top - bottom) : 0; return `hsl(${32 - 8 * t} ${62 + 18 * t}% ${80 - 34 * t}%)`; };
+function dgFloorBox(d, z) {
+  const xs = [], ys = [];
+  for (const p of d.byFloor[z] || []) for (const [x, y] of p) { xs.push(x); ys.push(-y); }
+  return {x: Math.min(...xs), y: Math.min(...ys), w: Math.max(...xs) - Math.min(...xs), h: Math.max(...ys) - Math.min(...ys)};
+}
+function renderDungeonOverview(d, points, here, myFloor, t) {
+  const box = $("dgOverview");
+  if (DG_OV.built !== d.landblock) {           // the floors, once: the marks go on top each second
+    DG_OV.built = d.landblock;
+    const top = d.levels[0], bottom = d.levels[d.levels.length - 1], scale = 2.6;      // px a metre
+    const e = d.entrance || {};
+    const panels = d.levels.map(z => {
+      const b = dgFloorBox(d, z), pad = 6, vb = [b.x - pad, b.y - pad, b.w + 2 * pad, b.h + 2 * pad];
+      const fill = dgDepthFill(z, top, bottom), pts = p => p.map(([x, y]) => `${x},${-y}`).join(" ");
+      const polys = (d.byFloorAll[z] || []);
+      const spawns = d.spawns.filter(s => s.floor === z).length;
+      const joins = d.connections.filter(c => c.a === z || c.b === z);
+      return `<figure class="dgov" data-ov-floor="${z}"><figcaption><b>${z > 0 ? "+" : ""}${z} m</b>${spawns ? ` · ${spawns} spawn${spawns > 1 ? "s" : ""}` : ""}</figcaption>
+        <svg viewBox="${vb.join(" ")}" style="width:${Math.max(70, vb[2] * scale)}px;height:${Math.max(50, vb[3] * scale)}px">
+          <defs><pattern id="hatch${String(z).replace("-", "m").replace(".", "_")}" width="1.6" height="1.6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+            <rect width="1.6" height="1.6" fill="${fill}"></rect><rect width=".55" height="1.6" fill="rgba(0,0,0,.45)"></rect></pattern></defs>
+          <g class="edge">${polys.map(([p]) => `<polygon points="${pts(p)}"></polygon>`).join("")}</g>
+          <g>${polys.map(([p, sloped]) => `<polygon points="${pts(p)}" fill="${sloped ? `url(#hatch${String(z).replace("-", "m").replace(".", "_")})` : fill}" stroke="${fill}" stroke-width=".35" stroke-linejoin="round"></polygon>`).join("")}</g>
+          ${joins.map(c => `<g class="join"><circle cx="${c.x}" cy="${-c.y}" r="2.6"></circle><text x="${c.x}" y="${-c.y + 1.15}">${c.n}</text><title>${c.n}: ${c.a === z ? `down to ${c.b} m` : `up to ${c.a} m`}</title></g>`).join("")}
+          ${d.exits.filter(x => x.floor === z).map(x => `<text class="ovexit" x="${x.x}" y="${-x.y + 2}">E<title>${esc(x.name)}</title></text>`).join("")}
+          ${e.arrival && e.arrival.floor === z ? `<text class="ovdoor" x="${e.arrival.x}" y="${-e.arrival.y + 2}">D<title>Where the portal leaves you</title></text>` : ""}
+          <g class="ovmarks"></g>
+        </svg></figure>`;
+    }).join("");
+    setHTML(box, `<div class="dgovhead">${e.ns != null ? `<span>Entrance <b>${fmtCoord(e.ns, e.ew)}</b></span><span>Level <b>${e.min_level ? e.min_level + "+" : "any"}</b></span>
+        <span>Nearest lifestone <b>${fmtCoord(e.lifestone.ns, e.lifestone.ew)}</b> (${e.lifestone.away} away)</span><span>Nearest town <b>${esc(e.town.name)}</b></span>` : ""}</div>
+      <div class="dgovs">${panels}</div>
+      <div class="dgovkey"><span><b class="ovdoor">D</b> where you arrive</span><span><b class="ovexit">E</b> exit</span><span><i class="jk">3</i> stairs / ramp: the same number on the floor it leads to</span>
+        <span><i class="hk"></i> stairs / slopes</span><span><i class="dk"></i> spawn point (grey: killed, back in…)</span></div>`);
+  }
+  // the marks: spawn points with their state, and you
+  for (const fig of box.querySelectorAll("[data-ov-floor]")) {
+    const z = +fig.dataset.ovFloor, g = fig.querySelector(".ovmarks"), out = [];
+    d.spawns.forEach((s, i) => {
+      if (s.floor !== z) return;
+      const p = points[i];
+      out.push(`<circle class="ovpt ${p.state}" data-dg="${i}" cx="${s.x}" cy="${-s.y}" r="1.7"></circle>`);
+      if (p.state === "dead") out.push(`<text class="ovback" x="${s.x + 2.2}" y="${-s.y + 1.2}">${mmss(Math.max(0, p.back - t))}</text>`);
+      if (p.state === "due") out.push(`<text class="ovback" x="${s.x + 2.2}" y="${-s.y + 1.2}">due</text>`);
+    });
+    if (here && myFloor === z) {
+      const [fx, fy] = here.facing || [0, 1];
+      out.push(`<polygon class="ovme" points="${here.x + fx * 3.2},${-(here.y + fy * 3.2)} ${here.x - fy * 1.6 - fx},${-(here.y + fx * 1.6 - fy)} ${here.x + fy * 1.6 - fx},${-(here.y - fx * 1.6 - fy)}"></polygon>`);
+    }
+    g.innerHTML = out.join("");
+    fig.classList.toggle("here", myFloor === z);
+  }
+}
+const fmtCoord = (ns, ew) => `${Math.abs(ns).toFixed(1)}${ns >= 0 ? "N" : "S"} ${Math.abs(ew).toFixed(1)}${ew >= 0 ? "E" : "W"}`;
+document.addEventListener("click", e => {
+  const b = e.target.closest("[data-dg-view]");
+  if (b) { dgView = b.dataset.dgView; try { localStorage.setItem("99companion.dgView", dgView); } catch (e2) {} render(); return; }
+  const f = e.target.closest("[data-ov-floor]");
+  if (f && !e.target.closest("[data-dg]")) {      // a floor in the overview: open it in the floor view
+    DG.floor = +f.dataset.ovFloor; DG.follow = false; DG.drawn = null; dgView = "floor";
+    try { localStorage.setItem("99companion.dgView", dgView); } catch (e2) {}
+    render();
+  }
+});
+
 function dgFit(d) {
   const xs = [], ys = [];
   for (const p of d.byFloor[DG.floor] || []) for (const [x, y] of p) { xs.push(x); ys.push(-y); }
