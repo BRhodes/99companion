@@ -604,7 +604,7 @@ table.accts tr.add td { border-top: 1px solid var(--line); padding-top: 8px; }
 #dgMap { width: 100%; height: 100%; display: block; touch-action: none; cursor: grab; }
 #dgMap.drag { cursor: grabbing; }
 .dgmap .fl { fill: color-mix(in srgb, var(--muted) 38%, var(--bar)); stroke: color-mix(in srgb, var(--muted) 38%, var(--bar)); stroke-width: .3; stroke-linejoin: round; }
-.dgmap .ghost { fill: var(--line); opacity: .28; }
+.dgmap .ghost { fill: color-mix(in srgb, var(--muted) 45%, var(--bar)); }
 .dgmap .pt { stroke: var(--bar); stroke-width: .5; cursor: pointer; }
 .dgmap .pt.dead { fill: var(--muted) !important; opacity: .55; }
 .dgmap .pt.unknown { fill: none !important; stroke-width: .7; }
@@ -955,7 +955,7 @@ section[data-widget="buffpanel"]:has(#dashDungeon:not([hidden])) { display: flex
     <div class="dgmain">
       <div class="dgmap" id="dgMapWrap">
         <svg id="dgMap" aria-label="Dungeon floor plan"><g id="dgView"><g id="dgGhosts"></g><g id="dgCells"></g><g id="dgMarks"></g></g></svg>
-        <div class="dghint muted">Drag to move · scroll to zoom · double-click to fit</div>
+        <div class="dghint muted">Drag to move · scroll to zoom · double-click to follow you again</div>
         <div class="dgtip" id="dgTip" hidden></div>
       </div>
       <aside class="dgside">
@@ -1617,6 +1617,9 @@ document.addEventListener("change", e => {
 
 // ---- the Dungeon page (dungeons.py): a dungeon's floor plan, its spawn points, and when each comes back -------------
 const DG = {data: {}, lb: null, list: null, floor: null, vb: null, drawn: null, follow: true};
+const DG_NEAR = 4;                                   // floors above and below drawn faded
+const DG_FADE = [1, .34, .22, .14, .08];             // how faint, by floors away
+const dgAway = z => Math.round(Math.abs(z - DG.floor) / 6);       // (a dungeon's floors are 6 m apart)
 const dgHeat = (lv, lo, hi) => { const t = hi > lo ? (lv - lo) / (hi - lo) : 0; return `hsl(${Math.round(190 - 190 * t)} 72% ${t > .5 ? 50 : 44}%)`; };
 const mmss = s => s >= 3600 ? `${Math.floor(s / 3600)}h${String(Math.floor(s % 3600 / 60)).padStart(2, "0")}` : `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
 function dgLoad(lb) {
@@ -1666,19 +1669,27 @@ function renderDungeon(state) {
   if (DG.drawn !== `${lb}:${DG.floor}`) {
     DG.drawn = `${lb}:${DG.floor}`;
     const poly = (p, cls) => `<polygon class="${cls}" points="${p.map(([x, y]) => `${x},${-y}`).join(" ")}"></polygon>`;
-    $("dgGhosts").innerHTML = d.cells.filter(c => c.z !== DG.floor && Math.abs(c.z - DG.floor) <= 6.5).flatMap(c => c.floors.map(p => poly(p, "ghost"))).join("");
+    // the floors above and below (up to DG_NEAR each way), fainter the further off, the furthest drawn first
+    const near = d.levels.filter(z => z !== DG.floor && dgAway(z) <= DG_NEAR).sort((a, b) => dgAway(b) - dgAway(a));
+    $("dgGhosts").innerHTML = near.map(z => `<g opacity="${DG_FADE[dgAway(z)]}">${
+      d.cells.filter(c => c.z === z).flatMap(c => c.floors.map(p => poly(p, "ghost"))).join("")}</g>`).join("");
     $("dgCells").innerHTML = d.cells.filter(c => c.z === DG.floor).flatMap(c => c.floors.map(p => poly(p, "fl"))).join("");
-    dgFit(d);                    // (a new floor: fit it)
+    if (!DG.vb || !(DG.follow && here)) dgFit(d);      // (a new floor: fit it; following you keeps the zoom)
+  }
+  if (DG.follow && here && myFloor === DG.floor && DG.vb) {                  // you in the middle
+    DG.vb.x = here.x - DG.vb.w / 2; DG.vb.y = -here.y - DG.vb.h / 2;
+    svg.setAttribute("viewBox", `${DG.vb.x} ${DG.vb.y} ${DG.vb.w} ${DG.vb.h}`);
   }
   // the spawn points, the exits and you
   const marks = [];
   d.exits.filter(e => e.floor === DG.floor).forEach(e => marks.push(`<circle class="exit" cx="${e.x}" cy="${-e.y}" r="2.2"><title>${esc(e.name)}</title></circle>`));
-  d.spawns.forEach((s, i) => {
-    if (s.floor !== DG.floor) return;
-    const p = points[i], left = p.back != null ? p.back - t : null;
-    marks.push(`<circle class="pt ${p.state}" data-dg="${i}" cx="${s.x}" cy="${-s.y}" r="1.5" fill="${d.colour[s.name]}" stroke="${p.state === "unknown" ? d.colour[s.name] : ""}"></circle>`);
-    if (p.state === "dead") marks.push(`<text class="back" x="${s.x + 1.9}" y="${-s.y + 1.1}">${mmss(Math.max(0, left))}</text>`);
-    if (p.state === "due") marks.push(`<text class="back" x="${s.x + 1.9}" y="${-s.y + 1.1}">due</text>`);
+  // the spawn points: this floor's, and the nearby floors' faded under them (the furthest first)
+  d.spawns.map((s, i) => [s, i]).filter(([s]) => dgAway(s.floor) <= DG_NEAR).sort((a, b) => dgAway(b[0].floor) - dgAway(a[0].floor)).forEach(([s, i]) => {
+    const p = points[i], left = p.back != null ? p.back - t : null, k = dgAway(s.floor);
+    const fade = k ? ` opacity="${Math.min(1, DG_FADE[k] * 1.8)}"` : "", r = k ? 1.1 : 1.5;
+    marks.push(`<g${fade}><circle class="pt ${p.state}" data-dg="${i}" cx="${s.x}" cy="${-s.y}" r="${r}" fill="${d.colour[s.name]}" stroke="${p.state === "unknown" ? d.colour[s.name] : ""}"></circle>${
+      p.state === "dead" ? `<text class="back" x="${s.x + r + .4}" y="${-s.y + 1.1}">${mmss(Math.max(0, left))}</text>`
+      : p.state === "due" ? `<text class="back" x="${s.x + r + .4}" y="${-s.y + 1.1}">due</text>` : ""}</g>`);
   });
   if (here && myFloor === DG.floor) {
     const [fx, fy] = here.facing || [0, 1];
@@ -1715,7 +1726,10 @@ document.addEventListener("change", e => { if (e.target.id === "dgPick") { DG.pi
   const set = () => svg.setAttribute("viewBox", `${DG.vb.x} ${DG.vb.y} ${DG.vb.w} ${DG.vb.h}`);
   svg.addEventListener("pointerdown", e => { if (!DG.vb) return; drag = {x: e.clientX, y: e.clientY, vb: {...DG.vb}}; svg.setPointerCapture(e.pointerId); svg.classList.add("drag"); tip.hidden = true; });
   svg.addEventListener("pointermove", e => {
-    if (drag) { const s = scale(); DG.vb.x = drag.vb.x - (e.clientX - drag.x) * s; DG.vb.y = drag.vb.y - (e.clientY - drag.y) * s; set(); return; }
+    if (drag) {
+      if (Math.hypot(e.clientX - drag.x, e.clientY - drag.y) > 3) DG.follow = false;     // (moving the map stops following you)
+      const s = scale(); DG.vb.x = drag.vb.x - (e.clientX - drag.x) * s; DG.vb.y = drag.vb.y - (e.clientY - drag.y) * s; set(); return;
+    }
     const t = e.target.closest("[data-dg]"), d = DG.data[DG.lb];
     if (!t || !d) { tip.hidden = true; return; }
     const s = d.spawns[+t.dataset.dg], p = ((curSession && curSession.dungeon && curSession.dungeon.landblock === DG.lb && curSession.dungeon.points) || [])[+t.dataset.dg] || {state: "unknown"};
