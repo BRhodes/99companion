@@ -137,10 +137,11 @@ NEAR = 0.15            # metres: a height this close to a floor's is on it
 def walkable(portal_dat, c):
     """A cell's walkable upward-facing polygons, each (its [(x, y, z)...] in the dungeon, its normal's z), its level
     openings (portals in its floor or ceiling: ([(x, y, z)...], the cell through it)) and the cells beside it (through
-    its other portals: {cell: where the portal is (x, y)})."""
+    its other portals: {cell: where the portal is (x, y)}), and its walls' feet ([x1, y1, x2, y2, z]: each wall's bottom
+    edge, where it meets the floor)."""
     got = cell_structure(portal_dat, c["env"], c["struct"])
     if not got:
-        return [], [], {}
+        return [], [], {}, []
     verts, polys, portals = got
     place = lambda ids: [tuple(a + b for a, b in zip(rotate(c["rot"], verts[i]), c["origin"])) for i in ids if i in verts]
     holes, beside = [], {}
@@ -150,7 +151,7 @@ def walkable(portal_dat, c):
             holes.append((w, other))
         elif w:
             beside[other] = (sum(p[0] for p in w) / len(w), sum(p[1] for p in w) / len(w))
-    out = []
+    out, walls = [], []
     # (and a doorway lying in a ramp's slope -- its foot: the cells' floors stop at it, you walk across it; a level one,
     # a tall cave's opening, isn't ground)
     sloped_doors = [ids for ids in portals.values() if len(place(ids)) >= 3 and not level_ground(place(ids))]
@@ -167,7 +168,12 @@ def walkable(portal_dat, c):
             w, up = w[::-1], -up
         if up >= WALKABLE:
             out.append((w, up))
-    return out, holes, beside
+        elif up > -0.3 and ids not in sloped_doors:      # a wall (not a ceiling): its foot
+            low = min(p[2] for p in w)
+            for a, b in zip(w, w[1:] + w[:1]):
+                if a[2] < low + 0.3 and b[2] < low + 0.3 and math.dist(a[:2], b[:2]) > 0.2:
+                    walls.append([round(a[0], 2), round(a[1], 2), round(b[0], 2), round(b[1], 2), round(low, 2)])
+    return out, holes, beside, walls
 
 
 def area(w):
@@ -357,8 +363,8 @@ def build(landblock, name, core):
         c = env_cell(cell_dat, (landblock << 16) | i)
         if c is None:
             break
-        raw, holes, beside = walkable(portal_dat, c)
-        cells.append({"id": i, "origin": c["origin"][2], "raw": raw, "holes": holes, "beside": beside})
+        raw, holes, beside, walls = walkable(portal_dat, c)
+        cells.append({"id": i, "origin": c["origin"][2], "raw": raw, "holes": holes, "beside": beside, "walls": walls})
     heights, ways = lay(cells)
     level = lambda z: min(heights, key=lambda f: abs(f - z))        # (the floor a height is nearest)
     for c in cells:
@@ -386,10 +392,11 @@ def build(landblock, name, core):
         door["arrival"]["floor"] = level(sum(zs) / len(zs)) if zs else (cell or {}).get("z")
     # the ground itself, in 3D (each walkable polygon once, [[x, y, z]...]): what the page's walking view spreads over
     surface = [[[round(x, 2), round(y, 2), round(z, 2)] for x, y, z in w] for c in cells for w, _up in c["raw"]]
+    walls = [w for c in cells for w in c["walls"]]
     for c in cells:
-        del c["raw"], c["holes"], c["beside"]
+        del c["raw"], c["holes"], c["beside"], c["walls"]
     return {"name": name, "landblock": landblock, "floors": heights, "cells": cells, "spawns": spawns, "exits": exits,
-            "connections": connections(ways), "entrance": door, "surface": surface}
+            "connections": connections(ways), "entrance": door, "surface": surface, "walls": walls}
 
 
 def main():

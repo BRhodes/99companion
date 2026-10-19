@@ -614,6 +614,7 @@ table.accts tr.add td { border-top: 1px solid var(--line); padding-top: 8px; }
 .dgmap .ghost { fill: color-mix(in srgb, var(--muted) 45%, var(--bar)); }
 /* the whole dungeon as one map: each floor its own shade (higher lighter), the one you're on (or heading to) on top */
 .dgmap .wfl { stroke-width: .3; stroke-linejoin: round; }
+.dgmap .walls line { stroke: #000; stroke-width: .6; stroke-linecap: round; }
 .dgmap .pt { stroke: var(--bar); stroke-width: .5; cursor: pointer; }
 .dgmap .pt.dead { fill: var(--muted) !important; opacity: .55; }
 .dgmap .pt.unknown { fill: none !important; stroke-width: .7; }
@@ -1878,7 +1879,15 @@ function renderDungeon(state) {
     });
     pieces.sort((a, b) => b[0] - a[0]);         // (the nearest drawn last, over the rest)
     $("dgGhosts").innerHTML = "";
-    $("dgCells").innerHTML = pieces.map(([, w, f, o]) => `<polygon class="wfl" fill="${f}" stroke="${f}"${o} points="${w.map(q => `${q[0]},${-q[1]}`).join(" ")}"></polygon>`).join("");
+    // the walls: a wall's foot where the ground beside it is what shows (at its height)
+    const walled = (d.walls || []).filter(([x1, y1, x2, y2, z]) => {
+      const mx = (x1 + x2) / 2, my = (y1 + y2) / 2;
+      for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++)
+        for (const i of W.at.get(`${Math.floor(mx) + dx},${Math.floor(my) + dy}`) || []) if (won[i] && Math.abs(W.nodes[i].z - z) < 1.5) return true;
+      return false;
+    });
+    $("dgCells").innerHTML = pieces.map(([, w, f, o]) => `<polygon class="wfl" fill="${f}" stroke="${f}"${o} points="${w.map(q => `${q[0]},${-q[1]}`).join(" ")}"></polygon>`).join("")
+      + `<g class="walls">${walled.map(([x1, y1, x2, y2]) => `<line x1="${x1}" y1="${-y1}" x2="${x2}" y2="${-y2}"></line>`).join("")}</g>`;
     // a spawn point or an exit shows when the ground it's on is what shows there (or nothing was reached there)
     const seen = s => { const list = W.at.get(`${Math.floor(s.x)},${Math.floor(s.y)}`) || [];
       const w = list.find(i => won[i]); return w === undefined ? !list.length || !reachedAt.size : Math.abs(W.nodes[w].z - s.z) < 3; };
