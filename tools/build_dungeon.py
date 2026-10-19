@@ -64,7 +64,8 @@ def env_cell(cell_dat, cid):
 
 
 def cell_structure(portal_dat, eid, key, _cache={}):
-    """(vertices {id: (x, y, z)}, polygons [[vertex ids]]) of one cell structure of an environment."""
+    """(vertices {id: (x, y, z)}, polygons [[vertex ids]]) of one cell structure of an environment -- not its portals
+    (the openings into the cells beside it: one under a tall cave's upper cell would read as its floor)."""
     if (eid, key) in _cache:
         return _cache[(eid, key)]
     b = portal_dat.get(eid)
@@ -73,7 +74,8 @@ def cell_structure(portal_dat, eid, key, _cache={}):
     for _ in range(r.take("I")):
         k = r.take("I")
         npoly = r.take("I")
-        r.take("II")                              # physics polygons, portals
+        r.take("I")                               # physics polygons
+        nport = r.take("I")
         r.take("i")                               # vertex type
         verts = {}
         for _ in range(r.take("I")):
@@ -81,18 +83,20 @@ def cell_structure(portal_dat, eid, key, _cache={}):
             verts[vk] = r.take("3f")
             r.take("3f")                          # normal
             r.p += 8 * nuv
-        polys = []
+        polys = {}
         for _ in range(npoly):
-            r.take("h")
+            pid = r.take("h")
             pts, stip = r.take("B"), r.take("B")
             sides = r.take("i")
             r.take("hh")
-            polys.append([r.take("h") for _ in range(pts)] if pts > 1 else [r.take("h")] if pts else [])
+            polys[pid] = [r.take("h") for _ in range(pts)] if pts > 1 else [r.take("h")] if pts else []
             if not stip & 4:
                 r.p += pts
             if sides == 1 and not stip & 8:
                 r.p += pts
             r.align()
+        portals = {r.take("h") for _ in range(nport)}
+        polys = [v for pid, v in polys.items() if pid not in portals]
         _cache[(eid, k)] = (verts, polys)
         if k == key:
             return verts, polys
