@@ -1873,7 +1873,9 @@ function renderDungeon(state) {
   }).join(""));
   // the plan (redrawn only when the floor changes)
   const svg = $("dgMap");
-  const whole = dgView === "whole", walk = dgView === "walk", one = whole || walk;     // (one map: Whole, Walk)
+  // (the dashboard's card: always the Walk view)
+  const onCard = $("dgRoot").parentElement !== $("page-dungeon");
+  const whole = !onCard && dgView === "whole", walk = onCard || dgView === "walk", one = whole || walk;     // (one map: Whole, Walk)
   // the whole map: the floor you're on (on a ramp: the one you're heading to, and the one you're on) whole, and every
   // other floor whole too unless it collides with one shown -- then not at all; the higher ones first. Not following
   // you, the floor picked in place of yours
@@ -2064,7 +2066,7 @@ function renderDungeon(state) {
     : `<div class="empty">Nothing killed yet${live && live.landblock === lb ? "" : " (you haven't been in here this login)"}.</div>`);
   // the overview (every floor at once) or one floor: the page's choice; the dashboard card always shows one floor
   const overview = dgView === "overview" && $("dgRoot").parentElement === $("page-dungeon");
-  for (const b of document.querySelectorAll("[data-dg-view]")) b.classList.toggle("on", b.dataset.dgView === (overview ? "overview" : one ? dgView : "floor"));
+  for (const b of document.querySelectorAll("[data-dg-view]")) b.classList.toggle("on", b.dataset.dgView === (overview ? "overview" : walk ? "walk" : whole ? "whole" : "floor"));
   $("dgOverview").hidden = !overview;
   document.querySelector("#dgRoot .dgmain").hidden = overview;
   $("dgFloors").hidden = overview;
