@@ -151,7 +151,10 @@ def walkable(portal_dat, c):
         elif w:
             beside[other] = (sum(p[0] for p in w) / len(w), sum(p[1] for p in w) / len(w))
     out = []
-    for ids in polys:
+    # (and a doorway lying in a ramp's slope -- its foot: the cells' floors stop at it, you walk across it; a level one,
+    # a tall cave's opening, isn't ground)
+    sloped_doors = [ids for ids in portals.values() if len(place(ids)) >= 3 and not level_ground(place(ids))]
+    for ids in polys + sloped_doors:
         w = place(ids)
         if len(w) < 3:
             continue
@@ -160,6 +163,8 @@ def walkable(portal_dat, c):
         nx = (by - ay) * (cz - az) - (bz - az) * (cy - ay)
         ny = (bz - az) * (cx - ax) - (bx - ax) * (cz - az)
         up = nz / (math.sqrt(nx * nx + ny * ny + nz * nz) or 1)
+        if ids in sloped_doors and up < 0:      # (a doorway faces either way)
+            w, up = w[::-1], -up
         if up >= WALKABLE:
             out.append((w, up))
     return out, holes, beside
