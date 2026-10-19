@@ -614,34 +614,41 @@ table.accts tr.add td { border-top: 1px solid var(--line); padding-top: 8px; }
 .dgmap .me { fill: #3a82f6; stroke: #fff; stroke-width: .4; }
 .dgviews { display: inline-flex; gap: 4px; }
 #dgOverview { display: flex; flex-direction: column; gap: 10px; }
-#dgOverview[hidden], .dgmain[hidden], .dgfloors[hidden] { display: none; }
-.dgovhead { display: flex; flex-wrap: wrap; gap: 4px 18px; font-size: 13px; color: var(--muted); }
-.dgovhead b { color: var(--ink); }
-.dgovs { display: flex; flex-wrap: wrap; gap: 14px 18px; align-items: flex-start; }
-.dgov { margin: 0; display: flex; flex-direction: column; gap: 3px; cursor: pointer; }
-.dgov figcaption { font-size: 12px; color: var(--muted); }
-.dgov figcaption b { color: var(--ink); font-family: ui-monospace, Consolas, monospace; }
-.dgov figcaption .me { color: #3a82f6; font-weight: 700; }
-.dgov svg { display: block; max-width: 100%; height: auto; }
-.dgov.here svg { outline: 2px solid #3a82f6; outline-offset: 3px; border-radius: 2px; }
-.dgov .edge polygon { fill: #3b2a1a; stroke: #3b2a1a; stroke-width: 1.3; stroke-linejoin: round; }
-.dgov .join circle { fill: #fff; stroke: #222; stroke-width: .35; }
-.dgov .join text { font: 700 3.1px system-ui, sans-serif; text-anchor: middle; fill: #111; }
-.dgov .ovexit, .dgovkey .ovexit { font: 800 5.2px system-ui, sans-serif; fill: #d4219e; text-anchor: middle; }
-.dgov .ovdoor, .dgovkey .ovdoor { font: 800 5.2px system-ui, sans-serif; fill: #2445d6; text-anchor: middle; }
-.dgov .ovpt { fill: #e01b1b; stroke: #fff; stroke-width: .35; cursor: pointer; }
-.dgov .ovpt.dead { fill: #777; }
-.dgov .ovpt.due { fill: #e01b1b; stroke: #f0b04a; stroke-width: .8; }
-.dgov .ovpt.unknown { fill: none; stroke: #e01b1b; stroke-width: .6; }
-.dgov .ovback { font: 700 3px ui-monospace, Consolas, monospace; fill: #111; paint-order: stroke; stroke: #fff; stroke-width: .7; }
-.dgov .ovme { fill: #3a82f6; stroke: #fff; stroke-width: .4; }
-.dgovkey { display: flex; flex-wrap: wrap; gap: 4px 18px; font-size: 12px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 8px; }
-.dgovkey b.ovexit, .dgovkey b.ovdoor { font-size: 14px; }
-.dgovkey .ovexit { color: #d4219e; } .dgovkey .ovdoor { color: #2445d6; }
-.dgovkey i { display: inline-block; vertical-align: -2px; margin-right: 4px; }
-.dgovkey .jk { width: 14px; height: 14px; border-radius: 50%; background: #fff; border: 1px solid #222; color: #111; font: 700 9px/14px system-ui; text-align: center; font-style: normal; }
-.dgovkey .hk { width: 14px; height: 10px; background: repeating-linear-gradient(45deg, #c98a4a 0 2px, #6b4520 2px 3px); }
-.dgovkey .dk { width: 9px; height: 9px; border-radius: 50%; background: #e01b1b; }
+/* the overview: a hand-drawn dungeon map's look (white paper, tan levels, black outlines and stair hatching), the same
+   in either theme */
+.acsheet { overflow-x: auto; border-radius: 6px; }
+.acmap { display: block; width: 100%; min-width: 760px; height: auto; font-family: Arial, Helvetica, sans-serif; }
+.acmap .acpaper { fill: #fff; }
+.acmap .actitle { font: 700 20px Arial, Helvetica, sans-serif; text-anchor: middle; fill: #000; }
+.acmap .acsub { font: 700 13px Arial, Helvetica, sans-serif; text-anchor: middle; fill: #000; }
+.acmap .acinfo { font: 700 11px Arial, Helvetica, sans-serif; fill: #000; }
+.acmap .acinfo .acv { fill: #1a35d1; }
+.acmap .acfam { fill: #d01010; text-decoration: underline; }
+.acmap .acmon { fill: #d01010; font-weight: 700; }
+.acmap .aclvl { font: 700 11px Arial, Helvetica, sans-serif; fill: #000; }
+.acmap .acdepth { font-weight: 400; fill: #777; font-size: 10px; }
+.acmap .acedge polygon { fill: #000; stroke: #000; stroke-width: .9; stroke-linejoin: round; }
+.acmap .aclines line { stroke: #ececec; stroke-width: .8; }
+.acmap .aclines line.lit { stroke: #1a35d1; stroke-width: 1.6; }
+.acmap .acjoin rect { fill: #fff; stroke: #000; stroke-width: .3; }
+.acmap .acjoin text { font: 700 3.4px Arial, sans-serif; text-anchor: middle; fill: #000; }
+.acmap .acjoin.lit rect { fill: #1a35d1; } .acmap .acjoin.lit text { fill: #fff; }
+.acmap .acE { font: 900 6px Arial, sans-serif; fill: #e01bd0; text-anchor: middle; }
+.acmap .acD { font: 900 6px Arial, sans-serif; fill: #1a35d1; text-anchor: middle; }
+.acmap .ovpt { fill: #e01010; stroke: none; cursor: pointer; }
+.acmap .ovpt.dead { fill: #8a8a8a; }
+.acmap .ovpt.due { fill: #e01010; stroke: #f0a500; stroke-width: .7; }
+.acmap .ovpt.unknown { fill: #fff; stroke: #e01010; stroke-width: .5; }
+.acmap .ovback { font: 700 3px Arial, sans-serif; fill: #000; paint-order: stroke; stroke: #fff; stroke-width: .7; }
+.acmap .ovme { fill: #1a35d1; stroke: #fff; stroke-width: .4; }
+.acmap .acpanel { cursor: pointer; }
+.acmap .acpanel.here .aclvl { fill: #1a35d1; }
+.acmap .aclegend line { stroke: #000; stroke-width: 1.5; }
+.acmap .aclegend text { font: 700 11px Arial, Helvetica, sans-serif; fill: #000; }
+.acmap .aclegend .acD, .acmap .aclegend .acE { font-size: 13px; text-anchor: start; }
+.acmap .aclegend .acdot { fill: #e01010; }
+.acmap .aclegend .aclegjoin { fill: #fff; stroke: #000; stroke-width: 1; }
+.acmap .aclegend .aclegnum { font-size: 9px; text-anchor: middle; }
 .bcardtabs { margin-left: auto; display: inline-flex; gap: 4px; }
 /* the map in the dashboard's Buffs card: the card's height, a narrower list beside it */
 section[data-widget="buffpanel"]:has(#dashDungeon:not([hidden])) { display: flex; flex-direction: column; overflow: hidden; }
@@ -1764,52 +1771,111 @@ function dgFloorBox(d, z) {
 }
 function renderDungeonOverview(d, points, here, myFloor, t) {
   const box = $("dgOverview");
-  if (DG_OV.built !== d.landblock) {           // the floors, once: the marks go on top each second
+  if (DG_OV.built !== d.landblock) {           // the sheet, once: the live marks go on top each second
     DG_OV.built = d.landblock;
-    const top = d.levels[0], bottom = d.levels[d.levels.length - 1], scale = 2.6;      // px a metre
-    const e = d.entrance || {};
-    const panels = d.levels.map(z => {
-      const b = dgFloorBox(d, z), pad = 6, vb = [b.x - pad, b.y - pad, b.w + 2 * pad, b.h + 2 * pad];
-      const fill = dgDepthFill(z, top, bottom), pts = p => p.map(([x, y]) => `${x},${-y}`).join(" ");
-      const polys = (d.byFloorAll[z] || []);
-      const spawns = d.spawns.filter(s => s.floor === z).length;
-      const joins = d.connections.filter(c => c.a === z || c.b === z);
-      return `<figure class="dgov" data-ov-floor="${z}"><figcaption><b>${dgLabel(d, z)}</b>${spawns ? ` · ${spawns} spawn${spawns > 1 ? "s" : ""}` : ""}</figcaption>
-        <svg viewBox="${vb.join(" ")}" style="width:${Math.max(70, vb[2] * scale)}px;height:${Math.max(50, vb[3] * scale)}px">
-          <defs><pattern id="hatch${String(z).replace("-", "m").replace(".", "_")}" width="1.6" height="1.6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
-            <rect width="1.6" height="1.6" fill="${fill}"></rect><rect width=".55" height="1.6" fill="rgba(0,0,0,.45)"></rect></pattern></defs>
-          <g class="edge">${polys.map(([p]) => `<polygon points="${pts(p)}"></polygon>`).join("")}</g>
-          <g>${polys.map(([p, sloped]) => `<polygon points="${pts(p)}" fill="${sloped ? `url(#hatch${String(z).replace("-", "m").replace(".", "_")})` : fill}" stroke="${fill}" stroke-width=".35" stroke-linejoin="round"></polygon>`).join("")}</g>
-          ${joins.map(c => `<g class="join"><circle cx="${c.x}" cy="${-c.y}" r="2.6"></circle><text x="${c.x}" y="${-c.y + 1.15}">${c.n}</text><title>${c.n}: ${c.a === z ? `down to ${c.b} m` : `up to ${c.a} m`}</title></g>`).join("")}
-          ${d.exits.filter(x => x.floor === z).map(x => `<text class="ovexit" x="${x.x}" y="${-x.y + 2}">E<title>${esc(x.name)}</title></text>`).join("")}
-          ${e.arrival && e.arrival.floor === z ? `<text class="ovdoor" x="${e.arrival.x}" y="${-e.arrival.y + 2}">D<title>Where the portal leaves you</title></text>` : ""}
-          <g class="ovmarks"></g>
-        </svg></figure>`;
+    const S = 2.4, W = 1100, GAP = 34, PAD = 7;                         // px a metre, the sheet's width
+    const e = d.entrance || {}, arrival = e.arrival ? e.arrival.floor : null;
+    // the floors worth a place on the sheet: anything on them (spawns, exits, stairs), or big enough to matter
+    const area = z => (d.byFloor[z] || []).reduce((s, p) => s + Math.abs(p.reduce((a, [x, y], i) => { const [x2, y2] = p[(i + 1) % p.length]; return a + x * y2 - x2 * y; }, 0)) / 2, 0);
+    const shown = d.levels.filter(z => d.spawns.some(s => s.floor === z) || d.exits.some(x => x.floor === z) || (arrival === z)
+      || d.connections.some(c => c.a === z || c.b === z) || area(z) > 400);
+    // LVL numbers as a hand-drawn map counts them: 0 where you arrive, down from there
+    const ai = arrival != null && shown.includes(arrival) ? shown.indexOf(arrival) : 0;
+    const lvl = z => shown.indexOf(z) - ai;
+    // shelf-pack the floors (top floor first) onto the sheet, the rows beside the info box starting right of it
+    const names = new Set(d.spawns.map(s => s.name)).size, kindsN = new Set(d.spawns.map(s => s.name.split(" ").slice(-1)[0])).size;
+    const infoBottom = 58 + 15 * 3 + 15 * kindsN + 13 * names + 10, INFO = 210;
+    const left = y => y < infoBottom ? INFO : 0;
+    let y = 60, x = left(60), row = 0;
+    const panels = shown.map(z => {
+      const b = dgFloorBox(d, z), w = (b.w + 2 * PAD) * S, h = (b.h + 2 * PAD) * S + 16;
+      if (x > left(y) && x + w > W) { y += row + GAP; x = left(y); row = 0; }
+      const p = {z, b, ox: x, oy: y + 16, w, h};
+      x += w + GAP; row = Math.max(row, h);
+      return p;
+    });
+    const H = y + row + 70;
+    const top = shown[0], bottom = shown[shown.length - 1];
+    const tr = p => `translate(${p.ox - (p.b.x - PAD) * S},${p.oy - (p.b.y - PAD) * S}) scale(${S})`;
+    const pts = q => q.map(([x, y]) => `${x},${-y}`).join(" ");
+    const at = (p, x, y) => [p.ox + (x - p.b.x + PAD) * S, p.oy + (-y - p.b.y + PAD) * S];
+    DG_OV.panels = panels;
+    // the ways between floors: faint lines joining the same number on both
+    const byZ = Object.fromEntries(panels.map(p => [p.z, p]));
+    const lines = d.connections.filter(c => byZ[c.a] && byZ[c.b]).map(c => {
+      const [x1, y1] = at(byZ[c.a], c.x, c.y), [x2, y2] = at(byZ[c.b], c.x, c.y);
+      return `<line class="acl" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" data-join="${c.n}"></line>`;
     }).join("");
-    setHTML(box, `<div class="dgovhead">${e.ns != null ? `<span>Entrance <b>${fmtCoord(e.ns, e.ew)}</b></span><span>Level <b>${e.min_level ? e.min_level + "+" : "any"}</b></span>
-        <span>Nearest lifestone <b>${fmtCoord(e.lifestone.ns, e.lifestone.ew)}</b> (${e.lifestone.away} away)</span><span>Nearest town <b>${esc(e.town.name)}</b></span>` : ""}</div>
-      <div class="dgovs">${panels}</div>
-      <div class="dgovkey"><span><b class="ovdoor">D</b> where you arrive</span><span><b class="ovexit">E</b> exit</span><span><i class="jk">3</i> stairs / ramp: the same number on the floor it leads to</span>
-        <span><i class="hk"></i> stairs / slopes</span><span><i class="dk"></i> spawn point (grey: killed, back in…)</span></div>`);
+    // who lives here, by kind: "Golems: Magma, Granite"
+    const kinds = {};
+    for (const s of d.spawns) { const w = s.name.split(" "), k = w.length > 1 ? w[w.length - 1] : s.name; (kinds[k] = kinds[k] || new Set()).add(w.length > 1 ? w.slice(0, -1).join(" ") : ""); }
+    // (a kind only when two or more share the last word: a lone "K'nath T'aed" stays whole)
+    const groups = Object.entries(kinds).flatMap(([k, set]) => set.size > 1 ? [[k + "s", [...set].filter(Boolean)]]
+      : [[[...set][0] ? `${[...set][0]} ${k}` : k, []]]);
+    const solo = groups.filter(([, v]) => !v.length).map(([k]) => k), fam = groups.filter(([, v]) => v.length);
+    const who = [...fam.map(([k, v]) => `<tspan x="12" dy="15" class="acfam">${esc(k)}</tspan>${v.map(n => `<tspan x="12" dy="13" class="acmon">- ${esc(n)}</tspan>`).join("")}`),
+      ...(solo.length ? [`<tspan x="12" dy="15" class="acfam">Also</tspan>${solo.map(n => `<tspan x="12" dy="13" class="acmon">- ${esc(n)}</tspan>`).join("")}`] : [])].join("");
+    const panel = p => {
+      const fill = dgDepthFill(p.z, top, bottom), id = `ach${String(p.z).replace("-", "m").replace(".", "_")}`;
+      const polys = d.byFloorAll[p.z] || [];
+      const joins = d.connections.filter(c => c.a === p.z || c.b === p.z);
+      return `<g data-ov-floor="${p.z}" class="acpanel">
+        <text class="aclvl" x="${p.ox}" y="${p.oy - 4}">LVL ${lvl(p.z)}<tspan class="acdepth"> ${dgLabel(d, p.z)}</tspan></text>
+        <g transform="${tr(p)}">
+          <defs><pattern id="${id}" width="1.4" height="1.4" patternUnits="userSpaceOnUse" patternTransform="rotate(90)">
+            <rect width="1.4" height="1.4" fill="${fill}"></rect><rect width=".45" height="1.4" fill="#000"></rect></pattern></defs>
+          <g class="acedge">${polys.map(([q]) => `<polygon points="${pts(q)}"></polygon>`).join("")}</g>
+          <g>${polys.map(([q, sl]) => `<polygon points="${pts(q)}" fill="${sl ? `url(#${id})` : fill}" stroke="${fill}" stroke-width=".3" stroke-linejoin="round"></polygon>`).join("")}</g>
+          ${joins.map(c => `<g class="acjoin" data-join="${c.n}"><rect x="${c.x - 2.2}" y="${-c.y - 2.2}" width="4.4" height="4.4" rx=".6"></rect><text x="${c.x}" y="${-c.y + 1.3}">${c.n}</text>
+            <title>${c.n}: ${c.a === p.z ? `down to LVL ${lvl(c.b)}` : `up to LVL ${lvl(c.a)}`}</title></g>`).join("")}
+          ${d.exits.filter(x => x.floor === p.z).map(x => `<text class="acE" x="${x.x}" y="${-x.y + 2.6}">E<title>${esc(x.name)}</title></text>`).join("")}
+          ${arrival === p.z ? `<text class="acD" x="${e.arrival.x}" y="${-e.arrival.y + 2.6}">D<title>Where the portal leaves you</title></text>` : ""}
+          <g class="ovmarks"></g>
+        </g></g>`;
+    };
+    setHTML(box, `<div class="acsheet"><svg class="acmap" viewBox="-16 0 ${W + 32} ${H}" preserveAspectRatio="xMidYMin meet">
+      <rect class="acpaper" x="-8" y="-8" width="${W + 16}" height="${H + 16}"></rect>
+      <text class="actitle" x="${W / 2}" y="22">${esc(d.name)} Dungeon</text>
+      ${e.ns != null ? `<text class="acsub" x="${W / 2}" y="40">${fmtCoord(e.ns, e.ew)}</text>` : ""}
+      <text class="acinfo" x="12" y="58"><tspan x="12" dy="0">Level restriction: <tspan class="acv">${e.min_level ? e.min_level + "+" : "none"}</tspan></tspan>
+        ${e.town ? `<tspan x="12" dy="15">Nearest town: <tspan class="acv">${esc(e.town.name)}</tspan></tspan>` : ""}
+        ${e.lifestone ? `<tspan x="12" dy="15">Nearest LS: <tspan class="acv">${fmtCoord(e.lifestone.ns, e.lifestone.ew)}</tspan></tspan>` : ""}${who}</text>
+      <g class="aclines">${lines}</g>
+      ${panels.map(panel).join("")}
+      <g class="aclegend" transform="translate(0,${H - 34})">
+        <line x1="0" x2="${W}" y1="-8" y2="-8"></line>
+        <text x="14" y="10"><tspan class="acD">D</tspan> Departure</text>
+        <text x="150" y="10"><tspan class="acE">E</tspan> Exit portal</text>
+        <circle cx="306" cy="6" r="3.5" class="acdot"></circle><text x="316" y="10">Monster spawn (grey: killed, back in…)</text>
+        <rect x="590" y="0" width="22" height="11" fill="url(#aclegendhatch)"></rect><text x="618" y="10">Stairs / slopes</text>
+        <rect x="738" y="0" width="12" height="12" rx="2" class="aclegjoin"></rect><text x="744" y="10" class="aclegnum">3</text><text x="756" y="10">to the same number on another level</text>
+        <defs><pattern id="aclegendhatch" width="3" height="3" patternUnits="userSpaceOnUse"><rect width="3" height="3" fill="#e9b97f"></rect><rect width="1" height="3" fill="#000"></rect></pattern></defs>
+      </g></svg></div>`);
   }
-  // the marks: spawn points with their state, and you
-  for (const fig of box.querySelectorAll("[data-ov-floor]")) {
-    const z = +fig.dataset.ovFloor, g = fig.querySelector(".ovmarks"), out = [];
+  // the live marks: spawn points with their state, and you
+  for (const g of box.querySelectorAll("[data-ov-floor]")) {
+    const z = +g.dataset.ovFloor, marks = g.querySelector(".ovmarks"), out = [];
     d.spawns.forEach((s, i) => {
       if (s.floor !== z) return;
       const p = points[i];
-      out.push(`<circle class="ovpt ${p.state}" data-dg="${i}" cx="${s.x}" cy="${-s.y}" r="1.7"></circle>`);
-      if (p.state === "dead") out.push(`<text class="ovback" x="${s.x + 2.2}" y="${-s.y + 1.2}">${mmss(Math.max(0, p.back - t))}</text>`);
-      if (p.state === "due") out.push(`<text class="ovback" x="${s.x + 2.2}" y="${-s.y + 1.2}">due</text>`);
+      out.push(`<circle class="ovpt ${p.state}" data-dg="${i}" cx="${s.x}" cy="${-s.y}" r="1.6"></circle>`);
+      if (p.state === "dead") out.push(`<text class="ovback" x="${s.x + 2}" y="${-s.y + 1.2}">${mmss(Math.max(0, p.back - t))}</text>`);
+      if (p.state === "due") out.push(`<text class="ovback" x="${s.x + 2}" y="${-s.y + 1.2}">due</text>`);
     });
     if (here && myFloor === z) {
       const [fx, fy] = here.facing || [0, 1];
       out.push(`<polygon class="ovme" points="${here.x + fx * 3.2},${-(here.y + fy * 3.2)} ${here.x - fy * 1.6 - fx},${-(here.y + fx * 1.6 - fy)} ${here.x + fy * 1.6 - fx},${-(here.y - fx * 1.6 - fy)}"></polygon>`);
     }
-    g.innerHTML = out.join("");
-    fig.classList.toggle("here", myFloor === z);
+    marks.innerHTML = out.join("");
+    g.classList.toggle("here", myFloor === z);
   }
 }
+// a way between levels: hovering its number lights its line and its other end
+document.addEventListener("pointerover", e => {
+  const j = e.target.closest && e.target.closest(".acmap [data-join]");
+  for (const el of document.querySelectorAll(".acmap .lit")) el.classList.remove("lit");
+  if (j) for (const el of document.querySelectorAll(`.acmap [data-join="${j.dataset.join}"]`)) el.classList.add("lit");
+});
 const fmtCoord = (ns, ew) => `${Math.abs(ns).toFixed(1)}${ns >= 0 ? "N" : "S"} ${Math.abs(ew).toFixed(1)}${ew >= 0 ? "E" : "W"}`;
 document.addEventListener("click", e => {
   const b = e.target.closest("[data-dg-view]");
