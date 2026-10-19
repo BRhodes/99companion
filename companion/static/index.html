@@ -1716,7 +1716,8 @@ function dgWalkPrep(d) {
   });
   const near = nodes.map(n => {
     const out = [];
-    for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) {
+    // (two squares out too: the floor drawn stops short of a doorway's threshold, a metre with nothing under it)
+    for (let dx = -2; dx <= 2; dx++) for (let dy = -2; dy <= 2; dy++) {
       if (!dx && !dy) continue;
       const len = Math.hypot(dx, dy);
       for (const j of at.get(`${n.x - .5 + dx},${n.y - .5 + dy}`) || []) if (Math.abs(nodes[j].z - n.z) <= DG_STEP * len) out.push([j, len]);
