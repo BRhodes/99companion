@@ -379,10 +379,12 @@ def build(landblock, name, core):
         cell = next((c for c in cells if c["id"] == door["arrival"]["cell"]), None)
         zs = [p[2] for w, _up in cell["raw"] for p in w] if cell else []
         door["arrival"]["floor"] = level(sum(zs) / len(zs)) if zs else (cell or {}).get("z")
+    # the ground itself, in 3D (each walkable polygon once, [[x, y, z]...]): what the page's walking view spreads over
+    surface = [[[round(x, 2), round(y, 2), round(z, 2)] for x, y, z in w] for c in cells for w, _up in c["raw"]]
     for c in cells:
         del c["raw"], c["holes"], c["beside"]
     return {"name": name, "landblock": landblock, "floors": heights, "cells": cells, "spawns": spawns, "exits": exits,
-            "connections": connections(ways), "entrance": door}
+            "connections": connections(ways), "entrance": door, "surface": surface}
 
 
 def main():

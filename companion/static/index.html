@@ -990,7 +990,7 @@ section[data-widget="buffpanel"]:has(#dashDungeon:not([hidden])) { display: flex
       <span class="muted" id="dgSummary"></span>
       <span style="flex:1"></span>
       <span class="dgviews" role="group" aria-label="View"><button class="chip mini" data-dg-view="overview">Overview</button><button
-        class="chip mini" data-dg-view="whole">Whole</button><button class="chip mini" data-dg-view="floor">Floor</button></span>
+        class="chip mini" data-dg-view="whole">Whole</button><button class="chip mini" data-dg-view="walk">Walk</button><button class="chip mini" data-dg-view="floor">Floor</button></span>
       <label class="muted" id="dgPickWrap">Map <select id="dgPick"></select></label>
     </div>
     <div id="dgOverview" hidden></div>
@@ -1670,6 +1670,71 @@ const mmss = s => s >= 3600 ? `${Math.floor(s / 3600)}h${String(Math.floor(s % 3
 const dgInside = (poly, x, y) => { let h = false; for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
   const [x1, y1] = poly[i], [x2, y2] = poly[j]; if ((y1 > y) !== (y2 > y) && x < x1 + (y - y1) * (x2 - x1) / (y2 - y1)) h = !h; } return h; };
 const DG_OVERLAP = 3;            // m^2 of two floors' ground over each other that make them collide
+// ---- the Walk view: the ground spread over from where you stand, as you'd walk it (ramps, stairs: not drops), the
+// way you're facing counting nearer -- where two pieces of ground lie over each other, the one reached first shows
+const DG_FACE = .8;              // how much further ground behind you counts than ground ahead (0: not at all)
+const DG_STEP = 1.3;             // metres up or down from one square metre of ground to the next that still joins them
+function dgWalkPrep(d) {
+  if (d.walk) return d.walk;
+  const nodes = [], at = new Map(), polyNodes = [];
+  const add = (x, y, z, pi) => {
+    const k = `${Math.floor(x)},${Math.floor(y)}`, list = at.get(k) || [];
+    let i = list.find(j => Math.abs(nodes[j].z - z) < .5);
+    if (i === undefined) { i = nodes.length; nodes.push({x: Math.floor(x) + .5, y: Math.floor(y) + .5, z, polys: []}); list.push(i); at.set(k, list); }
+    if (!nodes[i].polys.includes(pi)) nodes[i].polys.push(pi);
+    polyNodes[pi].push(i);
+  };
+  (d.surface || []).forEach((w, pi) => {
+    polyNodes[pi] = [];
+    const [a, b, c] = w, ux = b[0] - a[0], uy = b[1] - a[1], uz = b[2] - a[2], vx = c[0] - a[0], vy = c[1] - a[1], vz = c[2] - a[2];
+    const nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
+    const zAt = (x, y) => nz ? a[2] - (nx * (x - a[0]) + ny * (y - a[1])) / nz : a[2];
+    const poly = w.map(q => [q[0], q[1]]), xs = poly.map(q => q[0]), ys = poly.map(q => q[1]);
+    for (let x = Math.floor(Math.min(...xs)); x < Math.max(...xs); x++)
+      for (let y = Math.floor(Math.min(...ys)); y < Math.max(...ys); y++) if (dgInside(poly, x + .5, y + .5)) add(x + .5, y + .5, zAt(x + .5, y + .5), pi);
+    if (!polyNodes[pi].length) {             // (a sliver with no square's middle in it: its own middle)
+      const cx = xs.reduce((s, v) => s + v, 0) / xs.length, cy = ys.reduce((s, v) => s + v, 0) / ys.length;
+      add(cx, cy, zAt(cx, cy), pi);
+    }
+  });
+  const near = nodes.map(n => {
+    const out = [];
+    for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) {
+      if (!dx && !dy) continue;
+      const len = Math.hypot(dx, dy);
+      for (const j of at.get(`${n.x - .5 + dx},${n.y - .5 + dy}`) || []) if (Math.abs(nodes[j].z - n.z) <= DG_STEP * len) out.push([j, len]);
+    }
+    return out;
+  });
+  return d.walk = {nodes, at, near, polyNodes};
+}
+// how far each square metre of ground is from the seeds, walking (Dijkstra), ahead of `face` from `from` counting nearer
+function dgWalkFill(W, seeds, from, face) {
+  const dist = new Float64Array(W.nodes.length).fill(Infinity), heap = [];
+  const push = (i, v) => { heap.push([v, i]); let k = heap.length - 1;
+    while (k) { const up = (k - 1) >> 1; if (heap[up][0] <= heap[k][0]) break; [heap[up], heap[k]] = [heap[k], heap[up]]; k = up; } };
+  const pop = () => { const top = heap[0], last = heap.pop();
+    if (heap.length) { heap[0] = last; let k = 0;
+      for (;;) { const l = 2 * k + 1, r = l + 1; let m = k;
+        if (l < heap.length && heap[l][0] < heap[m][0]) m = l; if (r < heap.length && heap[r][0] < heap[m][0]) m = r;
+        if (m === k) break; [heap[m], heap[k]] = [heap[k], heap[m]]; k = m; } }
+    return top; };
+  for (const i of seeds) { dist[i] = 0; push(i, 0); }
+  const lean = (n) => {                       // 1 ahead of you, 1 + DG_FACE behind
+    if (!face) return 1;
+    const dx = n.x - from[0], dy = n.y - from[1], r = Math.hypot(dx, dy);
+    return r < 1 ? 1 : 1 + DG_FACE * (1 - (dx * face[0] + dy * face[1]) / r) / 2;
+  };
+  while (heap.length) {
+    const [v, i] = pop();
+    if (v > dist[i]) continue;
+    for (const [j, len] of W.near[i]) {
+      const nv = v + len * lean(W.nodes[j]);
+      if (nv < dist[j]) { dist[j] = nv; push(j, nv); }
+    }
+  }
+  return dist;
+}
 function dgLoad(lb) {
   if (DG.data[lb] !== undefined) return DG.data[lb];
   DG.data[lb] = null;
@@ -1738,7 +1803,7 @@ function renderDungeon(state) {
   }).join(""));
   // the plan (redrawn only when the floor changes)
   const svg = $("dgMap");
-  const whole = dgView === "whole";
+  const whole = dgView === "whole", walk = dgView === "walk", one = whole || walk;     // (one map: Whole, Walk)
   // the whole map: the floor you're on (on a ramp: the one you're heading to, and the one you're on) whole, and every
   // other floor whole too unless it collides with one shown -- then not at all; the higher ones first. Not following
   // you, the floor picked in place of yours
@@ -1750,7 +1815,58 @@ function renderDungeon(state) {
       shown.push(z);
   }
   const order = [...d.levels].reverse().filter(z => shown.includes(z) && !top.includes(z)).concat([...top].reverse());
-  const key = whole ? `${lb}:whole:${order.join(",")}` : `${lb}:${DG.floor}`;
+  // the walk: from where you stand (to the nearest square metre of ground), the way you face, redone as you move a metre or
+  // turn an eighth; not following you, from the floor picked (its level ground), no way ahead
+  let seeds = null, from = null, face = null, walkKey = "";
+  if (walk) {
+    const W = dgWalkPrep(d);
+    if (DG.follow && here && here.z != null) {
+      let best = null, bd = Infinity;
+      for (let dx = -2; dx <= 2; dx++) for (let dy = -2; dy <= 2; dy++)
+        for (const i of W.at.get(`${Math.floor(here.x) + dx},${Math.floor(here.y) + dy}`) || []) {
+          const n = W.nodes[i], v = (n.x - here.x) ** 2 + (n.y - here.y) ** 2 + 4 * (n.z - here.z) ** 2;
+          if (v < bd) { bd = v; best = i; }
+        }
+      if (best != null) {
+        seeds = [best]; from = [here.x, here.y]; face = here.facing || null;
+        walkKey = `${best}:${face ? Math.round(Math.atan2(face[1], face[0]) / (Math.PI / 4)) : ""}`;
+      }
+    }
+    if (!seeds) {
+      seeds = W.nodes.map((n, i) => Math.abs(n.z - DG.floor) < .3 ? i : -1).filter(i => i >= 0);
+      walkKey = `f${DG.floor}`;
+    }
+  }
+  const key = walk ? `${lb}:walk:${walkKey}` : whole ? `${lb}:whole:${order.join(",")}` : `${lb}:${DG.floor}`;
+  if (walk && DG.drawn !== key) {
+    DG.drawn = key;
+    const W = dgWalkPrep(d), dist = dgWalkFill(W, seeds, from, face);
+    // each square metre: the ground there reached first; a piece of ground shows when most of it won, faint when
+    // nothing there was reached at all (past a drop), else not
+    const won = new Uint8Array(W.nodes.length), reachedAt = new Set();
+    for (const [k, list] of W.at) {
+      let bi = -1;
+      for (const i of list) if (dist[i] < Infinity && (bi < 0 || dist[i] < dist[bi])) bi = i;
+      if (bi >= 0) { won[bi] = 1; reachedAt.add(k); }
+    }
+    const meZ = seeds.length === 1 ? W.nodes[seeds[0]].z : DG.floor;
+    const shade = z => { const off = Math.min(Math.abs(z - meZ), 24) / 24; return `hsl(${36 - 6 * off} ${48 - 22 * off}% ${60 - 34 * off}%)`; };
+    const pieces = [];
+    (d.surface || []).forEach((w, pi) => {
+      const ns = W.polyNodes[pi], wins = ns.filter(i => won[i]).length;
+      const z = w.reduce((s, q) => s + q[2], 0) / w.length;
+      if (wins * 2 >= ns.length) pieces.push([Math.min(...ns.map(i => dist[i])), w, shade(z), ""]);
+      else if (!ns.some(i => reachedAt.has(`${Math.floor(W.nodes[i].x)},${Math.floor(W.nodes[i].y)}`))) pieces.push([Infinity, w, shade(z), " opacity=\".35\""]);
+    });
+    pieces.sort((a, b) => b[0] - a[0]);         // (the nearest drawn last, over the rest)
+    $("dgGhosts").innerHTML = "";
+    $("dgCells").innerHTML = pieces.map(([, w, f, o]) => `<polygon class="wfl" fill="${f}" stroke="${f}"${o} points="${w.map(q => `${q[0]},${-q[1]}`).join(" ")}"></polygon>`).join("");
+    // a spawn point or an exit shows when the ground it's on is what shows there (or nothing was reached there)
+    const seen = s => { const list = W.at.get(`${Math.floor(s.x)},${Math.floor(s.y)}`) || [];
+      const w = list.find(i => won[i]); return w === undefined ? !list.length || !reachedAt.size : Math.abs(W.nodes[w].z - s.z) < 3; };
+    DG.hidden = {spawns: new Set(d.spawns.map((s, i) => seen(s) ? -1 : i)), exits: new Set(d.exits.map((s, i) => seen(s) ? -1 : i))};
+    if (!DG.vb || !(DG.follow && here)) dgFit(d);
+  }
   if (whole && DG.drawn !== key) {
     DG.drawn = key;
     const hi = d.levels[0], lo = d.levels[d.levels.length - 1];
@@ -1764,7 +1880,7 @@ function renderDungeon(state) {
     DG.hidden = {spawns: new Set(d.spawns.map((s, i) => covered(s) ? i : -1)), exits: new Set(d.exits.map((s, i) => covered(s) ? i : -1))};
     if (!DG.vb || !(DG.follow && here)) dgFit(d);
   }
-  if (!whole && DG.drawn !== key) {
+  if (!one && DG.drawn !== key) {
     DG.drawn = key;
     const poly = (p, cls) => `<polygon class="${cls}" points="${p.map(([x, y]) => `${x},${-y}`).join(" ")}"></polygon>`;
     // the floors above and below (up to DG_NEAR each way), fainter the further off, the furthest drawn first
@@ -1773,23 +1889,23 @@ function renderDungeon(state) {
     $("dgCells").innerHTML = (d.byFloor[DG.floor] || []).map(p => poly(p, "fl")).join("");
     if (!DG.vb || !(DG.follow && here)) dgFit(d);      // (a new floor: fit it; following you keeps the zoom)
   }
-  if (DG.follow && here && (whole || myFloor === DG.floor) && DG.vb) {                  // you in the middle
+  if (DG.follow && here && (one || myFloor === DG.floor) && DG.vb) {                  // you in the middle
     DG.vb.x = here.x - DG.vb.w / 2; DG.vb.y = -here.y - DG.vb.h / 2;
     svg.setAttribute("viewBox", `${DG.vb.x} ${DG.vb.y} ${DG.vb.w} ${DG.vb.h}`);
   }
   // the spawn points, the exits and you
   const marks = [];
-  d.exits.filter((e, i) => whole ? !DG.hidden.exits.has(i) : e.floor === DG.floor).forEach(e => marks.push(`<circle class="exit" cx="${e.x}" cy="${-e.y}" r="2.2"><title>${esc(e.name)}</title></circle>`));
+  d.exits.filter((e, i) => one ? !DG.hidden.exits.has(i) : e.floor === DG.floor).forEach(e => marks.push(`<circle class="exit" cx="${e.x}" cy="${-e.y}" r="2.2"><title>${esc(e.name)}</title></circle>`));
   // the spawn points: this floor's, and the nearby floors' faded under them (the furthest first)
-  d.spawns.map((s, i) => [s, i]).filter(([s, i]) => whole ? !DG.hidden.spawns.has(i) : dgAway(s.floor) <= DG_NEAR)
+  d.spawns.map((s, i) => [s, i]).filter(([s, i]) => one ? !DG.hidden.spawns.has(i) : dgAway(s.floor) <= DG_NEAR)
     .sort((a, b) => dgAway(b[0].floor) - dgAway(a[0].floor)).forEach(([s, i]) => {
-    const p = points[i], left = p.back != null ? p.back - t : null, k = whole ? 0 : dgAway(s.floor);
+    const p = points[i], left = p.back != null ? p.back - t : null, k = one ? 0 : dgAway(s.floor);
     const fade = k ? ` opacity="${Math.min(1, DG_FADE[k] * 1.8)}"` : "", r = k ? 1.1 : 1.5;
     marks.push(`<g${fade}><circle class="pt ${p.state}" data-dg="${i}" cx="${s.x}" cy="${-s.y}" r="${r}" fill="${d.colour[s.name]}" stroke="${p.state === "unknown" ? d.colour[s.name] : ""}"></circle>${
       p.state === "dead" ? `<text class="back" x="${s.x + r + .4}" y="${-s.y + 1.1}">${mmss(Math.max(0, left))}</text>`
       : p.state === "due" ? `<text class="back" x="${s.x + r + .4}" y="${-s.y + 1.1}">due</text>` : ""}</g>`);
   });
-  if (here && (whole || myFloor === DG.floor)) {
+  if (here && (one || myFloor === DG.floor)) {
     const [fx, fy] = here.facing || [0, 1];
     const tip = [here.x + fx * 2.6, -(here.y + fy * 2.6)], l = [here.x - fy * 1.2 - fx * .8, -(here.y + fx * 1.2 - fy * .8)], r2 = [here.x + fy * 1.2 - fx * .8, -(here.y - fx * 1.2 - fy * .8)];
     marks.push(`<polygon class="me" points="${tip.join(",")} ${l.join(",")} ${r2.join(",")}"><title>You</title></polygon>`);
@@ -1802,7 +1918,7 @@ function renderDungeon(state) {
     : `<div class="empty">Nothing killed yet${live && live.landblock === lb ? "" : " (you haven't been in here this login)"}.</div>`);
   // the overview (every floor at once) or one floor: the page's choice; the dashboard card always shows one floor
   const overview = dgView === "overview" && $("dgRoot").parentElement === $("page-dungeon");
-  for (const b of document.querySelectorAll("[data-dg-view]")) b.classList.toggle("on", b.dataset.dgView === (overview ? "overview" : whole ? "whole" : "floor"));
+  for (const b of document.querySelectorAll("[data-dg-view]")) b.classList.toggle("on", b.dataset.dgView === (overview ? "overview" : one ? dgView : "floor"));
   $("dgOverview").hidden = !overview;
   document.querySelector("#dgRoot .dgmain").hidden = overview;
   $("dgFloors").hidden = overview;
