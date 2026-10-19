@@ -107,7 +107,7 @@ def cell_structure(portal_dat, eid, key, _cache={}):
                             {pid: v for pid, v in polys.items() if pid in portals})
         if k == key:
             return _cache[(eid, k)]
-        q = r.p
+        q = (r.p + 3) & ~3                        # (aligned: an odd number of portals leaves it half a word in)
         while q + 24 <= len(b):
             nk, a1, a2, a3, vt, nv = struct.unpack_from("<6I", b, q)
             if nk == k + 1 and vt == 1 and 0 < a1 < 2000 and a2 < 2000 and a3 < 64 and 0 < nv < 5000:
