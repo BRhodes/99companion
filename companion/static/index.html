@@ -1620,6 +1620,7 @@ const DG = {data: {}, lb: null, list: null, floor: null, vb: null, drawn: null, 
 const DG_NEAR = 4;                                   // floors above and below drawn faded
 const DG_FADE = [1, .34, .22, .14, .08];             // how faint, by floors away
 const dgAway = z => Math.round(Math.abs(z - DG.floor) / 6);       // (a dungeon's floors are 6 m apart)
+const dgLevel = z => Math.round(z / 6) * 6;                        // the floor a height is on
 const dgHeat = (lv, lo, hi) => { const t = hi > lo ? (lv - lo) / (hi - lo) : 0; return `hsl(${Math.round(190 - 190 * t)} 72% ${t > .5 ? 50 : 44}%)`; };
 const mmss = s => s >= 3600 ? `${Math.floor(s / 3600)}h${String(Math.floor(s % 3600 / 60)).padStart(2, "0")}` : `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
 function dgLoad(lb) {
@@ -1627,10 +1628,12 @@ function dgLoad(lb) {
   DG.data[lb] = null;
   fetch(`/api/dungeon/${lb}`).then(r => r.ok ? r.json() : null).then(d => {
     if (!d) return;
-    d.cellZ = Object.fromEntries(d.cells.map(c => [c.id, c.z]));
-    d.levels = [...new Set(d.cells.map(c => c.z))].sort((a, b) => b - a);
-    d.spawns.forEach(s => { s.floor = d.cellZ[s.cell] ?? s.z; });
-    d.exits.forEach(s => { s.floor = d.cellZ[s.cell] ?? s.z; });
+    // every floor piece by the floor its own height is on (build_dungeon.py), and what's on each floor
+    d.byFloor = {};
+    for (const c of d.cells) for (const [z, poly] of c.floors) (d.byFloor[z] = d.byFloor[z] || []).push(poly);
+    d.levels = Object.keys(d.byFloor).map(Number).sort((a, b) => b - a);
+    d.spawns.forEach(s => { s.floor = s.floor ?? dgLevel(s.z); });
+    d.exits.forEach(s => { s.floor = s.floor ?? dgLevel(s.z); });
     const lv = d.spawns.map(s => s.level);
     d.colour = Object.fromEntries(d.spawns.map(s => [s.name, dgHeat(s.level, Math.min(...lv), Math.max(...lv))]));
     DG.data[lb] = d; render();
@@ -1650,7 +1653,7 @@ function renderDungeon(state) {
   const points = live && live.landblock === lb ? live.points : d.spawns.map(() => ({state: "unknown"}));
   const here = live && live.landblock === lb && live.here && pos && (pos.cell >>> 16) === parseInt(lb, 16) ? pos : null;
   if (DG.lb !== lb) { DG.lb = lb; DG.floor = null; DG.drawn = null; DG.vb = null; }
-  const myFloor = here ? (d.cellZ[here.cell & 0xFFFF] ?? null) : null;
+  const myFloor = here && here.z != null ? dgLevel(here.z) : null;
   if (myFloor != null && DG.follow) DG.floor = myFloor;
   if (DG.floor == null) DG.floor = d.levels.map(z => [z, d.spawns.filter(s => s.floor === z).length]).sort((a, b) => b[1] - a[1])[0][0];
   const t = now();
@@ -1671,9 +1674,8 @@ function renderDungeon(state) {
     const poly = (p, cls) => `<polygon class="${cls}" points="${p.map(([x, y]) => `${x},${-y}`).join(" ")}"></polygon>`;
     // the floors above and below (up to DG_NEAR each way), fainter the further off, the furthest drawn first
     const near = d.levels.filter(z => z !== DG.floor && dgAway(z) <= DG_NEAR).sort((a, b) => dgAway(b) - dgAway(a));
-    $("dgGhosts").innerHTML = near.map(z => `<g opacity="${DG_FADE[dgAway(z)]}">${
-      d.cells.filter(c => c.z === z).flatMap(c => c.floors.map(p => poly(p, "ghost"))).join("")}</g>`).join("");
-    $("dgCells").innerHTML = d.cells.filter(c => c.z === DG.floor).flatMap(c => c.floors.map(p => poly(p, "fl"))).join("");
+    $("dgGhosts").innerHTML = near.map(z => `<g opacity="${DG_FADE[dgAway(z)]}">${(d.byFloor[z] || []).map(p => poly(p, "ghost")).join("")}</g>`).join("");
+    $("dgCells").innerHTML = (d.byFloor[DG.floor] || []).map(p => poly(p, "fl")).join("");
     if (!DG.vb || !(DG.follow && here)) dgFit(d);      // (a new floor: fit it; following you keeps the zoom)
   }
   if (DG.follow && here && myFloor === DG.floor && DG.vb) {                  // you in the middle
@@ -1706,8 +1708,8 @@ function renderDungeon(state) {
 }
 function dgFit(d) {
   const xs = [], ys = [];
-  for (const c of d.cells) if (c.z === DG.floor) for (const p of c.floors) for (const [x, y] of p) { xs.push(x); ys.push(-y); }
-  if (!xs.length) for (const c of d.cells) for (const p of c.floors) for (const [x, y] of p) { xs.push(x); ys.push(-y); }
+  for (const p of d.byFloor[DG.floor] || []) for (const [x, y] of p) { xs.push(x); ys.push(-y); }
+  if (!xs.length) for (const ps of Object.values(d.byFloor)) for (const p of ps) for (const [x, y] of p) { xs.push(x); ys.push(-y); }
   const pad = 6;
   DG.vb = {x: Math.min(...xs) - pad, y: Math.min(...ys) - pad, w: Math.max(...xs) - Math.min(...xs) + 2 * pad, h: Math.max(...ys) - Math.min(...ys) + 2 * pad};
   $("dgMap").setAttribute("viewBox", `${DG.vb.x} ${DG.vb.y} ${DG.vb.w} ${DG.vb.h}`);

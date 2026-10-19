@@ -4,7 +4,9 @@ page's dungeon view (and its respawn timers: companion/dungeons.py).
     python -m tools.build_dungeon 019A "Crater Caves" --db <server checkout>/Database/AC1999-World/3-Core
 
 Floor plan: every cell of the landblock's dungeon (cell.dat EnvCells 0xLLLL0100 on), each placed by its frame, with the
-upward-facing polygons of its cell structure (portal.dat Environments) as its floor. The 1999 dats pad both to four
+walkable upward-facing polygons of its cell structure (portal.dat Environments) as its floor -- each on the floor its own
+height is nearest (floors are FLOOR_STEP apart), not its cell's: a ramp's pieces go to the floors it joins, a ledge to
+the floor it's at. The 1999 dats pad both to four
 bytes: an EnvCell after its surface list, an Environment after each polygon. The BSP trees after a cell structure
 aren't read: the next structure is found by its header (its key, plausible counts, vertex type 1).
 
@@ -111,8 +113,17 @@ def rotate(q, v):
     return (ix * w - iw * x - iy * z + iz * y, iy * w - iw * y - iz * x + ix * z, iz * w - iw * z - ix * y + iy * x)
 
 
+FLOOR_STEP = 6.0       # metres between a dungeon's floors
+WALKABLE = 0.8         # a polygon's normal z at least this (up to ~37 degrees: ramps yes, the curve of a cave's walls no)
+
+
+def level(z):
+    """The floor a height belongs to: the nearest multiple of FLOOR_STEP."""
+    return round(z / FLOOR_STEP) * FLOOR_STEP
+
+
 def floors(portal_dat, c):
-    """A cell's floor: its upward-facing polygons in landblock x / y."""
+    """A cell's floor: its walkable upward-facing polygons, each [floor it's on (by its own height), [[x, y]...]]."""
     got = cell_structure(portal_dat, c["env"], c["struct"])
     if not got:
         return []
@@ -126,8 +137,8 @@ def floors(portal_dat, c):
         nz = (bx - ax) * (cy - ay) - (by - ay) * (cx - ax)
         nx = (by - ay) * (cz - az) - (bz - az) * (cy - ay)
         ny = (bz - az) * (cx - ax) - (bx - ax) * (cz - az)
-        if nz / (math.sqrt(nx * nx + ny * ny + nz * nz) or 1) > 0.7:
-            out.append([[round(x, 2), round(y, 2)] for x, y, _z in w])
+        if nz / (math.sqrt(nx * nx + ny * ny + nz * nz) or 1) > WALKABLE:
+            out.append([level(sum(p[2] for p in w) / len(w)), [[round(x, 2), round(y, 2)] for x, y, _z in w]])
     return out
 
 
@@ -158,7 +169,7 @@ def build(landblock, name, core):
         c = env_cell(cell_dat, (landblock << 16) | i)
         if c is None:
             break
-        cells.append({"id": i, "z": round(c["origin"][2], 1), "floors": floors(portal_dat, c)})
+        cells.append({"id": i, "z": level(c["origin"][2]), "floors": floors(portal_dat, c)})
     text = (core / "6 LandBlockExtendedData" / "SQL" / f"{landblock:04X}.sql").read_text(encoding="utf-8")
     placed = {g: (int(w), int(c, 16), float(x), float(y), float(z), n) for g, w, c, x, y, z, n in re.findall(
         r"VALUES \((0x[0-9A-F]+),\s*(\d+),\s*(0x[0-9A-F]+),\s*([-\d.e]+),\s*([-\d.e]+),\s*([-\d.e]+),[^;]*;\s*/\* (.*?) \*/", text)}
@@ -171,9 +182,9 @@ def build(landblock, name, core):
         m = monsters[str(wcid)]
         delay = first_delay(files, placed[parent[g]][0]) if g in parent and parent[g] in placed else None
         spawns.append({"wcid": wcid, "name": m["name"].replace("''", "'"), "level": m["level"], "cell": cid & 0xFFFF,
-                       "x": round(x, 2), "y": round(y, 2), "z": round(z, 2), "delay": delay})
+                       "x": round(x, 2), "y": round(y, 2), "z": round(z, 2), "floor": level(z), "delay": delay})
     spawns.sort(key=lambda s: (s["cell"], s["x"], s["y"]))
-    exits = [{"name": n, "x": round(x, 2), "y": round(y, 2), "z": round(z, 2), "cell": cid & 0xFFFF}
+    exits = [{"name": n, "x": round(x, 2), "y": round(y, 2), "z": round(z, 2), "floor": level(z), "cell": cid & 0xFFFF}
              for _g, (w, cid, x, y, z, n) in placed.items() if "Surface" in n or "Portal" in n]
     return {"name": name, "landblock": landblock, "cells": cells, "spawns": spawns, "exits": exits}
 
