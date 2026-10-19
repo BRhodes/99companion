@@ -614,7 +614,8 @@ table.accts tr.add td { border-top: 1px solid var(--line); padding-top: 8px; }
 .dgmap .ghost { fill: color-mix(in srgb, var(--muted) 45%, var(--bar)); }
 /* the whole dungeon as one map: each floor its own shade (higher lighter), the one you're on (or heading to) on top */
 .dgmap .wfl { stroke-width: .3; stroke-linejoin: round; }
-.dgmap .walls line { stroke: #000; stroke-width: 1.1; stroke-linecap: round; }
+.dgmap .walls line { stroke: #000; stroke-width: 1.1; stroke-linecap: butt; }
+.dgmap .walls circle { fill: #000; }
 .dgmap .pt { stroke: var(--bar); stroke-width: .5; cursor: pointer; }
 .dgmap .pt.dead { fill: var(--muted) !important; opacity: .55; }
 .dgmap .pt.unknown { fill: none !important; stroke-width: .7; }
@@ -1889,8 +1890,28 @@ function renderDungeon(state) {
       if (on !== undefined && W.nodes[on].z - z > 1.5) return false;
       return [1, -1].some(s => { const i = shownAt(mx + s * .7 * nx, my + s * .7 * ny); return i !== undefined && Math.abs(W.nodes[i].z - z) < 1; });
     });
+    // ...cut where higher ground shows over it, every half metre along (a cut end square, a wall's own end round -- where
+    // walls meet, the round ends join them)
+    const lines = [], ends = [];
+    for (const [x1, y1, x2, y2, z] of walled) {
+      const n = Math.max(1, Math.ceil(Math.hypot(x2 - x1, y2 - y1) / .5));
+      const under = k => { const i = shownAt(x1 + (x2 - x1) * k / n, y1 + (y2 - y1) * k / n); return i !== undefined && W.nodes[i].z - z > 1.5; };
+      let from = null;
+      for (let k = 0; k <= n; k++) {
+        const open = !under(k);
+        if (open && from === null) from = k;
+        if ((!open || k === n) && from !== null) {
+          const to = open ? k : k - 1;
+          if (to > from) lines.push([x1 + (x2 - x1) * from / n, y1 + (y2 - y1) * from / n, x1 + (x2 - x1) * to / n, y1 + (y2 - y1) * to / n]);
+          if (from === 0) ends.push([x1, y1]);
+          if (to === n) ends.push([x2, y2]);
+          from = null;
+        }
+      }
+    }
     $("dgCells").innerHTML = pieces.map(([, w, f, o]) => `<polygon class="wfl" fill="${f}" stroke="${f}"${o} points="${w.map(q => `${q[0]},${-q[1]}`).join(" ")}"></polygon>`).join("")
-      + `<g class="walls">${walled.map(([x1, y1, x2, y2]) => `<line x1="${x1}" y1="${-y1}" x2="${x2}" y2="${-y2}"></line>`).join("")}</g>`;
+      + `<g class="walls">${lines.map(([x1, y1, x2, y2]) => `<line x1="${x1.toFixed(2)}" y1="${(-y1).toFixed(2)}" x2="${x2.toFixed(2)}" y2="${(-y2).toFixed(2)}"></line>`).join("")
+      }${ends.map(([x, y]) => `<circle cx="${x}" cy="${-y}" r=".55"></circle>`).join("")}</g>`;
     // a spawn point or an exit shows when the ground it's on is what shows there (or nothing was reached there)
     const seen = s => { const list = W.at.get(`${Math.floor(s.x)},${Math.floor(s.y)}`) || [];
       const w = list.find(i => won[i]); return w === undefined ? !list.length || !reachedAt.size : Math.abs(W.nodes[w].z - s.z) < 3; };
