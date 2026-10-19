@@ -132,14 +132,15 @@ STAIRS = 0.93          # steeper than this (~22 degrees) is drawn as stairs / a 
 FLAT_MIN = 50          # m^2 of level ground at one height that make it a floor
 SHARED = 0.75          # how much of a slope between two floors each of them shows
 NEAR = 0.15            # metres: a height this close to a floor's is on it
+LOW_WALL = 1.5         # metres: a "wall" this short with floor on both sides is a step's riser or a lip
 THRESHOLD = 1.2        # metres: a strip of no floor this narrow between two level pieces at one height is a doorway's
 
 
 def walkable(portal_dat, c):
     """A cell's walkable upward-facing polygons, each (its [(x, y, z)...] in the dungeon, its normal's z), its level
     openings (portals in its floor or ceiling: ([(x, y, z)...], the cell through it)) and the cells beside it (through
-    its other portals: {cell: where the portal is (x, y)}), and its walls' feet ([x1, y1, x2, y2, z]: each wall's bottom
-    edge, where it meets the floor)."""
+    its other portals: {cell: where the portal is (x, y)}), and its walls' feet ([x1, y1, x2, y2, z, height]: each wall's
+    bottom edge, where it meets the floor, and how tall it stands)."""
     got = cell_structure(portal_dat, c["env"], c["struct"])
     if not got:
         return [], [], {}, []
@@ -173,7 +174,8 @@ def walkable(portal_dat, c):
             for k, (a, b) in enumerate(zip(w, w[1:] + w[:1])):   # it above (level, or along a ramp), at its middle's height
                 rest = [p[2] for j, p in enumerate(w) if j not in (k, (k + 1) % len(w))]
                 if rest and min(rest) >= max(a[2], b[2]) - 0.05 and math.dist(a[:2], b[:2]) > 0.2:
-                    walls.append([round(a[0], 2), round(a[1], 2), round(b[0], 2), round(b[1], 2), round((a[2] + b[2]) / 2, 2)])
+                    walls.append([round(a[0], 2), round(a[1], 2), round(b[0], 2), round(b[1], 2), round((a[2] + b[2]) / 2, 2),
+                                  round(max(rest) - (a[2] + b[2]) / 2, 2)])          # (and how tall it stands)
     return out, holes, beside, walls
 
 
@@ -385,7 +387,10 @@ def two_sided(wall, cells, _index={}):
                     for gy in range(math.floor(min(ys)), math.floor(max(ys)) + 1):
                         grid.setdefault((gx, gy), []).append(piece)
     grid = _index[key]
-    x1, y1, x2, y2, z = wall
+    x1, y1, x2, y2, z, tall = wall
+    if tall >= LOW_WALL and math.dist((x1, y1), (x2, y2)) >= 2:
+        return False                              # (a long wall you can't step over is a wall, however thin; a short tall
+                                                  # one with floor both sides is a door frame's side)
     length = math.dist((x1, y1), (x2, y2)) or 1
     nx, ny = (y2 - y1) / length, -(x2 - x1) / length
     mx, my = (x1 + x2) / 2, (y1 + y2) / 2

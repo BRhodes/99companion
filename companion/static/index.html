@@ -1692,6 +1692,7 @@ const DG_OVERLAP = 3;            // m^2 of two floors' ground over each other th
 // ---- the Walk view: the ground spread over from where you stand, as you'd walk it (ramps, stairs: not drops), the
 // way you're facing counting nearer -- where two pieces of ground lie over each other, the one reached first shows
 const DG_FACE = .8;              // how much further ground behind you counts than ground ahead (0: not at all)
+const DG_LOW = 1.5;              // metres: a wall at least this tall can't be stepped over (build_dungeon.py's LOW_WALL)
 const DG_STEP = 1.3;             // metres up or down from one square metre of ground to the next that still joins them
 function dgWalkPrep(d) {
   if (d.walk) return d.walk;
@@ -1716,13 +1717,35 @@ function dgWalkPrep(d) {
       add(cx, cy, zAt(cx, cy), pi);
     }
   });
+  // the walls you can't step over (DG_LOW and up), by the square metres they pass: no step crosses one
+  const wallAt = new Map();
+  for (const w of (d.walls || []).filter(w => (w[5] ?? 9) >= DG_LOW)) {
+    const n = Math.ceil(Math.hypot(w[2] - w[0], w[3] - w[1]) / .5) + 1;
+    for (let k = 0; k <= n; k++) {
+      const key = `${Math.floor(w[0] + (w[2] - w[0]) * k / n)},${Math.floor(w[1] + (w[3] - w[1]) * k / n)}`;
+      const list = wallAt.get(key) || []; if (!list.includes(w)) list.push(w); wallAt.set(key, list);
+    }
+  }
+  const side = (o, p, q) => (p[0] - o[0]) * (q[1] - o[1]) - (p[1] - o[1]) * (q[0] - o[0]);
+  const blocked = (a, b) => {
+    const seen = new Set();
+    for (const key of [`${Math.floor(a.x)},${Math.floor(a.y)}`, `${Math.floor(b.x)},${Math.floor(b.y)}`, `${Math.floor((a.x + b.x) / 2)},${Math.floor((a.y + b.y) / 2)}`])
+      for (const w of wallAt.get(key) || []) {
+        if (seen.has(w)) continue; seen.add(w);
+        const p = [w[0], w[1]], q = [w[2], w[3]], lo = Math.min(a.z, b.z);
+        if (w[4] > lo + 1 || w[4] + (w[5] ?? 9) < lo + .5) continue;      // (not at this height)
+        if (side(p, q, [a.x, a.y]) * side(p, q, [b.x, b.y]) < 0 && side([a.x, a.y], [b.x, b.y], p) * side([a.x, a.y], [b.x, b.y], q) < 0) return true;
+      }
+    return false;
+  };
   const near = nodes.map(n => {
     const out = [];
     // (two squares out too: the floor drawn stops short of a doorway's threshold, a metre with nothing under it)
     for (let dx = -2; dx <= 2; dx++) for (let dy = -2; dy <= 2; dy++) {
       if (!dx && !dy) continue;
       const len = Math.hypot(dx, dy);
-      for (const j of at.get(`${n.x - .5 + dx},${n.y - .5 + dy}`) || []) if (Math.abs(nodes[j].z - n.z) <= DG_STEP * len) out.push([j, len]);
+      for (const j of at.get(`${n.x - .5 + dx},${n.y - .5 + dy}`) || [])
+        if (Math.abs(nodes[j].z - n.z) <= DG_STEP * len && !blocked(n, nodes[j])) out.push([j, len]);
     }
     return out;
   });
