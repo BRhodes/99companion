@@ -1879,15 +1879,12 @@ function renderDungeon(state) {
     });
     pieces.sort((a, b) => b[0] - a[0]);         // (the nearest drawn last, over the rest)
     $("dgGhosts").innerHTML = "";
-    // the walls: a wall's foot where the ground just beside it (either side) is what shows there, at its height -- and
-    // not under (or over) ground shown at another height
-    const shownAt = (x, y) => (W.at.get(`${Math.floor(x)},${Math.floor(y)}`) || []).find(i => won[i]);
+    // the walls: a wall's foot where the ground beside it is what shows (at its height)
     const walled = (d.walls || []).filter(([x1, y1, x2, y2, z]) => {
-      const len = Math.hypot(x2 - x1, y2 - y1) || 1, nx = (y2 - y1) / len, ny = -(x2 - x1) / len;
       const mx = (x1 + x2) / 2, my = (y1 + y2) / 2;
-      const on = shownAt(mx, my);
-      if (on !== undefined && Math.abs(W.nodes[on].z - z) > 1.5) return false;
-      return [1, -1].some(s => { const i = shownAt(mx + s * .7 * nx, my + s * .7 * ny); return i !== undefined && Math.abs(W.nodes[i].z - z) < 1; });
+      for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++)
+        for (const i of W.at.get(`${Math.floor(mx) + dx},${Math.floor(my) + dy}`) || []) if (won[i] && Math.abs(W.nodes[i].z - z) < 1.5) return true;
+      return false;
     });
     $("dgCells").innerHTML = pieces.map(([, w, f, o]) => `<polygon class="wfl" fill="${f}" stroke="${f}"${o} points="${w.map(q => `${q[0]},${-q[1]}`).join(" ")}"></polygon>`).join("")
       + `<g class="walls">${walled.map(([x1, y1, x2, y2]) => `<line x1="${x1}" y1="${-y1}" x2="${x2}" y2="${-y2}"></line>`).join("")}</g>`;
