@@ -25,6 +25,7 @@ from .dat import DEFAULT_VITAL_FORMULAS
 from .ledger import FAILED, FIZZLED, REJECTED, SUCCESS, ComponentLedger
 from . import research
 from . import buffpanel
+from . import dungeons
 from . import stock
 from . import monsters
 from . import s2m
@@ -53,6 +54,7 @@ TEXT_COMPONENTS = "The spell consumed the following components: "
 MAGIC_CHANNEL = 7
 SYSTEM_CHANNEL, TELL_CHANNEL = 0, 4   # text channels: broadcasts ("... has been saved"), your own tells
 EXPIRED_KEEP = 3600.0   # a buff of yours that ran out is reported this long (unless recast)
+KILL_PAIR = 3.0         # seconds between a creature's deletion and its corpse appearing for them to be one death
 CHAT_KEEP = 500         # chat lines kept per login (all of them go to the database)
 PLAYER_IDS = range(0x50000000, 0x60000000)
 FIZZLE = 0x402
@@ -398,6 +400,7 @@ class Tracker:
             return  # someone else moving
         self.position = {k: ev[k] for k in ("cell", "x", "y", "z", "qw", "qz")}
         self.position["ts"] = now
+        self._spawn_clock().presence(ev["cell"], now)
         self._vendor_moved()
 
     def _position_snapshot(self):
@@ -407,7 +410,7 @@ class Tracker:
         bx, by = p["cell"] >> 24, (p["cell"] >> 16) & 0xFF
         # heading: rotation about z; facing = (0, 1) turned by it, as (east, north)
         angle = 2 * math.atan2(p["qz"], p["qw"])
-        return {"cell": p["cell"], "x": p["x"], "y": p["y"], "ts": p["ts"],
+        return {"cell": p["cell"], "x": p["x"], "y": p["y"], "z": p.get("z"), "ts": p["ts"],
                 "ns": (by * 192 + p["y"]) / 240 - 101.95, "ew": (bx * 192 + p["x"]) / 240 - 101.95,
                 "indoors": (p["cell"] & 0xFFFF) >= 0x100,
                 "facing": [-math.sin(angle), math.cos(angle)]}
@@ -1107,6 +1110,26 @@ class Tracker:
     def _on_death(self, ev, now):
         if ev["object"] in self.objects:
             self.objects[ev["object"]]["dead"] = True
+        self._spawn_clock().died(ev["object"], now)        # a dungeon spawn point's respawn clock starts
+
+    def _spawn_clock(self):
+        """The dungeons' spawn points and respawn timers (dungeons.py): kept per connection."""
+        clock = getattr(self, "spawn_clock", None)
+        if clock is None:
+            clock = self.spawn_clock = dungeons.SpawnClock()
+        return clock
+
+    def dungeon_snapshot(self, now):
+        """The dungeon you're in (or were in last), with its spawn points' state: None outside any with data."""
+        here = self.position and self.position["cell"]
+        lb = here >> 16 if here and (here & 0xFFFF) >= 0x100 and dungeons.load(here >> 16) else None
+        if lb is None:
+            visited = [(st["last"] or 0, k) for k, st in self._spawn_clock().state.items()]
+            lb = max(visited)[1] if visited else None
+        snap = self._spawn_clock().snapshot(lb, now) if lb is not None else None
+        if snap:
+            snap["here"] = bool(here and here >> 16 == lb and (here & 0xFFFF) >= 0x100)
+        return snap
 
     def players_near(self):
         """Other players in view: [{guid, name, distance, since}], nearest first. One last seen further than
@@ -1222,6 +1245,12 @@ class Tracker:
     # ---- inventory -----------------------------------------------------------------------------
     def _on_object(self, ev, now):
         guid = ev["object"]
+        p = ev.get("position")
+        if p and (ev.get("name") or "").startswith("Corpse of "):
+            self._note_kill(now, corpse=ev["name"][len("Corpse of "):])
+        if p and (ev.get("item_type") or 0) & dungeons.CREATURE:       # a creature at a dungeon spawn point?
+            self._spawn_clock().seen(guid, ev["wcid"], p["cell"], p["x"], p["y"], p["z"], now,
+                                     alive=lambda g: g in self.objects and not self.objects[g].get("dead"))
         if self.character and ev.get("position") and ev.get("name") == f"Corpse of {self.character}":
             self._note_corpse(ev, now)
         was_here = guid in self.objects
@@ -1305,7 +1334,33 @@ class Tracker:
             del self.corpses[guid]
         return [dict(c, left=c["expires"] - now) for c in sorted(self.corpses.values(), key=lambda c: -c["died"])]
 
+    def _note_kill(self, now, corpse=None, gone=None):
+        """A creature killed: the server deletes it and puts "Corpse of <its name>" where it fell, within a moment of
+        each other (in either order; no death message for a monster). Paired up here, it's that creature's death
+        (its dungeon spawn point's clock starts)."""
+        pending = self.__dict__.setdefault("kill_pending", {"corpses": [], "gone": []})
+        for k in ("corpses", "gone"):
+            pending[k] = [x for x in pending[k] if now - x[0] <= KILL_PAIR]
+        if corpse:
+            match = next((g for g in pending["gone"] if g[2] == corpse), None)
+            if match:
+                pending["gone"].remove(match)
+                self._spawn_clock().died(match[1], now)
+            else:
+                pending["corpses"].append((now, None, corpse))
+        if gone:
+            guid, name = gone
+            match = next((c for c in pending["corpses"] if c[2] == name), None)
+            if match:
+                pending["corpses"].remove(match)
+                self._spawn_clock().died(guid, now)
+            else:
+                pending["gone"].append((now, guid, name))
+
     def _on_deleted(self, ev, now):
+        o = self.objects.get(ev["object"])
+        if o and (o.get("item_type") or 0) & dungeons.CREATURE:
+            self._note_kill(now, gone=(ev["object"], o.get("name")))
         if self.vendor and self.vendor["id"] == ev["object"]:
             self.close_vendor("the vendor went out of view")
         self.objects.pop(ev["object"], None)
@@ -1419,6 +1474,7 @@ class Tracker:
             "vendor_closed": self.vendor.get("closed") if self.vendor and not self.vendor.get("open") else None,
             "wares": self._wares(),
             "corpses": self.corpse_list(now),
+            "dungeon": self.dungeon_snapshot(now),
             "experience": self.experience(),
             "coins": self.coins,
             "spellbook": self._spellbook(inv),

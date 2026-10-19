@@ -588,6 +588,42 @@ table.accts th { text-align: left; font-weight: 600; color: var(--muted); font-s
 table.accts td { padding: 4px 10px 4px 0; vertical-align: middle; }
 table.accts td.dir { max-width: 460px; } table.accts td.dir > span { display: inline-block; max-width: 360px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: middle; }
 table.accts tr.add td { border-top: 1px solid var(--line); padding-top: 8px; }
+/* the Dungeon page: a dungeon's floor plan with its spawn points and their respawn timers (dungeons.py) */
+.dgwrap { display: flex; flex-direction: column; gap: 10px; }
+.dghead { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px; }
+.dghead h2 { margin: 0; }
+.dgfloors { display: flex; flex-wrap: wrap; gap: 5px; }
+.dgfloors button { font: 500 12px/1 ui-monospace, Consolas, monospace; padding: 5px 8px; border-radius: 6px; border: 1px solid var(--line);
+  background: var(--panel, var(--bg)); color: var(--ink); cursor: pointer; display: inline-flex; gap: 5px; align-items: center; font-variant-numeric: tabular-nums; }
+.dgfloors button[aria-pressed="true"] { border-color: #3a82f6; color: #3a82f6; }
+.dgfloors button .n { color: var(--muted); } .dgfloors button .d { color: var(--warn); } .dgfloors button .me { color: #3a82f6; }
+.dgmain { display: grid; grid-template-columns: minmax(0, 1fr) 250px; gap: 10px; }
+@media (max-width: 800px) { .dgmain { grid-template-columns: 1fr; } }
+.dgmap { position: relative; height: 70vh; min-height: 300px; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--bar); }
+#dgMap { width: 100%; height: 100%; display: block; touch-action: none; cursor: grab; }
+#dgMap.drag { cursor: grabbing; }
+.dgmap .fl { fill: color-mix(in srgb, var(--muted) 38%, var(--bar)); stroke: color-mix(in srgb, var(--muted) 38%, var(--bar)); stroke-width: .3; stroke-linejoin: round; }
+.dgmap .ghost { fill: var(--line); opacity: .28; }
+.dgmap .pt { stroke: var(--bar); stroke-width: .5; cursor: pointer; }
+.dgmap .pt.dead { fill: var(--muted) !important; opacity: .55; }
+.dgmap .pt.unknown { fill: none !important; stroke-width: .7; }
+.dgmap .pt.due { stroke: var(--warn); stroke-width: .9; }
+.dgmap .back { font: 700 3.2px ui-monospace, Consolas, monospace; fill: var(--ink); paint-order: stroke; stroke: var(--bar); stroke-width: .8; pointer-events: none; }
+.dgmap .exit { fill: none; stroke: #3a82f6; stroke-width: .6; }
+.dgmap .me { fill: #3a82f6; stroke: #fff; stroke-width: .4; }
+.dghint { position: absolute; left: 8px; bottom: 6px; font-size: 11px; pointer-events: none; }
+.dgtip { position: absolute; pointer-events: none; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 6px 9px; font-size: 12px; max-width: 230px; }
+.dgside { border: 1px solid var(--line); border-radius: 8px; padding: 10px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.dgside h3 { margin: 0; font-size: 13px; }
+.dgnext { display: grid; grid-template-columns: 10px 1fr auto; gap: 3px 8px; align-items: center; font-size: 13px; }
+.dgnext .dot { width: 10px; height: 10px; border-radius: 50%; }
+.dgnext .t { font-variant-numeric: tabular-nums; font-weight: 600; }
+.dgnext .t.due { color: var(--warn); }
+.dgnext .fl { color: var(--muted); font-size: 11px; }
+.dgkey { display: flex; flex-direction: column; gap: 3px; font-size: 12px; border-top: 1px solid var(--line); padding-top: 8px; }
+.dgkey .k { display: inline-block; width: 10px; height: 10px; border-radius: 50%; vertical-align: -1px; margin-right: 4px; }
+.dgkey .k.alive { background: #e8823a; } .dgkey .k.dead { background: var(--muted); opacity: .55; }
+.dgkey .k.due { border: 2px solid var(--warn); } .dgkey .k.unknown { border: 1.5px solid #e8823a; }
 #updBanner .upd { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; padding: 3px 10px; border-radius: 12px;
   border: 1px solid #3a82f6; color: var(--ink); background: rgba(58,130,246,.12); }
 @media (min-width: 1100px) { #expGrid { grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) minmax(0, 1fr); }
@@ -634,7 +670,7 @@ table.accts tr.add td { border-top: 1px solid var(--line); padding-top: 8px; }
 <div id="pagenav" role="navigation" aria-label="Pages">
   <a href="#dashboard" data-page="dashboard">Dashboard</a><a
     href="#comps" data-page="comps">Comps</a><a
-    href="#map" data-page="map">Map</a><a href="#spells" data-page="spells">Spell research</a><a href="#buffs" data-page="buffs">Buffs</a><a href="#items" data-page="items">Items</a><a href="#xp" data-page="xp">Bonus XP</a><a href="#exp" data-page="exp">Experience</a><a href="#info" data-page="info">Info</a><a href="#chat" data-page="chat">Chat <span id="chatBadge"></span></a><a href="#config" data-page="config">Settings</a>
+    href="#map" data-page="map">Map</a><a href="#spells" data-page="spells">Spell research</a><a href="#buffs" data-page="buffs">Buffs</a><a href="#items" data-page="items">Items</a><a href="#xp" data-page="xp">Bonus XP</a><a href="#exp" data-page="exp">Experience</a><a href="#dungeon" data-page="dungeon">Dungeon</a><a href="#info" data-page="info">Info</a><a href="#chat" data-page="chat">Chat <span id="chatBadge"></span></a><a href="#config" data-page="config">Settings</a>
 </div>
 <div id="none">No characters yet. Start the relay and log in through 127.0.0.1:9110.</div>
 <div id="toast" role="status" aria-live="polite"></div>
@@ -891,6 +927,33 @@ table.accts tr.add td { border-top: 1px solid var(--line); padding-top: 8px; }
   </div>
 </div>
 
+<div class="page" id="page-dungeon">
+  <div class="dgwrap">
+    <section class="dghead">
+      <h2 id="dgName">Dungeon</h2>
+      <span class="muted" id="dgSummary"></span>
+      <span style="flex:1"></span>
+      <label class="muted" id="dgPickWrap">Map <select id="dgPick"></select></label>
+    </section>
+    <div class="dgfloors" id="dgFloors" role="group" aria-label="Floor"></div>
+    <div class="dgmain">
+      <div class="dgmap" id="dgMapWrap">
+        <svg id="dgMap" aria-label="Dungeon floor plan"><g id="dgView"><g id="dgGhosts"></g><g id="dgCells"></g><g id="dgMarks"></g></g></svg>
+        <div class="dghint muted">Drag to move · scroll to zoom · double-click to fit</div>
+        <div class="dgtip" id="dgTip" hidden></div>
+      </div>
+      <aside class="dgside">
+        <h3>Back next</h3>
+        <div id="dgNext"></div>
+        <div class="dgkey muted">
+          <span><i class="k alive"></i> up</span><span><i class="k dead"></i> killed: back in…</span>
+          <span><i class="k due"></i> due: its time is up</span><span><i class="k unknown"></i> not seen yet</span>
+        </div>
+        <p class="hint2" id="dgNote"></p>
+      </aside>
+    </div>
+  </div>
+</div>
 <div class="page" id="page-exp">
   <div class="grid" id="expGrid">
     <section id="expTotals"><h2>Experience</h2><div id="expTotalsBody"></div></section>
@@ -1129,6 +1192,7 @@ function render() {
   if (page === "buffs") safely("buff profiles", renderProfiles);
   if (page === "xp") safely("xp", renderXpMini);
   if (page === "exp") safely("experience", renderExperience);
+  if (page === "dungeon") safely("dungeon", renderDungeon);
   if (page === "items") safely("items", renderItems);
   if (page === "info") { safely("s2m", renderS2M); safely("appraisals", renderAppraisals); }
   safely("chat badge", renderChatBadge);
@@ -1532,6 +1596,130 @@ document.addEventListener("change", e => {
     .then(r => { t.value = ""; r.ok ? toast("Password saved") : toast(r.error); });
 });
 
+// ---- the Dungeon page (dungeons.py): a dungeon's floor plan, its spawn points, and when each comes back -------------
+const DG = {data: {}, lb: null, list: null, floor: null, vb: null, drawn: null, follow: true};
+const dgHeat = (lv, lo, hi) => { const t = hi > lo ? (lv - lo) / (hi - lo) : 0; return `hsl(${Math.round(190 - 190 * t)} 72% ${t > .5 ? 50 : 44}%)`; };
+const mmss = s => s >= 3600 ? `${Math.floor(s / 3600)}h${String(Math.floor(s % 3600 / 60)).padStart(2, "0")}` : `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
+function dgLoad(lb) {
+  if (DG.data[lb] !== undefined) return DG.data[lb];
+  DG.data[lb] = null;
+  fetch(`/api/dungeon/${lb}`).then(r => r.ok ? r.json() : null).then(d => {
+    if (!d) return;
+    d.cellZ = Object.fromEntries(d.cells.map(c => [c.id, c.z]));
+    d.levels = [...new Set(d.cells.map(c => c.z))].sort((a, b) => b - a);
+    d.spawns.forEach(s => { s.floor = d.cellZ[s.cell] ?? s.z; });
+    d.exits.forEach(s => { s.floor = d.cellZ[s.cell] ?? s.z; });
+    const lv = d.spawns.map(s => s.level);
+    d.colour = Object.fromEntries(d.spawns.map(s => [s.name, dgHeat(s.level, Math.min(...lv), Math.max(...lv))]));
+    DG.data[lb] = d; render();
+  }).catch(() => {});
+  return null;
+}
+function renderDungeon(state) {
+  if (!DG.list) { DG.list = []; fetch("/api/dungeons").then(r => r.json()).then(l => { DG.list = l; render(); }).catch(() => {}); }
+  const live = state.dungeon || null, pos = state.position;
+  const lb = (live && live.here && live.landblock) || DG.pick || (live && live.landblock) || (DG.list[0] || {}).landblock;
+  const pick = $("dgPick");
+  setHTML(pick, DG.list.map(d => `<option value="${d.landblock}" ${d.landblock === lb ? "selected" : ""}>${esc(d.name)}</option>`).join(""));
+  $("dgPickWrap").hidden = DG.list.length < 2;
+  if (!lb) { setHTML($("dgNext"), `<div class="empty">No dungeon maps yet.</div>`); return; }
+  const d = dgLoad(lb);
+  if (!d) return;
+  const points = live && live.landblock === lb ? live.points : d.spawns.map(() => ({state: "unknown"}));
+  const here = live && live.landblock === lb && live.here && pos && (pos.cell >>> 16) === parseInt(lb, 16) ? pos : null;
+  if (DG.lb !== lb) { DG.lb = lb; DG.floor = null; DG.drawn = null; DG.vb = null; }
+  const myFloor = here ? (d.cellZ[here.cell & 0xFFFF] ?? null) : null;
+  if (myFloor != null && DG.follow) DG.floor = myFloor;
+  if (DG.floor == null) DG.floor = d.levels.map(z => [z, d.spawns.filter(s => s.floor === z).length]).sort((a, b) => b[1] - a[1])[0][0];
+  const t = now();
+  const counts = {alive: 0, dead: 0, due: 0, unknown: 0};
+  points.forEach(p => counts[p.state]++);
+  $("dgName").textContent = d.name;
+  setHTML($("dgSummary"), `${d.spawns.length} spawn points · <b>${counts.alive}</b> up · <b>${counts.dead}</b> coming back${counts.due ? ` · <b>${counts.due}</b> due` : ""}${counts.unknown ? ` · ${counts.unknown} not seen` : ""}`);
+  // the floor chips: spawns on each, killed ones waiting, and yours
+  setHTML($("dgFloors"), d.levels.map(z => {
+    const on = d.spawns.map((s, i) => [s, points[i]]).filter(([s]) => s.floor === z);
+    const dead = on.filter(([, p]) => p.state === "dead").length;
+    return `<button data-dg-floor="${z}" aria-pressed="${z === DG.floor}">${z > 0 ? "+" : ""}${z} m${on.length ? ` <span class="n">${on.length}</span>` : ""}${dead ? ` <span class="d">${dead}✝</span>` : ""}${z === myFloor ? ` <span class="me">●</span>` : ""}</button>`;
+  }).join(""));
+  // the plan (redrawn only when the floor changes)
+  const svg = $("dgMap");
+  if (DG.drawn !== `${lb}:${DG.floor}`) {
+    DG.drawn = `${lb}:${DG.floor}`;
+    const poly = (p, cls) => `<polygon class="${cls}" points="${p.map(([x, y]) => `${x},${-y}`).join(" ")}"></polygon>`;
+    $("dgGhosts").innerHTML = d.cells.filter(c => c.z !== DG.floor && Math.abs(c.z - DG.floor) <= 6.5).flatMap(c => c.floors.map(p => poly(p, "ghost"))).join("");
+    $("dgCells").innerHTML = d.cells.filter(c => c.z === DG.floor).flatMap(c => c.floors.map(p => poly(p, "fl"))).join("");
+    dgFit(d);                    // (a new floor: fit it)
+  }
+  // the spawn points, the exits and you
+  const marks = [];
+  d.exits.filter(e => e.floor === DG.floor).forEach(e => marks.push(`<circle class="exit" cx="${e.x}" cy="${-e.y}" r="2.2"><title>${esc(e.name)}</title></circle>`));
+  d.spawns.forEach((s, i) => {
+    if (s.floor !== DG.floor) return;
+    const p = points[i], left = p.back != null ? p.back - t : null;
+    marks.push(`<circle class="pt ${p.state}" data-dg="${i}" cx="${s.x}" cy="${-s.y}" r="1.5" fill="${d.colour[s.name]}" stroke="${p.state === "unknown" ? d.colour[s.name] : ""}"></circle>`);
+    if (p.state === "dead") marks.push(`<text class="back" x="${s.x + 1.9}" y="${-s.y + 1.1}">${mmss(Math.max(0, left))}</text>`);
+    if (p.state === "due") marks.push(`<text class="back" x="${s.x + 1.9}" y="${-s.y + 1.1}">due</text>`);
+  });
+  if (here && myFloor === DG.floor) {
+    const [fx, fy] = here.facing || [0, 1];
+    const tip = [here.x + fx * 2.6, -(here.y + fy * 2.6)], l = [here.x - fy * 1.2 - fx * .8, -(here.y + fx * 1.2 - fy * .8)], r2 = [here.x + fy * 1.2 - fx * .8, -(here.y - fx * 1.2 - fy * .8)];
+    marks.push(`<polygon class="me" points="${tip.join(",")} ${l.join(",")} ${r2.join(",")}"><title>You</title></polygon>`);
+  }
+  $("dgMarks").innerHTML = marks.join("");
+  // what's back next, anywhere in the dungeon
+  const waiting = d.spawns.map((s, i) => [s, points[i]]).filter(([, p]) => p.state === "dead" || p.state === "due").sort((a, b) => a[1].back - b[1].back);
+  setHTML($("dgNext"), waiting.length ? `<div class="dgnext">${waiting.slice(0, 14).map(([s, p]) => `<span class="dot" style="background:${d.colour[s.name]}"></span>
+      <span>${esc(s.name)} <span class="fl">${s.floor} m</span></span><span class="t ${p.state === "due" ? "due" : ""}">${p.state === "due" ? "due" : mmss(Math.max(0, p.back - t))}</span>`).join("")}</div>`
+    : `<div class="empty">Nothing killed yet${live && live.landblock === lb ? "" : " (you haven't been in here this login)"}.</div>`);
+  setHTML($("dgNote"), `Each spawn point comes back ${mmss((d.spawns.find(s => s.delay) || {}).delay || 0)} after its creature dies. Timers are what you've seen: a kill out of view isn't known, and after about 15 minutes away the whole dungeon has reset.`);
+}
+function dgFit(d) {
+  const xs = [], ys = [];
+  for (const c of d.cells) if (c.z === DG.floor) for (const p of c.floors) for (const [x, y] of p) { xs.push(x); ys.push(-y); }
+  if (!xs.length) for (const c of d.cells) for (const p of c.floors) for (const [x, y] of p) { xs.push(x); ys.push(-y); }
+  const pad = 6;
+  DG.vb = {x: Math.min(...xs) - pad, y: Math.min(...ys) - pad, w: Math.max(...xs) - Math.min(...xs) + 2 * pad, h: Math.max(...ys) - Math.min(...ys) + 2 * pad};
+  $("dgMap").setAttribute("viewBox", `${DG.vb.x} ${DG.vb.y} ${DG.vb.w} ${DG.vb.h}`);
+}
+document.addEventListener("click", e => {
+  const b = e.target.closest("[data-dg-floor]");
+  if (!b) return;
+  DG.floor = +b.dataset.dgFloor; DG.follow = false; DG.vb = null; render();      // (picking a floor stops following you)
+});
+document.addEventListener("change", e => { if (e.target.id === "dgPick") { DG.pick = e.target.value; DG.follow = true; render(); } });
+(() => {     // pan, zoom, hover
+  const svg = $("dgMap"), tip = $("dgTip"), wrap = $("dgMapWrap");
+  if (!svg) return;
+  let drag = null;
+  const scale = () => { const r = svg.getBoundingClientRect(); return Math.max(DG.vb.w / r.width, DG.vb.h / r.height); };
+  const set = () => svg.setAttribute("viewBox", `${DG.vb.x} ${DG.vb.y} ${DG.vb.w} ${DG.vb.h}`);
+  svg.addEventListener("pointerdown", e => { if (!DG.vb) return; drag = {x: e.clientX, y: e.clientY, vb: {...DG.vb}}; svg.setPointerCapture(e.pointerId); svg.classList.add("drag"); tip.hidden = true; });
+  svg.addEventListener("pointermove", e => {
+    if (drag) { const s = scale(); DG.vb.x = drag.vb.x - (e.clientX - drag.x) * s; DG.vb.y = drag.vb.y - (e.clientY - drag.y) * s; set(); return; }
+    const t = e.target.closest("[data-dg]"), d = DG.data[DG.lb];
+    if (!t || !d) { tip.hidden = true; return; }
+    const s = d.spawns[+t.dataset.dg], p = ((curSession && curSession.dungeon && curSession.dungeon.landblock === DG.lb && curSession.dungeon.points) || [])[+t.dataset.dg] || {state: "unknown"};
+    tip.innerHTML = `<b>${esc(s.name)}</b> · level ${s.level}<br>${p.state === "alive" ? "Up" : p.state === "dead" ? `Back in ${mmss(Math.max(0, p.back - now()))}` : p.state === "due" ? "Due: its time is up" : "Not seen yet"}`;
+    tip.hidden = false;
+    const r = wrap.getBoundingClientRect();
+    tip.style.left = Math.min(e.clientX - r.left + 12, r.width - tip.offsetWidth - 6) + "px";
+    tip.style.top = Math.min(e.clientY - r.top + 12, r.height - tip.offsetHeight - 6) + "px";
+  });
+  const end = () => { drag = null; svg.classList.remove("drag"); };
+  svg.addEventListener("pointerup", end); svg.addEventListener("pointercancel", end);
+  svg.addEventListener("pointerleave", () => { tip.hidden = true; });
+  svg.addEventListener("wheel", e => {
+    if (!DG.vb) return;
+    e.preventDefault();
+    const r = svg.getBoundingClientRect(), s = scale(), f = e.deltaY > 0 ? 1.15 : 1 / 1.15;
+    const mx = DG.vb.x + (e.clientX - r.left) * s, my = DG.vb.y + (e.clientY - r.top) * s;
+    const w = Math.min(Math.max(DG.vb.w * f, 15), 600), h = DG.vb.h * (w / DG.vb.w);
+    DG.vb = {x: mx - (mx - DG.vb.x) * (w / DG.vb.w), y: my - (my - DG.vb.y) * (h / DG.vb.h), w, h}; set();
+  }, {passive: false});
+  svg.addEventListener("dblclick", () => { const d = DG.data[DG.lb]; if (d) { dgFit(d); DG.follow = true; render(); } });
+})();
+
 // ---- updates (updater.py): the header's banner, and Settings > Updates -----------------------------------------
 function updPost(path, body, method = "POST") {
   return fetch(path, {method, headers: {"Content-Type": "application/json", "X-Companion": "1"}, body: body ? JSON.stringify(body) : undefined})
@@ -1917,7 +2105,7 @@ document.addEventListener("click", e => {
 document.addEventListener("input", e => { if (e.target.id === "chatSearch") render(); });
 
 // ---- views -------------------------------------------------------------------------------------
-const PAGES = ["dashboard", "comps", "map", "spells", "buffs", "items", "xp", "exp", "info", "chat", "config"];
+const PAGES = ["dashboard", "comps", "map", "spells", "buffs", "items", "xp", "exp", "dungeon", "info", "chat", "config"];
 let page = "dashboard";
 function pageFromHash() {
   const h = location.hash.slice(1);

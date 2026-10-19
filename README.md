@@ -146,6 +146,8 @@ The repository is `REPO` in `companion/updater.py` (or set it in Settings › Up
   which tiers to learn next.
 - **Items**: everything you carry, and every item any of your characters has appraised.
 - **Bonus XP**: skill-use XP grants and each skill's timer.
+- **Dungeon**: a dungeon's floor plan, floor by floor, with you on it and every creature spawn point: up, killed with
+  the time till it's back, or not seen yet (Crater Caves for now: `python -m tools.build_dungeon` makes the map of another).
 - **Experience**: where your XP went, and goals (unbuffed or with your buffs) with the cheapest way to reach
   them and what to spend your XP on now.
 - **Info**, **Chat**, **Settings**.

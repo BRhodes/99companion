@@ -31,6 +31,7 @@ from . import clipboard, research, routing
 from .itembook import ItemBook
 from .updater import Updater, save_settings as save_update_settings
 from . import launcher
+from . import dungeons
 from .layouts import LayoutStore
 from .messages import decode
 from .pipeline import Pipeline
@@ -230,6 +231,14 @@ class Companion:
                 return _json(200, self.updater.state())
         if method == "GET" and path == "/api/items":
             return _json(200, {"items": self.items.listing(), "keep": self.items.keep})
+        if method == "GET" and path == "/api/dungeons":
+            return _json(200, dungeons.available())
+        if method == "GET" and len(parts) == 3 and parts[:2] == ["api", "dungeon"]:     # a dungeon's plan and spawn points
+            try:
+                data = dungeons.raw(int(parts[2], 16))
+            except ValueError:
+                data = None
+            return (200, "application/json", data) if data else _json(404, {"error": "no map of that dungeon"})
         if method == "GET" and path == "/map.png":
             return self._map_png()
         if method == "GET" and path == "/api/places":
