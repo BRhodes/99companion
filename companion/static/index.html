@@ -1903,22 +1903,24 @@ function renderDungeon(state) {
     });
     pieces.sort((a, b) => b[0] - a[0]);         // (the nearest drawn last, over the rest)
     $("dgGhosts").innerHTML = "";
-    // the walls: a wall's foot where the ground just beside it (either side) is what shows there, at its height -- and
-    // not under ground shown above it (beside a walkway, lower ground showing at its foot is fine)
+    // the walls: a wall's foot where the ground just beside it is what shows there, at its height
     const shownAt = (x, y) => (W.at.get(`${Math.floor(x)},${Math.floor(y)}`) || []).find(i => won[i]);
-    const walled = (d.walls || []).filter(([x1, y1, x2, y2, z]) => {
-      const len = Math.hypot(x2 - x1, y2 - y1) || 1, nx = (y2 - y1) / len, ny = -(x2 - x1) / len;
-      const mx = (x1 + x2) / 2, my = (y1 + y2) / 2;
-      const on = shownAt(mx, my);
-      if (on !== undefined && W.nodes[on].z - z > 1.5) return false;
-      return [1, -1].some(s => { const i = shownAt(mx + s * .7 * nx, my + s * .7 * ny); return i !== undefined && Math.abs(W.nodes[i].z - z) < 1; });
-    });
-    // ...cut where higher ground shows over it, every half metre along (a cut end square, a wall's own end round -- where
-    // walls meet, the round ends join them)
+    // a wall's open side: the side the ground at its height is on (shown there, from its foot up its height)
+    const besides = (w, mx, my, nx, ny) => [1, -1].filter(s => { const i = shownAt(mx + s * .7 * nx, my + s * .7 * ny);
+      return i !== undefined && W.nodes[i].z - w[4] > -1 && W.nodes[i].z - w[4] < Math.max(1, w[5] ?? 0); });
+    const walled = [];
+    for (const w of d.walls || []) {
+      const [x1, y1, x2, y2] = w, len = Math.hypot(x2 - x1, y2 - y1) || 1, nx = (y2 - y1) / len, ny = -(x2 - x1) / len;
+      const sides = besides(w, (x1 + x2) / 2, (y1 + y2) / 2, nx, ny);
+      if (sides.length) walled.push([w, sides[0] * nx, sides[0] * ny]);
+    }
+    // ...cut where higher ground shows over the ground on its open side, every half metre along (a cut end square, a
+    // wall's own end round -- where walls meet, the round ends join them)
     const lines = [], ends = [];
-    for (const [x1, y1, x2, y2, z] of walled) {
+    for (const [w, ox, oy] of walled) { const [x1, y1, x2, y2, z] = w;
       const n = Math.max(1, Math.ceil(Math.hypot(x2 - x1, y2 - y1) / .5));
-      const under = k => { const i = shownAt(x1 + (x2 - x1) * k / n, y1 + (y2 - y1) * k / n); return i !== undefined && W.nodes[i].z - z > 1.5; };
+      const under = k => { const i = shownAt(x1 + (x2 - x1) * k / n + .4 * ox, y1 + (y2 - y1) * k / n + .4 * oy);
+        return i !== undefined && W.nodes[i].z - z > 1.5; };
       let from = null;
       for (let k = 0; k <= n; k++) {
         const open = !under(k);
