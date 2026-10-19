@@ -605,6 +605,8 @@ table.accts tr.add td { border-top: 1px solid var(--line); padding-top: 8px; }
 #dgMap.drag { cursor: grabbing; }
 .dgmap .fl { fill: color-mix(in srgb, var(--muted) 38%, var(--bar)); stroke: color-mix(in srgb, var(--muted) 38%, var(--bar)); stroke-width: .3; stroke-linejoin: round; }
 .dgmap .ghost { fill: color-mix(in srgb, var(--muted) 45%, var(--bar)); }
+/* the whole dungeon as one map: each floor its own shade (higher lighter), the one you're on (or heading to) on top */
+.dgmap .wfl { stroke-width: .3; stroke-linejoin: round; }
 .dgmap .pt { stroke: var(--bar); stroke-width: .5; cursor: pointer; }
 .dgmap .pt.dead { fill: var(--muted) !important; opacity: .55; }
 .dgmap .pt.unknown { fill: none !important; stroke-width: .7; }
@@ -614,6 +616,7 @@ table.accts tr.add td { border-top: 1px solid var(--line); padding-top: 8px; }
 .dgmap .me { fill: #3a82f6; stroke: #fff; stroke-width: .4; }
 .dgviews { display: inline-flex; gap: 4px; }
 #dgOverview { display: flex; flex-direction: column; gap: 10px; }
+#dgOverview[hidden], #dgRoot .dgmain[hidden], #dgFloors[hidden] { display: none; }
 /* the overview: a hand-drawn dungeon map's look (white paper, tan levels, black outlines and stair hatching), the same
    in either theme */
 .acsheet { overflow-x: auto; border-radius: 6px; }
@@ -987,7 +990,7 @@ section[data-widget="buffpanel"]:has(#dashDungeon:not([hidden])) { display: flex
       <span class="muted" id="dgSummary"></span>
       <span style="flex:1"></span>
       <span class="dgviews" role="group" aria-label="View"><button class="chip mini" data-dg-view="overview">Overview</button><button
-        class="chip mini" data-dg-view="floor">Floor</button></span>
+        class="chip mini" data-dg-view="whole">Whole</button><button class="chip mini" data-dg-view="floor">Floor</button></span>
       <label class="muted" id="dgPickWrap">Map <select id="dgPick"></select></label>
     </div>
     <div id="dgOverview" hidden></div>
@@ -1699,6 +1702,14 @@ function renderDungeon(state) {
   const here = live && live.landblock === lb && live.here && pos && (pos.cell >>> 16) === parseInt(lb, 16) ? pos : null;
   if (DG.lb !== lb) { DG.lb = lb; DG.floor = null; DG.drawn = null; DG.vb = null; }
   const myFloor = here && here.z != null ? dgLevel(d, here.z) : null;
+  if (here && here.z != null) {
+    if (DG.lastZ != null && Math.abs(here.z - DG.lastZ) > .2) { DG.dir = Math.sign(here.z - DG.lastZ); DG.lastZ = here.z; }
+    else if (DG.lastZ == null) DG.lastZ = here.z;
+  }
+  // on a ramp (between floors): the floor it's taking you to, by which way you've been going; else the one you're on
+  const onRamp = here && here.z != null && Math.abs(here.z - myFloor) > .6;
+  const toward = !onRamp ? myFloor : DG.dir < 0 ? d.levels.find(z => z < here.z) ?? myFloor
+    : DG.dir > 0 ? [...d.levels].reverse().find(z => z > here.z) ?? myFloor : myFloor;
   if (myFloor != null && DG.follow) DG.floor = myFloor;
   if (DG.floor == null) DG.floor = d.levels.map(z => [z, d.spawns.filter(s => s.floor === z).length]).sort((a, b) => b[1] - a[1])[0][0];
   const t = now();
@@ -1714,8 +1725,29 @@ function renderDungeon(state) {
   }).join(""));
   // the plan (redrawn only when the floor changes)
   const svg = $("dgMap");
-  if (DG.drawn !== `${lb}:${DG.floor}`) {
-    DG.drawn = `${lb}:${DG.floor}`;
+  const whole = dgView === "whole";
+  // the whole map: every floor, the lowest drawn first so a higher one hides what's under it -- but the one you're on
+  // (on a ramp: the one you're heading to, then the one you're on) over all; not following you, the floor picked
+  const top = DG.follow && here ? [toward, myFloor].filter((z, i, a) => z != null && a.indexOf(z) === i) : [DG.floor];
+  const order = [...d.levels].reverse().filter(z => !top.includes(z)).concat([...top].reverse());
+  const key = whole ? `${lb}:whole:${order.join(",")}` : `${lb}:${DG.floor}`;
+  if (whole && DG.drawn !== key) {
+    DG.drawn = key;
+    const hi = d.levels[0], lo = d.levels[d.levels.length - 1];
+    const shade = z => `hsl(33 ${14 + 16 * (hi - z) / (hi - lo || 1)}% ${44 - 26 * (hi - z) / (hi - lo || 1)}%)`;
+    $("dgGhosts").innerHTML = "";
+    const fill = z => z === top[0] ? "hsl(36 48% 60%)" : shade(z);       // (the top one bright)
+    $("dgCells").innerHTML = order.map(z => `<g>${(d.byFloor[z] || []).map(p =>
+      `<polygon class="wfl" fill="${fill(z)}" stroke="${fill(z)}" points="${p.map(([x, y]) => `${x},${-y}`).join(" ")}"></polygon>`).join("")}</g>`).join("");
+    // what's hidden: a spawn point or an exit under a floor drawn over its own
+    const inside = (poly, x, y) => { let h = false; for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+      const [x1, y1] = poly[i], [x2, y2] = poly[j]; if ((y1 > y) !== (y2 > y) && x < x1 + (y - y1) * (x2 - x1) / (y2 - y1)) h = !h; } return h; };
+    const covered = s => order.slice(order.indexOf(s.floor) + 1).some(z => (d.byFloor[z] || []).some(p => inside(p, s.x, s.y)));
+    DG.hidden = {spawns: new Set(d.spawns.map((s, i) => covered(s) ? i : -1)), exits: new Set(d.exits.map((s, i) => covered(s) ? i : -1))};
+    if (!DG.vb || !(DG.follow && here)) dgFit(d);
+  }
+  if (!whole && DG.drawn !== key) {
+    DG.drawn = key;
     const poly = (p, cls) => `<polygon class="${cls}" points="${p.map(([x, y]) => `${x},${-y}`).join(" ")}"></polygon>`;
     // the floors above and below (up to DG_NEAR each way), fainter the further off, the furthest drawn first
     const near = d.levels.filter(z => z !== DG.floor && dgAway(z) <= DG_NEAR).sort((a, b) => dgAway(b) - dgAway(a));
@@ -1723,22 +1755,23 @@ function renderDungeon(state) {
     $("dgCells").innerHTML = (d.byFloor[DG.floor] || []).map(p => poly(p, "fl")).join("");
     if (!DG.vb || !(DG.follow && here)) dgFit(d);      // (a new floor: fit it; following you keeps the zoom)
   }
-  if (DG.follow && here && myFloor === DG.floor && DG.vb) {                  // you in the middle
+  if (DG.follow && here && (whole || myFloor === DG.floor) && DG.vb) {                  // you in the middle
     DG.vb.x = here.x - DG.vb.w / 2; DG.vb.y = -here.y - DG.vb.h / 2;
     svg.setAttribute("viewBox", `${DG.vb.x} ${DG.vb.y} ${DG.vb.w} ${DG.vb.h}`);
   }
   // the spawn points, the exits and you
   const marks = [];
-  d.exits.filter(e => e.floor === DG.floor).forEach(e => marks.push(`<circle class="exit" cx="${e.x}" cy="${-e.y}" r="2.2"><title>${esc(e.name)}</title></circle>`));
+  d.exits.filter((e, i) => whole ? !DG.hidden.exits.has(i) : e.floor === DG.floor).forEach(e => marks.push(`<circle class="exit" cx="${e.x}" cy="${-e.y}" r="2.2"><title>${esc(e.name)}</title></circle>`));
   // the spawn points: this floor's, and the nearby floors' faded under them (the furthest first)
-  d.spawns.map((s, i) => [s, i]).filter(([s]) => dgAway(s.floor) <= DG_NEAR).sort((a, b) => dgAway(b[0].floor) - dgAway(a[0].floor)).forEach(([s, i]) => {
-    const p = points[i], left = p.back != null ? p.back - t : null, k = dgAway(s.floor);
+  d.spawns.map((s, i) => [s, i]).filter(([s, i]) => whole ? !DG.hidden.spawns.has(i) : dgAway(s.floor) <= DG_NEAR)
+    .sort((a, b) => dgAway(b[0].floor) - dgAway(a[0].floor)).forEach(([s, i]) => {
+    const p = points[i], left = p.back != null ? p.back - t : null, k = whole ? 0 : dgAway(s.floor);
     const fade = k ? ` opacity="${Math.min(1, DG_FADE[k] * 1.8)}"` : "", r = k ? 1.1 : 1.5;
     marks.push(`<g${fade}><circle class="pt ${p.state}" data-dg="${i}" cx="${s.x}" cy="${-s.y}" r="${r}" fill="${d.colour[s.name]}" stroke="${p.state === "unknown" ? d.colour[s.name] : ""}"></circle>${
       p.state === "dead" ? `<text class="back" x="${s.x + r + .4}" y="${-s.y + 1.1}">${mmss(Math.max(0, left))}</text>`
       : p.state === "due" ? `<text class="back" x="${s.x + r + .4}" y="${-s.y + 1.1}">due</text>` : ""}</g>`);
   });
-  if (here && myFloor === DG.floor) {
+  if (here && (whole || myFloor === DG.floor)) {
     const [fx, fy] = here.facing || [0, 1];
     const tip = [here.x + fx * 2.6, -(here.y + fy * 2.6)], l = [here.x - fy * 1.2 - fx * .8, -(here.y + fx * 1.2 - fy * .8)], r2 = [here.x + fy * 1.2 - fx * .8, -(here.y - fx * 1.2 - fy * .8)];
     marks.push(`<polygon class="me" points="${tip.join(",")} ${l.join(",")} ${r2.join(",")}"><title>You</title></polygon>`);
@@ -1751,7 +1784,7 @@ function renderDungeon(state) {
     : `<div class="empty">Nothing killed yet${live && live.landblock === lb ? "" : " (you haven't been in here this login)"}.</div>`);
   // the overview (every floor at once) or one floor: the page's choice; the dashboard card always shows one floor
   const overview = dgView === "overview" && $("dgRoot").parentElement === $("page-dungeon");
-  for (const b of document.querySelectorAll("[data-dg-view]")) b.classList.toggle("on", b.dataset.dgView === (overview ? "overview" : "floor"));
+  for (const b of document.querySelectorAll("[data-dg-view]")) b.classList.toggle("on", b.dataset.dgView === (overview ? "overview" : whole ? "whole" : "floor"));
   $("dgOverview").hidden = !overview;
   document.querySelector("#dgRoot .dgmain").hidden = overview;
   $("dgFloors").hidden = overview;
