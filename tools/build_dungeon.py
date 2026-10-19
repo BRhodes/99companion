@@ -3,13 +3,14 @@ page's dungeon view (and its respawn timers: companion/dungeons.py).
 
     python -m tools.build_dungeon 019A "Crater Caves" --db <server checkout>/Database/AC1999-World/3-Core
 
-A floor is 12 m: two 6 m halves (paired the way that stacks the fewest rooms over each other) (a cave's floor rolls across the line
-between them, a short ramp or a few steps apart) are one place, drawn as one.
+Floors are where a dungeon is flat: each height with FLAT_MIN of level ground. A slope (a ramp, stairs, a cave's floor
+rolling from one floor to the next) is drawn on both floors it joins -- each shows the SHARED of it nearest itself, so
+its middle is on both -- hatched, and numbered as a way between them; a slope that touches only one floor (a mound, the
+foot of a wall) is that floor's, drawn as floor.
 
 Floor plan: every cell of the landblock's dungeon (cell.dat EnvCells 0xLLLL0100 on), each placed by its frame, with the
-walkable upward-facing polygons of its cell structure (portal.dat Environments) as its floor -- each on the floor its own
-height is nearest (floors are FLOOR_STEP apart), not its cell's: a ramp's pieces go to the floors it joins, a ledge to
-the floor it's at. The 1999 dats pad both to four
+walkable upward-facing polygons of its cell structure (portal.dat Environments) as its floor, on the floors their
+heights are (not their cell's). The 1999 dats pad both to four
 bytes: an EnvCell after its surface list, an Environment after each polygon. The BSP trees after a cell structure
 aren't read: the next structure is found by its header (its key, plausible counts, vertex type 1).
 
@@ -47,25 +48,31 @@ class Reader:
 
 
 def env_cell(cell_dat, cid):
-    """A dungeon cell: {id, env, struct, origin, rot (w x y z)}, or None past the last one."""
+    """A dungeon cell: {id, env, struct, origin, rot (w x y z), portals: {its structure's polygon: the cell through
+    it}}, or None past the last one."""
     b = cell_dat.get(cid)
     if b is None:
         return None
     r = Reader(b)
     r.take("I")                                   # flags
     out = {"id": r.take("I")}
-    surfaces, _portals = r.take("B"), r.take("B")
+    surfaces, portals = r.take("B"), r.take("B")
     r.take("H")                                   # cells seen from it
     r.p += 2 * surfaces
     r.align()
     out["env"], out["struct"] = 0x0D000000 | r.take("H"), r.take("H")
     out["origin"], out["rot"] = r.take("3f"), r.take("4f")
+    out["portals"] = {}
+    for _ in range(portals):
+        _flags, pid, other, _their = r.take("HHHH")
+        out["portals"][pid] = other
     return out
 
 
 def cell_structure(portal_dat, eid, key, _cache={}):
-    """(vertices {id: (x, y, z)}, polygons [[vertex ids]]) of one cell structure of an environment -- not its portals
-    (the openings into the cells beside it: one under a tall cave's upper cell would read as its floor)."""
+    """(vertices {id: (x, y, z)}, polygons [[vertex ids]], portals {polygon: [vertex ids]}) of one cell structure of an
+    environment -- its portals (the openings into the cells beside it) apart: one under a tall cave's upper cell would
+    read as its floor."""
     if (eid, key) in _cache:
         return _cache[(eid, key)]
     b = portal_dat.get(eid)
@@ -96,10 +103,10 @@ def cell_structure(portal_dat, eid, key, _cache={}):
                 r.p += pts
             r.align()
         portals = {r.take("h") for _ in range(nport)}
-        polys = [v for pid, v in polys.items() if pid not in portals]
-        _cache[(eid, k)] = (verts, polys)
+        _cache[(eid, k)] = (verts, [v for pid, v in polys.items() if pid not in portals],
+                            {pid: v for pid, v in polys.items() if pid in portals})
         if k == key:
-            return verts, polys
+            return _cache[(eid, k)]
         q = r.p
         while q + 24 <= len(b):
             nk, a1, a2, a3, vt, nv = struct.unpack_from("<6I", b, q)
@@ -120,28 +127,32 @@ def rotate(q, v):
     return (ix * w - iw * x - iy * z + iz * y, iy * w - iw * y - iz * x + ix * z, iz * w - iw * z - ix * y + iy * x)
 
 
-FLOOR_STEP = 6.0       # metres between the heights a dungeon is built on (half a floor)
-FLOOR = 12.0           # a floor: two of them
 WALKABLE = 0.664       # a polygon's normal z at least this: the game's own (PhysicsGlobals::floor_z, ~48 degrees)
-WAY = 10               # metres from a way to another floor that a slope is its stairs (further: a half step)
 STAIRS = 0.93          # steeper than this (~22 degrees) is drawn as stairs / a ramp; gentler is a cave's uneven floor
+FLAT_MIN = 50          # m^2 of level ground at one height that make it a floor
+SHARED = 0.75          # how much of a slope between two floors each of them shows
+NEAR = 0.15            # metres: a height this close to a floor's is on it
 
 
-def level(z):
-    """The half floor a height belongs to: the nearest multiple of FLOOR_STEP."""
-    return round(z / FLOOR_STEP) * FLOOR_STEP
-
-
-def floors(portal_dat, c):
-    """A cell's floor: its walkable upward-facing polygons, each [floor it's on (by its own height), [[x, y]...], sloped
-    (1: a ramp or stairs, 0: level)]."""
+def walkable(portal_dat, c):
+    """A cell's walkable upward-facing polygons, each (its [(x, y, z)...] in the dungeon, its normal's z), its level
+    openings (portals in its floor or ceiling: ([(x, y, z)...], the cell through it)) and the cells beside it (through
+    its other portals: {cell: where the portal is (x, y)})."""
     got = cell_structure(portal_dat, c["env"], c["struct"])
     if not got:
-        return []
-    verts, polys = got
+        return [], [], {}
+    verts, polys, portals = got
+    place = lambda ids: [tuple(a + b for a, b in zip(rotate(c["rot"], verts[i]), c["origin"])) for i in ids if i in verts]
+    holes, beside = [], {}
+    for pid, ids in portals.items():
+        w, other = place(ids), c["portals"].get(pid, 0xFFFF)
+        if len(w) >= 3 and level_ground(w):
+            holes.append((w, other))
+        elif w:
+            beside[other] = (sum(p[0] for p in w) / len(w), sum(p[1] for p in w) / len(w))
     out = []
     for ids in polys:
-        w = [tuple(a + b for a, b in zip(rotate(c["rot"], verts[i]), c["origin"])) for i in ids if i in verts]
+        w = place(ids)
         if len(w) < 3:
             continue
         (ax, ay, az), (bx, by, bz), (cx, cy, cz) = w[:3]
@@ -149,25 +160,143 @@ def floors(portal_dat, c):
         nx = (by - ay) * (cz - az) - (bz - az) * (cy - ay)
         ny = (bz - az) * (cx - ax) - (bx - ax) * (cz - az)
         up = nz / (math.sqrt(nx * nx + ny * ny + nz * nz) or 1)
-        if up > WALKABLE:
-            out.append([level(sum(p[2] for p in w) / len(w)), [[round(x, 2), round(y, 2)] for x, y, _z in w], int(up < STAIRS)])
-    return out
+        if up >= WALKABLE:
+            out.append((w, up))
+    return out, holes, beside
 
 
-def connections(cells):
-    """Where the floors join: a cell with floor on two floors (a ramp, stairs) joins them; neighbouring ones joining
-    the same pair are one way through. [{n: its number, a: the upper floor, b: the lower, x, y}], top down."""
-    joins = []
+def area(w):
+    return abs(sum(x1 * y2 - x2 * y1 for (x1, y1, _a), (x2, y2, _b) in zip(w, w[1:] + w[:1]))) / 2
+
+
+def level_ground(w):
+    return max(p[2] for p in w) - min(p[2] for p in w) < 0.05
+
+
+def clip(w, lo, hi):
+    """The part of a (flat-faced) polygon between two heights."""
+    for keep, at in ((lambda z: z >= lo - 1e-6, lo), (lambda z: z <= hi + 1e-6, hi)):
+        out = []
+        for a, b in zip(w, w[1:] + w[:1]):
+            if keep(a[2]):
+                out.append(a)
+            if keep(a[2]) != keep(b[2]):
+                f = (at - a[2]) / (b[2] - a[2])
+                out.append(tuple(p + f * (q - p) for p, q in zip(a, b)))
+        w = out
+        if len(w) < 3:
+            return []
+    return w
+
+
+def lay(cells):
+    """Each cell's floor pieces ([floor, [[x, y]...], hatched]) from its walkable polygons (cells' "raw"), the floors'
+    heights, and the ways between them ([(upper, lower, x, y)])."""
+    ground = {}
     for c in cells:
-        levels = sorted({f[0] for f in c["floors"]})
-        if len(levels) < 2:
-            continue
-        pts = [pt for f in c["floors"] for pt in f[1]]
-        x, y = sum(p[0] for p in pts) / len(pts), sum(p[1] for p in pts) / len(pts)
-        for a, b in zip(levels[1:], levels[:-1]):
-            joins.append((a, b, x, y))
+        for w, _up in c["raw"]:
+            if level_ground(w):
+                z = round(w[0][2], 1)
+                ground[z] = ground.get(z, 0) + area(w)
+    heights = sorted(z for z, a in ground.items() if a >= FLAT_MIN)
+    on = lambda z: next((f for f in heights if abs(z - f) < NEAR), None)
+    xy = lambda w: [[round(x, 2), round(y, 2)] for x, y, _z in w]
+    # the rest -- slopes, and level bits too small to be a floor -- in runs joined edge to edge
+    rest = [(c, w, up) for c in cells for w, up in c["raw"] if not (level_ground(w) and on(w[0][2]) is not None)]
+    key = lambda p: (round(p[0], 1), round(p[1], 1), round(p[2], 1))
+    parent = list(range(len(rest)))
+
+    def find(i):
+        while parent[i] != i:
+            parent[i] = parent[parent[i]]
+            i = parent[i]
+        return i
+    edges = {}
+    for i, (_c, w, _up) in enumerate(rest):
+        for a, b in zip(w, w[1:] + w[:1]):
+            e = frozenset((key(a), key(b)))
+            if e in edges:
+                parent[find(i)] = find(edges[e])
+            else:
+                edges[e] = i
+    runs = {}
+    for i in range(len(rest)):
+        runs.setdefault(find(i), []).append(rest[i])
+    for c in cells:
+        c["floors"] = [[on(w[0][2]), xy(w), 0] for w, _up in c["raw"] if level_ground(w) and on(w[0][2]) is not None]
+    ways = []
+    for run in runs.values():
+        zs = [p[2] for _c, w, _u in run for p in w]
+        touch = sorted({f for z in zs for f in [on(z)] if f is not None}, reverse=True)
+        if not touch:                            # (touching no floor: the one under it, else the nearest)
+            under = [f for f in heights if f <= min(zs) + NEAR]
+            touch = [max(under) if under else min(heights, key=lambda f: abs(f - min(zs)))]
+        for k, f in enumerate(touch):
+            above, below = (touch[k - 1] if k else None), (touch[k + 1] if k + 1 < len(touch) else None)
+            lo = f - SHARED * (f - below) if below is not None else min(zs)
+            hi = f + SHARED * (above - f) if above is not None else max(zs)
+            for c, w, up in run:
+                part = clip(w, lo, hi)
+                if part:
+                    c["floors"].append([f, xy(part), int(len(touch) > 1 and up < STAIRS)])
+        for a, b in zip(touch, touch[1:]):
+            mid = [p for _c, w, _u in run for p in w if b < p[2] < a] or [p for _c, w, _u in run for p in w]
+            ways.append((a, b, sum(p[0] for p in mid) / len(mid), sum(p[1] for p in mid) / len(mid)))
+    by_id = {c["id"]: c for c in cells}
+    has_floor = lambda c, f: any(level_ground(w) and on(w[0][2]) == f for w, _u in c["raw"])
+    ground = lambda c: [on(w[0][2]) for w, _u in c["raw"] if level_ground(w) and on(w[0][2]) is not None]
+    # ledges: a doorway to a cell whose floor is all lower than this one's (stepped off, not climbed back)
+    for c in cells:
+        for o, (x, y) in c["beside"].items():
+            if o in by_id and ground(c) and ground(by_id[o]) and max(ground(by_id[o])) < min(ground(c)) - 3:
+                ways.append((min(ground(c)), max(ground(by_id[o])), x, y))
+    # drops: an opening in a floor, down to the floor under it -- a pit (floor of its height around it), or a shaft
+    # (two or more cells with no floor, one over the other, walked into from floor beside its top); not a tall cave's
+    # open middle (its upper cells have no floor beside them, or one above floor)
+    edge = {}
+    for c in cells:
+        for w, _up in c["raw"]:
+            if level_ground(w) and on(w[0][2]) is not None:
+                for a, b in zip(w, w[1:] + w[:1]):
+                    edge[frozenset((key(a), key(b)))] = on(w[0][2])
+    seen = set()
+    for c in cells:
+        for w, below in c["holes"]:
+            f = on(w[0][2])
+            if f is None or below not in by_id or by_id[below]["origin"] >= c["origin"]:
+                continue                         # (only openings down)
+            chain, d = 0 if ground(c) else 1, by_id[below]
+            while not ground(d):                 # (down the shaft to the first cell with floor)
+                chain += 1
+                nxt = [o for v, o in d["holes"] if o in by_id and by_id[o]["origin"] < d["origin"]]
+                if not nxt:
+                    break
+                d = by_id[nxt[0]]
+            if not ground(d):
+                continue
+            land = max(ground(d))
+            pit = any(edge.get(frozenset((key(a), key(b)))) == f for a, b in zip(w, w[1:] + w[:1]))
+            shaft = chain >= 2 and any(o in by_id and has_floor(by_id[o], f) for o in c["beside"])
+            x, y = sum(p[0] for p in w) / len(w), sum(p[1] for p in w) / len(w)
+            if land < f and (pit or shaft) and (round(x), round(y)) not in seen:
+                seen.add((round(x), round(y)))
+                ways.append((f, land, x, y))
+    return heights, ways
+
+
+def inside(poly, x, y):
+    hit = False
+    for (x1, y1), (x2, y2) in zip(poly, poly[1:] + poly[:1]):
+        if (y1 > y) != (y2 > y) and x < x1 + (y - y1) * (x2 - x1) / (y2 - y1):
+            hit = not hit
+    return hit
+
+
+def connections(ways):
+    """The ways between floors, neighbouring ones joining the same pair as one: [{n: its number, a: the upper floor,
+    b: the lower, x, y}], top down."""
     groups = []
-    for a, b, x, y in joins:
+    for a, b, x, y in ways:
         g = next((g for g in groups if g["a"] == a and g["b"] == b and math.dist((g["x"], g["y"]), (x, y)) < 15), None)
         if g:
             g["pts"].append((x, y))
@@ -214,71 +343,6 @@ def first_delay(files, wcid):
     return float(m.group(1)) if m else None
 
 
-def floor_of(z, top):
-    """The floor a half floor is on: the top of its FLOOR, counted from top (a floor's top half)."""
-    return top - FLOOR * math.floor((top - z) / FLOOR)
-
-
-def overlap(cells, a, b):
-    """How much of half floor a lies over half floor b, in m^2 (drawn at 1 px per metre)."""
-    from PIL import Image, ImageDraw
-    import numpy as np
-    pts = [pt for c in cells for _z, poly, _s in c["floors"] for pt in poly]
-    x0, y1 = min(p[0] for p in pts), max(p[1] for p in pts)
-    w, h = int(max(p[0] for p in pts) - x0) + 2, int(y1 - min(p[1] for p in pts)) + 2
-
-    def mask(z):
-        im = Image.new("1", (w, h))
-        g = ImageDraw.Draw(im)
-        for c in cells:
-            for zz, poly, _s in c["floors"]:
-                if zz == z:
-                    g.polygon([(x - x0, y1 - y) for x, y in poly], fill=1)
-        return np.array(im)
-    return int((mask(a) & mask(b)).sum())
-
-
-def top_half(cells, arrival):
-    """Which halves make a floor: the pairing (the one you arrive on on top, or below) whose halves lie over each other
-    least -- two rooms stacked are two floors, not one."""
-    halves = sorted({z for c in cells for z, _p, _s in c["floors"]})
-    stacked = lambda top: sum(overlap(cells, z, z - FLOOR_STEP) for z in halves
-                              if floor_of(z, top) == floor_of(z - FLOOR_STEP, top))
-    return min((arrival, arrival - FLOOR_STEP), key=stacked)
-
-
-def merged(data):
-    """Each floor's two halves drawn as one, by its top -- polygons, spawn points, exits, the arrival -- and the ways
-    between them dropped (they're inside it now), and the slopes between them (a half step) drawn flat: only the
-    stairs and ramps of a way to another floor are hatched."""
-    arrival = (data.get("entrance") or {}).get("arrival", {}).get("floor")
-    if arrival is None:
-        arrival = max(z for c in data["cells"] for z, _p, _s in c["floors"])
-    top = top_half(data["cells"], arrival)
-    to = lambda z: floor_of(z, top)
-    hs = [z for c in data["cells"] for z, _p, _s in c["floors"]] + [s["floor"] for s in data["spawns"] + data["exits"]]
-    halves = [min(hs) - FLOOR_STEP + FLOOR_STEP * i for i in range(int((max(hs) - min(hs)) / FLOOR_STEP) + 3)]
-    ways = []                      # (the middles of the cells a way to another floor runs through)
-    for c in data["cells"]:
-        if len({to(z) for z, _p, _s in c["floors"]}) > 1:
-            pts = [pt for _z, poly, _s in c["floors"] for pt in poly]
-            ways.append((sum(p[0] for p in pts) / len(pts), sum(p[1] for p in pts) / len(pts)))
-    near_way = lambda poly: any(math.dist(w, (sum(p[0] for p in poly) / len(poly), sum(p[1] for p in poly) / len(poly))) < WAY
-                                for w in ways)
-    for c in data["cells"]:
-        c["floors"] = [[to(z), poly, int(sloped and near_way(poly))] for z, poly, sloped in c["floors"]]
-    for s in data["spawns"] + data["exits"]:
-        s["floor"] = to(s["floor"])
-    if data.get("entrance"):
-        data["entrance"]["arrival"]["floor"] = to(data["entrance"]["arrival"]["floor"])
-    joins = [c for c in data["connections"] if to(c["a"]) != to(c["b"])]
-    for n, c in enumerate(joins, 1):
-        c.update(n=n, a=to(c["a"]), b=to(c["b"]))
-    data["connections"] = joins
-    data["merged"] = {f"{z:g}": to(z) for z in halves if to(z) != z}       # (where you stand: which floor)
-    return data
-
-
 def build(landblock, name, core):
     game = Path(game_dir())
     cell_dat, portal_dat = DatFile(str(game / "cell.dat")), DatFile(str(game / "portal.dat"))
@@ -288,7 +352,12 @@ def build(landblock, name, core):
         c = env_cell(cell_dat, (landblock << 16) | i)
         if c is None:
             break
-        cells.append({"id": i, "z": level(c["origin"][2]), "floors": floors(portal_dat, c)})
+        raw, holes, beside = walkable(portal_dat, c)
+        cells.append({"id": i, "origin": c["origin"][2], "raw": raw, "holes": holes, "beside": beside})
+    heights, ways = lay(cells)
+    level = lambda z: min(heights, key=lambda f: abs(f - z))        # (the floor a height is nearest)
+    for c in cells:
+        c["z"] = level(c.pop("origin"))
     text = (core / "6 LandBlockExtendedData" / "SQL" / f"{landblock:04X}.sql").read_text(encoding="utf-8")
     placed = {g: (int(w), int(c, 16), float(x), float(y), float(z), n) for g, w, c, x, y, z, n in re.findall(
         r"VALUES \((0x[0-9A-F]+),\s*(\d+),\s*(0x[0-9A-F]+),\s*([-\d.e]+),\s*([-\d.e]+),\s*([-\d.e]+),[^;]*;\s*/\* (.*?) \*/", text)}
@@ -306,12 +375,14 @@ def build(landblock, name, core):
     exits = [{"name": n, "x": round(x, 2), "y": round(y, 2), "z": round(z, 2), "floor": level(z), "cell": cid & 0xFFFF}
              for _g, (w, cid, x, y, z, n) in placed.items() if "Surface" in n or "Portal" in n]
     door = entrance(landblock)
-    if door:                                  # (the floor you arrive on: your cell's)
+    if door:                                  # (the floor you arrive on: where your cell's ground is)
         cell = next((c for c in cells if c["id"] == door["arrival"]["cell"]), None)
-        levels = [f[0] for f in cell["floors"]] if cell else []
-        door["arrival"]["floor"] = max(set(levels), key=levels.count) if levels else (cell or {}).get("z")
-    return merged({"name": name, "landblock": landblock, "cells": cells, "spawns": spawns, "exits": exits,
-                   "connections": connections(cells), "entrance": door})
+        zs = [p[2] for w, _up in cell["raw"] for p in w] if cell else []
+        door["arrival"]["floor"] = level(sum(zs) / len(zs)) if zs else (cell or {}).get("z")
+    for c in cells:
+        del c["raw"], c["holes"], c["beside"]
+    return {"name": name, "landblock": landblock, "floors": heights, "cells": cells, "spawns": spawns, "exits": exits,
+            "connections": connections(ways), "entrance": door}
 
 
 def main():

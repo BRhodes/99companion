@@ -1659,8 +1659,8 @@ document.addEventListener("change", e => {
 const DG = {data: {}, lb: null, list: null, floor: null, vb: null, drawn: null, follow: true};
 const DG_NEAR = 4;                                   // floors above and below drawn faded
 const DG_FADE = [1, .34, .22, .14, .08];             // how faint, by floors away
-const dgAway = z => Math.round(Math.abs(z - DG.floor) / 12);      // (a dungeon's floors are 12 m apart)
-const dgLevel = z => Math.round(z / 6) * 6;                        // the floor a height is on
+const dgAway = z => { const l = (DG.data[DG.lb] || {}).levels || []; return Math.abs(l.indexOf(z) - l.indexOf(DG.floor)); };   // (floors, not metres)
+const dgLevel = (d, z) => (d.floors || [Math.round(z / 6) * 6]).reduce((a, f) => Math.abs(f - z) < Math.abs(a - z) ? f : a);   // the floor a height is nearest
 const dgLabel = (d, z) => (d.labels || {})[String(z)] || `${z > 0 ? "+" : ""}${z} m`;     // ("-54 / -60 m": floors that are one)
 const dgHeat = (lv, lo, hi) => { const t = hi > lo ? (lv - lo) / (hi - lo) : 0; return `hsl(${Math.round(190 - 190 * t)} 72% ${t > .5 ? 50 : 44}%)`; };
 const mmss = s => s >= 3600 ? `${Math.floor(s / 3600)}h${String(Math.floor(s % 3600 / 60)).padStart(2, "0")}` : `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
@@ -1677,8 +1677,8 @@ function dgLoad(lb) {
     }
     d.connections = d.connections || [];
     d.levels = Object.keys(d.byFloor).map(Number).sort((a, b) => b - a);
-    d.spawns.forEach(s => { s.floor = s.floor ?? dgLevel(s.z); });
-    d.exits.forEach(s => { s.floor = s.floor ?? dgLevel(s.z); });
+    d.spawns.forEach(s => { s.floor = s.floor ?? dgLevel(d, s.z); });
+    d.exits.forEach(s => { s.floor = s.floor ?? dgLevel(d, s.z); });
     const lv = d.spawns.map(s => s.level);
     d.colour = Object.fromEntries(d.spawns.map(s => [s.name, dgHeat(s.level, Math.min(...lv), Math.max(...lv))]));
     DG.data[lb] = d; render();
@@ -1698,7 +1698,7 @@ function renderDungeon(state) {
   const points = live && live.landblock === lb ? live.points : d.spawns.map(() => ({state: "unknown"}));
   const here = live && live.landblock === lb && live.here && pos && (pos.cell >>> 16) === parseInt(lb, 16) ? pos : null;
   if (DG.lb !== lb) { DG.lb = lb; DG.floor = null; DG.drawn = null; DG.vb = null; }
-  const myFloor = here && here.z != null ? ((d.merged || {})[String(dgLevel(here.z))] ?? dgLevel(here.z)) : null;
+  const myFloor = here && here.z != null ? dgLevel(d, here.z) : null;
   if (myFloor != null && DG.follow) DG.floor = myFloor;
   if (DG.floor == null) DG.floor = d.levels.map(z => [z, d.spawns.filter(s => s.floor === z).length]).sort((a, b) => b[1] - a[1])[0][0];
   const t = now();
