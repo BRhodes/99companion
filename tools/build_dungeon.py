@@ -3,7 +3,7 @@ page's dungeon view (and its respawn timers: companion/dungeons.py).
 
     python -m tools.build_dungeon 019A "Crater Caves" --db <server checkout>/Database/AC1999-World/3-Core
 
-A floor is 12 m, counted down from the one you arrive on: its two 6 m halves (a cave's floor rolls across the line
+A floor is 12 m: two 6 m halves (paired the way that stacks the fewest rooms over each other) (a cave's floor rolls across the line
 between them, a short ramp or a few steps apart) are one place, drawn as one.
 
 Floor plan: every cell of the landblock's dungeon (cell.dat EnvCells 0xLLLL0100 on), each placed by its frame, with the
@@ -122,7 +122,7 @@ def rotate(q, v):
 
 FLOOR_STEP = 6.0       # metres between the heights a dungeon is built on (half a floor)
 FLOOR = 12.0           # a floor: two of them
-WALKABLE = 0.8         # a polygon's normal z at least this (up to ~37 degrees: ramps yes, the curve of a cave's walls no)
+WALKABLE = 0.664       # a polygon's normal z at least this: the game's own (PhysicsGlobals::floor_z, ~48 degrees)
 WAY = 10               # metres from a way to another floor that a slope is its stairs (further: a half step)
 STAIRS = 0.93          # steeper than this (~22 degrees) is drawn as stairs / a ramp; gentler is a cave's uneven floor
 
@@ -214,9 +214,37 @@ def first_delay(files, wcid):
     return float(m.group(1)) if m else None
 
 
-def floor_of(z, arrival):
-    """The floor a half floor is on: the top of its FLOOR, counted from the one you arrive on (its top half)."""
-    return arrival - FLOOR * math.floor((arrival - z) / FLOOR)
+def floor_of(z, top):
+    """The floor a half floor is on: the top of its FLOOR, counted from top (a floor's top half)."""
+    return top - FLOOR * math.floor((top - z) / FLOOR)
+
+
+def overlap(cells, a, b):
+    """How much of half floor a lies over half floor b, in m^2 (drawn at 1 px per metre)."""
+    from PIL import Image, ImageDraw
+    import numpy as np
+    pts = [pt for c in cells for _z, poly, _s in c["floors"] for pt in poly]
+    x0, y1 = min(p[0] for p in pts), max(p[1] for p in pts)
+    w, h = int(max(p[0] for p in pts) - x0) + 2, int(y1 - min(p[1] for p in pts)) + 2
+
+    def mask(z):
+        im = Image.new("1", (w, h))
+        g = ImageDraw.Draw(im)
+        for c in cells:
+            for zz, poly, _s in c["floors"]:
+                if zz == z:
+                    g.polygon([(x - x0, y1 - y) for x, y in poly], fill=1)
+        return np.array(im)
+    return int((mask(a) & mask(b)).sum())
+
+
+def top_half(cells, arrival):
+    """Which halves make a floor: the pairing (the one you arrive on on top, or below) whose halves lie over each other
+    least -- two rooms stacked are two floors, not one."""
+    halves = sorted({z for c in cells for z, _p, _s in c["floors"]})
+    stacked = lambda top: sum(overlap(cells, z, z - FLOOR_STEP) for z in halves
+                              if floor_of(z, top) == floor_of(z - FLOOR_STEP, top))
+    return min((arrival, arrival - FLOOR_STEP), key=stacked)
 
 
 def merged(data):
@@ -226,7 +254,8 @@ def merged(data):
     arrival = (data.get("entrance") or {}).get("arrival", {}).get("floor")
     if arrival is None:
         arrival = max(z for c in data["cells"] for z, _p, _s in c["floors"])
-    to = lambda z: floor_of(z, arrival)
+    top = top_half(data["cells"], arrival)
+    to = lambda z: floor_of(z, top)
     hs = [z for c in data["cells"] for z, _p, _s in c["floors"]] + [s["floor"] for s in data["spawns"] + data["exits"]]
     halves = [min(hs) - FLOOR_STEP + FLOOR_STEP * i for i in range(int((max(hs) - min(hs)) / FLOOR_STEP) + 3)]
     ways = []                      # (the middles of the cells a way to another floor runs through)
