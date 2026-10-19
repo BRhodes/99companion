@@ -1,10 +1,10 @@
 """Build companion/data/dungeons/<landblock>.json: a dungeon's floor plan and its creature spawn points, for the Map
 page's dungeon view (and its respawn timers: companion/dungeons.py).
 
-    python -m tools.build_dungeon 019A "Crater Caves" --db <server checkout>/Database/AC1999-World/3-Core [--merge=-54,-60 ...]
+    python -m tools.build_dungeon 019A "Crater Caves" --db <server checkout>/Database/AC1999-World/3-Core
 
---merge: floors that are one place (a cave whose floor rolls across the line between two floors), drawn as one; kept in
-the map, so a rebuild without it merges the same ones.
+A floor is 12 m, counted down from the one you arrive on: its two 6 m halves (a cave's floor rolls across the line
+between them, a short ramp or a few steps apart) are one place, drawn as one.
 
 Floor plan: every cell of the landblock's dungeon (cell.dat EnvCells 0xLLLL0100 on), each placed by its frame, with the
 walkable upward-facing polygons of its cell structure (portal.dat Environments) as its floor -- each on the floor its own
@@ -116,13 +116,15 @@ def rotate(q, v):
     return (ix * w - iw * x - iy * z + iz * y, iy * w - iw * y - iz * x + ix * z, iz * w - iw * z - ix * y + iy * x)
 
 
-FLOOR_STEP = 6.0       # metres between a dungeon's floors
+FLOOR_STEP = 6.0       # metres between the heights a dungeon is built on (half a floor)
+FLOOR = 12.0           # a floor: two of them
 WALKABLE = 0.8         # a polygon's normal z at least this (up to ~37 degrees: ramps yes, the curve of a cave's walls no)
+WAY = 10               # metres from a way to another floor that a slope is its stairs (further: a half step)
 STAIRS = 0.93          # steeper than this (~22 degrees) is drawn as stairs / a ramp; gentler is a cave's uneven floor
 
 
 def level(z):
-    """The floor a height belongs to: the nearest multiple of FLOOR_STEP."""
+    """The half floor a height belongs to: the nearest multiple of FLOOR_STEP."""
     return round(z / FLOOR_STEP) * FLOOR_STEP
 
 
@@ -208,16 +210,30 @@ def first_delay(files, wcid):
     return float(m.group(1)) if m else None
 
 
-def merged(data, groups):
-    """Floors that are one place (a cave whose floor rolls across the line between two): each group's floors drawn as
-    its top one -- polygons, spawn points, exits, the arrival -- with "labels" saying which, and the ways between them
-    dropped (they're inside it now)."""
-    top = {z: max(g) for g in groups for z in g}
-    if not top:
-        return data
-    to = lambda z: top.get(z, z)
+def floor_of(z, arrival):
+    """The floor a half floor is on: the top of its FLOOR, counted from the one you arrive on (its top half)."""
+    return arrival - FLOOR * math.floor((arrival - z) / FLOOR)
+
+
+def merged(data):
+    """Each floor's two halves drawn as one, by its top -- polygons, spawn points, exits, the arrival -- and the ways
+    between them dropped (they're inside it now), and the slopes between them (a half step) drawn flat: only the
+    stairs and ramps of a way to another floor are hatched."""
+    arrival = (data.get("entrance") or {}).get("arrival", {}).get("floor")
+    if arrival is None:
+        arrival = max(z for c in data["cells"] for z, _p, _s in c["floors"])
+    to = lambda z: floor_of(z, arrival)
+    hs = [z for c in data["cells"] for z, _p, _s in c["floors"]] + [s["floor"] for s in data["spawns"] + data["exits"]]
+    halves = [min(hs) - FLOOR_STEP + FLOOR_STEP * i for i in range(int((max(hs) - min(hs)) / FLOOR_STEP) + 3)]
+    ways = []                      # (the middles of the cells a way to another floor runs through)
     for c in data["cells"]:
-        c["floors"] = [[to(z), poly, sloped] for z, poly, sloped in c["floors"]]
+        if len({to(z) for z, _p, _s in c["floors"]}) > 1:
+            pts = [pt for _z, poly, _s in c["floors"] for pt in poly]
+            ways.append((sum(p[0] for p in pts) / len(pts), sum(p[1] for p in pts) / len(pts)))
+    near_way = lambda poly: any(math.dist(w, (sum(p[0] for p in poly) / len(poly), sum(p[1] for p in poly) / len(poly))) < WAY
+                                for w in ways)
+    for c in data["cells"]:
+        c["floors"] = [[to(z), poly, int(sloped and near_way(poly))] for z, poly, sloped in c["floors"]]
     for s in data["spawns"] + data["exits"]:
         s["floor"] = to(s["floor"])
     if data.get("entrance"):
@@ -226,13 +242,11 @@ def merged(data, groups):
     for n, c in enumerate(joins, 1):
         c.update(n=n, a=to(c["a"]), b=to(c["b"]))
     data["connections"] = joins
-    data["labels"] = {f"{max(g):g}": " / ".join(f"{z:g}" for z in sorted(g, reverse=True)) + " m" for g in groups}
-    data["merged"] = {f"{z:g}": max(g) for g in groups for z in g if z != max(g)}       # (where you stand: which floor)
-    data["merge"] = [sorted(g, reverse=True) for g in groups]          # (a rebuild without --merge keeps them)
+    data["merged"] = {f"{z:g}": to(z) for z in halves if to(z) != z}       # (where you stand: which floor)
     return data
 
 
-def build(landblock, name, core, groups=()):
+def build(landblock, name, core):
     game = Path(game_dir())
     cell_dat, portal_dat = DatFile(str(game / "cell.dat")), DatFile(str(game / "portal.dat"))
     monsters = json.loads((ROOT / "companion" / "data" / "monsters.json").read_text(encoding="utf-8"))
@@ -264,7 +278,7 @@ def build(landblock, name, core, groups=()):
         levels = [f[0] for f in cell["floors"]] if cell else []
         door["arrival"]["floor"] = max(set(levels), key=levels.count) if levels else (cell or {}).get("z")
     return merged({"name": name, "landblock": landblock, "cells": cells, "spawns": spawns, "exits": exits,
-                   "connections": connections(cells), "entrance": door}, groups)
+                   "connections": connections(cells), "entrance": door})
 
 
 def main():
@@ -272,14 +286,9 @@ def main():
     p.add_argument("landblock", help="the dungeon's landblock, hex (019A)")
     p.add_argument("name", help="what it's called (Crater Caves)")
     p.add_argument("--db", required=True, help="the server checkout's Database/AC1999-World/3-Core")
-    p.add_argument("--merge", action="append", default=[], metavar="Z,Z",
-                   help="floors that are one place, drawn as one (e.g. --merge -54,-60); repeatable")
     a = p.parse_args()
     lb = int(a.landblock, 16)
-    groups = [[float(z) for z in m.split(",")] for m in a.merge]
-    if not groups and (OUT / f"{lb:04X}.json").exists():           # the floors merged last time, unless told otherwise
-        groups = json.loads((OUT / f"{lb:04X}.json").read_text(encoding="utf-8")).get("merge") or []
-    data = build(lb, a.name, Path(a.db), groups)
+    data = build(lb, a.name, Path(a.db))
     OUT.mkdir(parents=True, exist_ok=True)
     out = OUT / f"{lb:04X}.json"
     out.write_text(json.dumps(data, separators=(",", ":")), encoding="utf-8")

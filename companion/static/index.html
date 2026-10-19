@@ -1659,7 +1659,7 @@ document.addEventListener("change", e => {
 const DG = {data: {}, lb: null, list: null, floor: null, vb: null, drawn: null, follow: true};
 const DG_NEAR = 4;                                   // floors above and below drawn faded
 const DG_FADE = [1, .34, .22, .14, .08];             // how faint, by floors away
-const dgAway = z => Math.round(Math.abs(z - DG.floor) / 6);       // (a dungeon's floors are 6 m apart)
+const dgAway = z => Math.round(Math.abs(z - DG.floor) / 12);      // (a dungeon's floors are 12 m apart)
 const dgLevel = z => Math.round(z / 6) * 6;                        // the floor a height is on
 const dgLabel = (d, z) => (d.labels || {})[String(z)] || `${z > 0 ? "+" : ""}${z} m`;     // ("-54 / -60 m": floors that are one)
 const dgHeat = (lv, lo, hi) => { const t = hi > lo ? (lv - lo) / (hi - lo) : 0; return `hsl(${Math.round(190 - 190 * t)} 72% ${t > .5 ? 50 : 44}%)`; };
