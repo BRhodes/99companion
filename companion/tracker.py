@@ -34,6 +34,7 @@ from .worldmap import coords
 from . import goals
 from . import comporder
 from . import appraisal
+from . import itemmana
 
 FOE_RECENT = 300.0               # the Monster card's < >: what you fought within this long of your latest fight
 FOE_HISTORY = 40              # remembered at most (a busy 5 minutes fits)
@@ -64,6 +65,8 @@ REJECT_CODES = {0x1D: "rejected: busy", 0x3FC: "rejected: untrained", 0x3FE: "re
                 0x409: "rejected", 0x40A: "rejected: unprepared"}
 COIN_VALUE = 20         # int stat: pyreals carried
 ENCUMB_VAL = 5          # int stat: the burden of everything you carry (the 1999 item description has no burden)
+ITEM_CUR_MANA = 107     # int stat on an item: its mana (sent for a mana stone or a cast from an orb or wand, not as
+                        # worn items drain: itemmana.py)
 LEVEL = 25              # int stat: character level
 RUN_SKILL = 24          # Run (skills.py)
 CORPSE_SECONDS_PER_LEVEL = 300.0   # a player's corpse lasts 5 minutes a level (Player.cpp; no floor in 1999)
@@ -145,6 +148,9 @@ class Tracker:
         """A character left the world (logoff to character select, or another character entered on
         the same connection): forget everything about the character, keep the connection's account."""
         logout = None
+        if getattr(self, "item_mana", None):
+            self._mana_off_all(self.clock())
+        self.item_mana = itemmana.ItemMana()    # the mana of the items you wear (itemmana.py)
         if getattr(self, "in_world", False):
             self.logouts = getattr(self, "logouts", 0) + 1
             if getattr(self, "character", None):            # the chat's "Logged out from ..." line, while its name's known
@@ -267,6 +273,14 @@ class Tracker:
         if ev["object"] in self.objects and "magic" in ev:
             self.objects[ev["object"]]["magic"] = ev["magic"]     # carries spells
         obj = self.objects.get(ev["object"], {})
+        prof = ev.get("profile") or {}
+        if ev["success"] and prof.get("mana") is not None:        # an item's mana, read (itemmana.py)
+            rec = self._mana_record(ev["object"], now)
+            self.item_mana.reading(rec, prof["mana"], now, prof.get("max_mana"), prof.get("spells"))
+            if rec.get("since") is not None and self._lands_on_you(rec) and \
+                    not any(e["caster"] == ev["object"] for e in self.enchantments.values()):
+                rec["since"] = None                  # worn, but none of its spells are on you: its magic's off
+            self._mana_save(rec, now)
         # an item you appraised (not a creature or player), and it worked: a line to paste (appraisal.py)
         prof = ev.get("profile")
         item = ev["success"] and prof and not prof.get("creature")
@@ -702,6 +716,12 @@ class Tracker:
             table = self.spells.get(e["spell"], {}).get("duration")
             if e["caster"] == self.player and table and e["duration"] > 0 and e["start"] > -1:
                 self.duration_ratios.append(e["duration"] / table)  # a fresh cast, not one restored at login
+        for guid in {e["caster"] for e in ev["list"]} & self._worn():     # a worn item's spells on you: its magic's on
+            rec = self._mana_record(guid, now)
+            if rec.get("since") is None or rec.get("error"):
+                rec["error"] = None
+                self.item_mana.wear(rec, now, equip=False)
+                self._mana_save(rec, now)
 
     def _note_item_spell(self, cast, now):
         """A bane/Impenetrability (on armor, underclothes or a shield) or a weapon spell (Blood Drinker, Heart
@@ -749,6 +769,10 @@ class Tracker:
         return ordered[len(ordered) // 2]
 
     def _on_enchantments_removed(self, ev, now):
+        gone = {self.enchantments[i]["caster"] for i in ev["ids"] if i in self.enchantments}
+        for guid in gone & set(self.item_mana.items):
+            if not any(e["caster"] == guid for i, e in self.enchantments.items() if i not in ev["ids"])                     and self._lands_on_you(self.item_mana.items[guid]):
+                self._mana_off(guid, now)            # its spells came off you: its magic's off (taken off, ran out)
         for eid in ev["ids"]:
             e = self.enchantments.pop(eid, None)
             # one of your own buffs ran out and nothing else of its kind is still on you
@@ -819,6 +843,63 @@ class Tracker:
                 "recast": sid if sid in self.known_spells else None, "recast_name": b["spell"], "recast_weaker": False})
         return out
 
+    # ---- the mana of the items you wear (itemmana.py) ---------------------------------------------
+    def _worn(self):
+        return {g for g, o in self.objects.items() if self.player is not None and o.get("wielder") == self.player}
+
+    def _mana_record(self, guid, now):
+        """The item's record; one remembered from later than now (a journal replayed) isn't this moment's."""
+        recall = getattr(self, "recall_mana", None)
+        older = lambda g: (lambda r: r if r and (r.get("at") or 0) <= now else None)(recall(g)) if callable(recall) else None
+        return self.item_mana.record(guid, self.objects.get(guid, {}).get("name"), older)
+
+    def _mana_save(self, rec, now):
+        """Remember an item's record as of now (Companion sets remember_mana: the store's, by the item's id)."""
+        rec["at"] = now
+        if callable(getattr(self, "remember_mana", None)):
+            self.remember_mana(dict(rec))
+
+    def _lands_on_you(self, rec):
+        """Whether the item's spells (known from an appraisal) land on you -- so its magic's on exactly while they're
+        on you -- rather than on the item (Impenetrability, banes, the weapon spells: never shown to you)."""
+        names = set(rec.get("spells") or [])
+        mods = [SPELL_MODS.get(sid) for sid, s in self.spells.items() if s.get("name") in names]
+        return bool(mods) and any(not m or m[1] not in buffpanel.ITEM_KEYS for m in mods)
+
+    def _mana_off(self, guid, now):
+        rec = self.item_mana.items.get(guid)
+        if rec and rec.get("since") is not None:
+            self.item_mana.off(rec, now)
+            self._mana_save(rec, now)
+
+    def _mana_off_all(self, now):
+        for guid in list(self.item_mana.items):
+            self._mana_off(guid, now)
+
+    def item_mana_snapshot(self, now):
+        """The items you wear that have (or might have) magic, each with its mana: estimated now from the last reading
+        (itemmana.estimate), how fast it goes and how long it lasts; and the spells it has on you."""
+        powers = self._spell_powers()
+        by_caster = {}
+        for e in self.enchantments.values():
+            by_caster.setdefault(e["caster"], []).append(self.spells.get(e["spell_id"], {}).get("name") or f"Spell {e['spell_id']}")
+        out = []
+        for guid in self._worn():
+            o = self.objects.get(guid, {})
+            rec = self.item_mana.items.get(guid) or {}
+            if o.get("magic") is False and not rec.get("mana") and guid not in by_caster:
+                continue                          # appraised: no magic on it
+            rate = itemmana.rate(rec, powers) if rec else None
+            mana = itemmana.estimate(rec, powers, now) if rec else None
+            out.append({"guid": guid, "name": o.get("name") or rec.get("name") or "?",
+                        "slot": buffpanel.item_slot(o.get("location")), "spells": rec.get("spells"),
+                        "on_you": sorted(by_caster.get(guid, [])), "mana": None if mana is None else round(mana, 1),
+                        "max": rec.get("max"), "read": rec.get("read"), "rate": rate,
+                        "left": mana / rate if mana is not None and rate else None,
+                        "active": rec.get("since") is not None, "error": rec.get("error"),
+                        "error_text": itemmana.ERROR_TEXT.get(rec.get("error")), "out": bool(rec.get("out"))})
+        return sorted(out, key=lambda r: (r["left"] is None, r["left"] or 0, r["name"]))
+
     def _skill_from_record(self, skill_id, rec, now, old=None):
         st = old or {"id": skill_id, "grants": 0, "skill_xp": 0}
         st.update(sac=rec["sac"], pp=rec["pp"], level=rec["level_from_pp"] + rec["init_level"])
@@ -828,6 +909,11 @@ class Tracker:
         return st
 
     def _on_int(self, ev, now):
+        if ev["key"] == ITEM_CUR_MANA and ev["object"] != self.player:     # an item's mana (a mana stone, a cast)
+            rec = self._mana_record(ev["object"], now)
+            self.item_mana.reading(rec, ev["value"], now)
+            self._mana_save(rec, now)
+            return
         if self.player is not None and ev["object"] != self.player:
             return
         key, value = ev["key"], ev["value"]
@@ -980,6 +1066,10 @@ class Tracker:
         if text.startswith(TEXT_COMPONENTS):
             names = [n.strip() for n in text[len(TEXT_COMPONENTS):].split(",") if n.strip()]
             self.ledger.burned(action["cast"] if action else None, names)
+        elif (m := itemmana.OUT_OF_MANA.match(text)):           # a worn item ran out: its spells come off
+            rec = self.item_mana.ran_out(m.group(1), now, self._worn())
+            if rec:
+                self._mana_save(rec, now)
         elif action and ev["channel"] == MAGIC_CHANNEL:
             if text.startswith("You cast"):
                 self._resolve(action, SUCCESS, "cast")
@@ -1219,6 +1309,11 @@ class Tracker:
     def _on_error(self, ev, now):
         self._expire_actions(now)
         code = ev["code"]
+        if code in itemmana.ACTIVATION_ERRORS:      # the item just put on didn't switch its magic on (not a cast's)
+            rec = self.item_mana.failed(code, now)
+            if rec:
+                self._mana_save(rec, now)
+            return
         if code == INTERRUPTED and self.stance_asked and now - self.stance_asked[0] < STANCE_REFUSE_WINDOW:
             self.stance, self.stance_asked = self.stance_asked[1], None      # the stance change was refused
         if code in REJECT_CODES:
@@ -1281,12 +1376,19 @@ class Tracker:
             del sightings[:-50]
         if ev["object"] == self.player and ev.get("position"):
             self._on_position(dict(ev["position"], object=None), now)
+        if self.player is not None and ev.get("wielder") == self.player and ev.get("location"):
+            rec = self._mana_record(guid, now)          # worn when you came in (or back into view): its spells are on --
+            on_you = any(e["caster"] == guid for e in self.enchantments.values())   # (for ones that land on you: if they are)
+            if rec.get("since") is None and (on_you or not self._lands_on_you(rec)):
+                self.item_mana.wear(rec, now, equip=False)
 
     def _on_stack(self, ev, now):
         if ev["object"] in self.objects:
             self.objects[ev["object"]]["stack"] = ev["stack"]
 
     def _on_moved(self, ev, now):
+        if self.objects.get(ev["object"], {}).get("wielder") == self.player is not None:
+            self._mana_off(ev["object"], now)           # taken off
         if "slot" in ev:
             self._place(ev["object"], ev["container"], ev["slot"], ev.get("pack"))
         if ev["object"] in self.objects:     # into a pack: not worn any more (if it was)
@@ -1299,6 +1401,9 @@ class Tracker:
         obj = self.objects.get(ev["object"])
         if obj is not None and self.player is not None:
             obj.update(wielder=self.player, location=ev["location"], container=None)
+            rec = self._mana_record(ev["object"], now)
+            self.item_mana.wear(rec, now, equip=True)     # its magic comes on (unless an activation error follows)
+            self._mana_save(rec, now)
 
     def _on_removed(self, ev, now):
         if ev["object"] in self.objects:
@@ -1363,6 +1468,8 @@ class Tracker:
             self._note_kill(now, gone=(ev["object"], o.get("name")))
         if self.vendor and self.vendor["id"] == ev["object"]:
             self.close_vendor("the vendor went out of view")
+        if o and o.get("wielder") == self.player is not None:
+            self._mana_off(ev["object"], now)
         self.objects.pop(ev["object"], None)
         self._unorder(ev["object"])
 
@@ -1481,6 +1588,7 @@ class Tracker:
             "spellbar": self.spellbar,
             "vitals": self._vital_snapshot(),
             "buffs": self._buffs(now),
+            "item_mana": self.item_mana_snapshot(now),
             "buff_panel": buffpanel.build(self, now),
             "s2m": s2m.table(self),
             "components": self._components_carried(inv),

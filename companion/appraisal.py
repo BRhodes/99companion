@@ -20,13 +20,21 @@ SPELL_SHORT = json.loads((Path(__file__).parent / "data" / "spell_short.json").r
 MIN_DRAIN = 0.0166      # mana a second: loot never drains slower (TreasureFactory.cpp, MANA_RATE_FLOAT)
 
 
+def mana_rate(spells, powers):
+    """Mana a second an item uses while its spells are on, or None: loot's rate is its spells' total power / 10,000
+    a second, at least MIN_DRAIN (TreasureFactory.cpp). Quest and other fixed items have their own rates, which the
+    game never says."""
+    if not spells or any(s not in (powers or {}) for s in spells):
+        return None
+    return max(sum(powers[s] for s in spells) / 10000.0, MIN_DRAIN)
+
+
 def mana_hours(mana, spells, powers):
     """About how long `mana` lasts worn, in hours, or None. The server takes 1 mana every 1/rate seconds while the
-    item's spells are on, and loot's rate is its spells' total power / 10,000 a second, at least MIN_DRAIN
-    (TreasureFactory.cpp). Quest and other fixed items have their own rates, which the game never says."""
-    if not mana or not spells or any(s not in powers for s in spells):
+    item's spells are on (mana_rate)."""
+    rate = mana_rate(spells, powers)
+    if not mana or rate is None:
         return None
-    rate = max(sum(powers[s] for s in spells) / 10000.0, MIN_DRAIN)
     return mana / rate / 3600
 
 

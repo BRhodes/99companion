@@ -32,6 +32,8 @@ CREATE TABLE IF NOT EXISTS comp_vendors (character TEXT PRIMARY KEY, ts REAL NOT
 -- your own corpses (each character's): where they lie and when they rot
 CREATE TABLE IF NOT EXISTS corpses (character TEXT NOT NULL, id INTEGER NOT NULL, expires REAL NOT NULL, data TEXT NOT NULL,
     PRIMARY KEY (character, id));
+-- the mana of the items your characters wear, by item (itemmana.py): its last reading and its time worn since
+CREATE TABLE IF NOT EXISTS item_mana (guid INTEGER PRIMARY KEY, data TEXT NOT NULL);
 -- what appraisal training has learned about each item in a character's pack (appraise.py)
 CREATE TABLE IF NOT EXISTS appraisal_items (character TEXT NOT NULL, object INTEGER NOT NULL, data TEXT NOT NULL,
     PRIMARY KEY (character, object));
@@ -154,6 +156,19 @@ class Store:
         self.db.execute("DELETE FROM corpses WHERE expires <= ?", (now,))
         self.db.commit()
         return [json.loads(d) for (d,) in self.db.execute("SELECT data FROM corpses WHERE character = ?", (character,))]
+
+    def save_item_mana(self, rec):
+        """Remember a worn item's mana record (itemmana.py), by its id; not over a newer one."""
+        old = self.item_mana(rec["guid"])
+        if old and (old.get("at") or 0) > (rec.get("at") or 0):
+            return                        # (a journal replayed: what's kept is newer)
+        self.db.execute("INSERT OR REPLACE INTO item_mana (guid, data) VALUES (?, ?)", (rec["guid"], json.dumps(rec)))
+        self.db.commit()
+
+    def item_mana(self, guid):
+        """A remembered item's mana record, or None."""
+        row = self.db.execute("SELECT data FROM item_mana WHERE guid = ?", (guid,)).fetchone()
+        return json.loads(row[0]) if row else None
 
     def items(self):
         """{guid: {guid, name, owner, appraised, gone, text, profile}}: the shared item table."""

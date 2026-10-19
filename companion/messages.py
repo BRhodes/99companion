@@ -14,6 +14,8 @@ log = logging.getLogger(__name__)
 OP_UPDATE_INT = 0x000E
 OP_PLAYER_DESCRIPTION = 0x0013
 OP_WEENIE_ERROR = 0x001C
+OP_WEENIE_ERROR_STRING = 0x028B    # (in 0xF7B0) an error with a name in it: [i32 code][string] -- "You must be %s to use that
+                                   # item's magic." (the 1999 client shows nothing for it)
 OP_REMOVE_FROM_CONTAINER = 0x0024
 OP_UPDATE_SKILL = 0x0028
 OP_UPDATE_ATTRIBUTE = 0x0026   # [obj][key][attribute 12]
@@ -249,6 +251,8 @@ def _server(op, r, wrapped):
         return [{"type": "tell", "text": text, "sender": sender, "sender_id": r.u32()}]
     if op == OP_WEENIE_ERROR:
         return [{"type": "error", "code": r.i32()}]
+    if op == OP_WEENIE_ERROR_STRING and wrapped:
+        return [{"type": "error", "code": r.i32(), "text": r.string16()}]
     if op == OP_APPRAISAL:
         obj = r.u32()
         flags = r.u32()   # AppraisalProfile's sections: 0x800000 = the magic block, sent for an item with spells

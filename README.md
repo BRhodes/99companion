@@ -144,6 +144,9 @@ The repository is `REPO` in `companion/updater.py` (or set it in Settings › Up
   your pack, your odds at your current skill, and a research queue ordered to need the fewest changes.
 - **Buffs**: your buff profile (Relax / Max / a set tier per buff), what's missing from your spell bar, and
   which tiers to learn next.
+- **Mana**: the items you wear and how much mana each has left -- estimated from its last appraisal as it drains --
+  and how long that lasts; whether its magic came on (or why not: Arcane Lore too low...). Appraise an item to read it
+  again.
 - **Items**: everything you carry, and every item any of your characters has appraised.
 - **Bonus XP**: skill-use XP grants and each skill's timer.
 - **Dungeon**: a dungeon's floor plan, floor by floor, with you on it and every creature spawn point: up, killed with

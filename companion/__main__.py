@@ -526,6 +526,8 @@ class Companion:
                 view.tracker.recall_vendor = self.store.comp_vendor
                 view.tracker.remember_corpse = self.store.save_corpse      # your corpses, till they rot
                 view.tracker.recall_corpses = self.store.corpses
+                view.tracker.remember_mana = self.store.save_item_mana     # worn items' mana (itemmana.py)
+                view.tracker.recall_mana = self.store.item_mana
             if self.checkpoints:
                 self.checkpoints.restore(self.sessions[num])
             self.dirty = True

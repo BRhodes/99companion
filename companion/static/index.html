@@ -365,6 +365,13 @@ a { color: var(--accent); }
 .itbl { width: 100%; }
 .itbl td.txt { width: 100%; color: var(--muted); white-space: normal; overflow-wrap: anywhere; }
 .itbl tr.known td.txt { color: var(--ink); }
+.manatbl th { text-align: left; font-size: 11px; font-weight: 600; color: var(--muted); padding: 4px 6px; white-space: nowrap; }
+.manatbl th.num, .manatbl td.num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.manatbl td.spells { color: var(--muted); }
+.manatbl tr.now td.left, .manatbl tr.now td.state { color: var(--bad); font-weight: 600; }      /* act now */
+.manatbl tr.soon td.left { color: var(--warn); font-weight: 600; }                              /* act soon */
+.manatbl tr.off td { opacity: .6; }
+.manatbl .as { display: block; font-size: 11px; color: var(--muted); }
 .itbl tr.sub th { text-align: left; font-size: 11px; font-weight: 600; color: var(--muted); padding: 8px 6px 2px; position: sticky; top: 0; background: var(--panel); }
 @media (min-width: 1300px) {
   body.itemsfit { overflow: hidden; }
@@ -724,7 +731,7 @@ section[data-widget="buffpanel"]:has(#dashDungeon:not([hidden])) { display: flex
 <div id="pagenav" role="navigation" aria-label="Pages">
   <a href="#dashboard" data-page="dashboard">Dashboard</a><a
     href="#comps" data-page="comps">Comps</a><a
-    href="#map" data-page="map">Map</a><a href="#spells" data-page="spells">Spell research</a><a href="#buffs" data-page="buffs">Buffs</a><a href="#items" data-page="items">Items</a><a href="#xp" data-page="xp">Bonus XP</a><a href="#exp" data-page="exp">Experience</a><a href="#dungeon" data-page="dungeon">Dungeon</a><a href="#info" data-page="info">Info</a><a href="#chat" data-page="chat">Chat <span id="chatBadge"></span></a><a href="#config" data-page="config">Settings</a>
+    href="#map" data-page="map">Map</a><a href="#spells" data-page="spells">Spell research</a><a href="#buffs" data-page="buffs">Buffs</a><a href="#mana" data-page="mana">Mana</a><a href="#items" data-page="items">Items</a><a href="#xp" data-page="xp">Bonus XP</a><a href="#exp" data-page="exp">Experience</a><a href="#dungeon" data-page="dungeon">Dungeon</a><a href="#info" data-page="info">Info</a><a href="#chat" data-page="chat">Chat <span id="chatBadge"></span></a><a href="#config" data-page="config">Settings</a>
 </div>
 <div id="none">No characters yet. Start the relay and log in through 127.0.0.1:9110.</div>
 <div id="toast" role="status" aria-live="polite"></div>
@@ -1055,6 +1062,15 @@ section[data-widget="buffpanel"]:has(#dashDungeon:not([hidden])) { display: flex
   </div>
 </div>
 
+<div class="page" id="page-mana">
+  <div class="grid">
+    <section class="wide"><h2>Item mana <span class="muted" style="font-size:12px;font-weight:400;text-transform:none;letter-spacing:0">what you wear</span></h2>
+      <div class="scroll"><table class="itbl manatbl"><thead><tr><th>Item</th><th>Spells</th><th class="num">Mana</th><th class="num">Uses</th>
+        <th class="num">Lasts</th></tr></thead><tbody id="manaBody"></tbody></table></div>
+      <div class="muted" id="manaNote" style="font-size:12px;margin-top:8px"></div></section>
+  </div>
+</div>
+
 <div class="page" id="page-chat">
   <div class="grid"><section class="wide" id="chatBox">
     <h2>Chat</h2>
@@ -1256,6 +1272,7 @@ function render() {
     renderDungeon(s);
   });
   if (page === "items") safely("items", renderItems);
+  if (page === "mana") safely("mana", renderMana);
   if (page === "info") { safely("s2m", renderS2M); safely("appraisals", renderAppraisals); }
   safely("chat badge", renderChatBadge);
   if (page === "dashboard") safely("dashboard", renderDashboard);
@@ -2489,7 +2506,7 @@ document.addEventListener("click", e => {
 document.addEventListener("input", e => { if (e.target.id === "chatSearch") render(); });
 
 // ---- views -------------------------------------------------------------------------------------
-const PAGES = ["dashboard", "comps", "map", "spells", "buffs", "items", "xp", "exp", "dungeon", "info", "chat", "config"];
+const PAGES = ["dashboard", "comps", "map", "spells", "buffs", "mana", "items", "xp", "exp", "dungeon", "info", "chat", "config"];
 let page = "dashboard";
 function pageFromHash() {
   const h = location.hash.slice(1);
@@ -2896,6 +2913,32 @@ function renderItems(state) {
   }).join("") : `<tr><td class="empty">${itemBook ? (q ? "Nothing matches." : "No items appraised yet.") : "Loading…"}</td></tr>`);
 }
 $("itemSearch").addEventListener("input", () => render());
+
+// Mana: the items you wear and their mana (itemmana.py) -- estimated from the last appraisal (or mana stone), as it
+// drains while their spells are on: red when it's about out (under half an hour, out, or its magic failed to come
+// on), yellow under two hours. Appraising an item reads it again.
+const MANA_NOW = 1800, MANA_SOON = 7200;
+const hmm = s => s == null ? "-" : `${Math.floor(s / 3600)}:${String(Math.floor(s % 3600 / 60)).padStart(2, "0")}`;
+const agoM = s => s < 90 ? `${Math.max(0, Math.round(s))}s` : s < 3600 ? `${Math.round(s / 60)}m` : `${Math.floor(s / 3600)}h ${Math.floor(s % 3600 / 60)}m`;
+function renderMana(state) {
+  const rows = state.item_mana || [], t = now();
+  setHTML($("manaBody"), rows.length ? rows.map(r => {
+    const failed = r.error != null, off = !r.active && !failed;
+    const tone = failed || r.out || (r.active && r.left != null && r.left < MANA_NOW) ? "now"
+      : r.active && r.left != null && r.left < MANA_SOON ? "soon" : off ? "off" : "";
+    const spells = (r.spells || r.on_you || []).join(", ");
+    const lasts = r.out ? "out of mana" : failed ? `off: ${esc(r.error_text || `error ${r.error}`)}`
+      : off ? "off" + (r.spells ? " (none of its spells on you)" : "") : r.left != null ? hmm(r.left) : "-";
+    return `<tr class="${tone}"><td class="nm">${esc(r.name)}${r.slot ? ` <span class="muted">${esc(r.slot)}</span>` : ""}</td>
+      <td class="spells">${spells ? esc(spells) : "<i>appraise to start</i>"}</td>
+      <td class="num">${r.mana == null ? "-" : `${fmt(r.mana)} / ${fmt(r.max)}`}${r.read ? `<span class="as" title="Estimated since then: appraise it to read it again">as of appraisal ${agoM(t - r.read)} ago</span>` : ""}</td>
+      <td class="num">${r.rate ? `1 per ${Math.round(1 / r.rate)} s` : r.mana != null ? "<span class=\"muted\" title=\"Not loot's rate (a quest item?): the game never says\">?</span>" : "-"}</td>
+      <td class="num ${failed || r.out ? "state" : "left"}">${lasts}</td></tr>`;
+  }).join("") : `<tr><td class="empty" colspan="5">Nothing worn${state.status && state.status.in_world ? "" : " (or not in the world yet)"}.</td></tr>`);
+  setHTML($("manaNote"), `Mana is estimated from each item's last appraisal: appraise it to read it again. An item uses 1 mana when
+    it's put on, then 1 every so often while its spells are on (its spells' power / 10,000 a second); nothing while it's off,
+    or you're logged out.`);
+}
 document.addEventListener("click", e => {
   const b = e.target.closest("[data-copy-item], [data-copy-book]");
   if (!b) return;
