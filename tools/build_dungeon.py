@@ -168,11 +168,11 @@ def walkable(portal_dat, c):
             w, up = w[::-1], -up
         if up >= WALKABLE:
             out.append((w, up))
-        elif up > -0.3 and ids not in sloped_doors:      # a wall (not a ceiling): its foot
-            low = min(p[2] for p in w)
-            for a, b in zip(w, w[1:] + w[:1]):
-                if a[2] < low + 0.3 and b[2] < low + 0.3 and math.dist(a[:2], b[:2]) > 0.2:
-                    walls.append([round(a[0], 2), round(a[1], 2), round(b[0], 2), round(b[1], 2), round(low, 2)])
+        elif up > -0.3 and ids not in sloped_doors:      # a wall (not a ceiling): its foot -- an edge with the rest of
+            for k, (a, b) in enumerate(zip(w, w[1:] + w[:1])):   # it above (level, or along a ramp), at its middle's height
+                rest = [p[2] for j, p in enumerate(w) if j not in (k, (k + 1) % len(w))]
+                if rest and min(rest) >= max(a[2], b[2]) - 0.05 and math.dist(a[:2], b[:2]) > 0.2:
+                    walls.append([round(a[0], 2), round(a[1], 2), round(b[0], 2), round(b[1], 2), round((a[2] + b[2]) / 2, 2)])
     return out, holes, beside, walls
 
 
@@ -303,6 +303,37 @@ def inside(poly, x, y):
     return hit
 
 
+def two_sided(wall, cells, _index={}):
+    """A wall's foot with ground on both sides of it (a step's riser, a lip between two pieces of floor, a door frame's
+    side): not a wall. Looked for half a metre and a metre and a half out (past a doorway's bare threshold), at about
+    its height."""
+    key = id(cells)
+    if key not in _index:
+        _index.clear()
+        grid = _index[key] = {}
+        for c in cells:
+            for w, _up in c["raw"]:
+                (ax, ay, az), (bx, by, bz), (cx, cy, cz) = w[:3]
+                nx = (by - ay) * (cz - az) - (bz - az) * (cy - ay)
+                ny = (bz - az) * (cx - ax) - (bx - ax) * (cz - az)
+                nz = (bx - ax) * (cy - ay) - (by - ay) * (cx - ax)
+                piece = ([p[:2] for p in w], lambda x, y, a=w[0], n=(nx, ny, nz): a[2] - (n[0] * (x - a[0]) + n[1] * (y - a[1])) / n[2] if n[2] else a[2])
+                xs, ys = [p[0] for p in w], [p[1] for p in w]
+                for gx in range(math.floor(min(xs)), math.floor(max(xs)) + 1):
+                    for gy in range(math.floor(min(ys)), math.floor(max(ys)) + 1):
+                        grid.setdefault((gx, gy), []).append(piece)
+    grid = _index[key]
+    x1, y1, x2, y2, z = wall
+    length = math.dist((x1, y1), (x2, y2)) or 1
+    nx, ny = (y2 - y1) / length, -(x2 - x1) / length
+    mx, my = (x1 + x2) / 2, (y1 + y2) / 2
+
+    def ground(x, y):
+        return any(inside(poly, x, y) and -0.5 < z_at(x, y) - z < 1.5 for poly, z_at in grid.get((math.floor(x), math.floor(y)), []))
+    sides = [any(ground(mx + s * d * nx, my + s * d * ny) for d in (0.5, 1.5)) for s in (1, -1)]
+    return all(sides)
+
+
 def connections(ways):
     """The ways between floors, neighbouring ones joining the same pair as one: [{n: its number, a: the upper floor,
     b: the lower, x, y}], top down."""
@@ -392,7 +423,7 @@ def build(landblock, name, core):
         door["arrival"]["floor"] = level(sum(zs) / len(zs)) if zs else (cell or {}).get("z")
     # the ground itself, in 3D (each walkable polygon once, [[x, y, z]...]): what the page's walking view spreads over
     surface = [[[round(x, 2), round(y, 2), round(z, 2)] for x, y, z in w] for c in cells for w, _up in c["raw"]]
-    walls = [w for c in cells for w in c["walls"]]
+    walls = [w for c in cells for w in c["walls"] if not two_sided(w, cells)]
     for c in cells:
         del c["raw"], c["holes"], c["beside"], c["walls"]
     return {"name": name, "landblock": landblock, "floors": heights, "cells": cells, "spawns": spawns, "exits": exits,
