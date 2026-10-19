@@ -1370,6 +1370,12 @@ function goalBar(goal) {
 // ---- the launcher (launcher.py): the header's launch buttons, Settings > Game and Settings > Accounts ----------
 // Vendor backgrounds are on: experimental features and the backgrounds both (Settings › Game). (The global state:
 // a page's renderer often has a character's own `state` in its place.)
+// Someone's typing in one of this box's fields (a redraw now would lose what they typed). A button, tick box or radio
+// that keeps the focus after a click doesn't count: the box should show what that click did.
+function typingIn(box) {
+  const a = document.activeElement;
+  return !!(box && a && box.contains(a) && a.matches("input:not([type=checkbox]):not([type=radio]):not([type=button]), select, textarea"));
+}
 function launcherSetting(key) {     // (the same reason: the global state's launcher settings)
   return !!(state && state.launcher && state.launcher[key]);
 }
@@ -1409,7 +1415,7 @@ function renderLauncher(L, sessions) {
   const tick = (ok, what) => `<span class="${ok ? "have" : "miss"}">${ok ? "✓" : "✗"} ${what}</span>`;
   const g = L.game, game = $("cfgGame");
   // (not while you're typing in one of its boxes; a button or tick box that keeps the focus doesn't hold it up)
-  const typing = box => box.contains(document.activeElement) && document.activeElement.matches("input[type=text], input[type=password]");
+  const typing = typingIn;
   if (cfgTab === "game" && game && !typing(game)) setHTML(game, `<div class="ocfg" style="max-width:760px">
     <div class="k">Game folder</div><div class="col">
       <span><b>${esc(g.dir || "-")}</b> <span class="muted">${g.picked ? "picked" : g.ok ? "found on its own" : ""}</span></span>
@@ -1540,7 +1546,7 @@ function renderUpdate(u) {
     : u.applied && u.relay && !u.supervised ? `<span class="upd" title="A file the relay runs changed">Updated to ${short(u.applied.sha)} · restart tools\\relay.cmd when convenient</span>`
     : u.available ? `<span class="upd" title="${esc(u.latest.message)}">Update ${short(u.latest.sha)} available <button class="chip mini" data-upd-apply>Update now</button></span>` : "");
   const box = $("cfgUpdates");
-  if (!box || (page !== "config" || cfgTab !== "updates") || box.contains(document.activeElement)) return;
+  if (!box || (page !== "config" || cfgTab !== "updates") || typingIn(box)) return;
   setHTML(box, `<div class="ocfg" style="max-width:720px">
     <div class="k">Repository</div><div class="col"><label><input type="text" data-upd-repo value="${esc(u.repo || "")}" placeholder="owner/name" style="width:240px"></label>
       <span class="hint2">the project's GitHub repository (public): checked at start and every half hour</span></div>
@@ -1669,7 +1675,7 @@ function renderSession(state, relayUp) {
     th.classList.toggle("sorted", th.dataset.compSort === sk);
     th.dataset.dir = th.dataset.compSort === sk ? (dir > 0 ? "▲" : "▼") : "";
   }
-  if (!$("comps").contains(document.activeElement)) setHTML($("comps"), comps.map(c => {   // not under someone typing
+  if (!typingIn($("comps"))) setHTML($("comps"), comps.map(c => {   // not under someone typing
     const low = c.hours_left != null && c.hours_left < 1;
     const buy = c.buy;  // tops up to the stock level (stock.py), or this login's rate before there's history
     const why = (c.why || []).map(w => `${w.name}: ${num(w.casts_per_hour)} casts/h → ${num(w.burn_per_hour, 2)}/h`).join(" · ");
@@ -3024,7 +3030,7 @@ const localInput = ts => { const d = new Date(ts * 1000 - new Date(ts * 1000).ge
 const pinning = {};        // character -> its order's start being saved (renderOrderCfg)
 function renderOrderCfg(state, burn) {
   const box = $("orderCfg"), o = burn.order;
-  if (box.contains(document.activeElement)) return;
+  if (typingIn(box)) return;     // (a button or tick box keeping the focus doesn't hold the redraw up)
   const who = (state.status || {}).character, p = charPrefs(who);
   if (!o || !p) return setHTML(box, `<div class="empty">Nothing to set until a character's in the world.</div>`);
   const cfg = p.restock || {target_bu: o.target_bu, min: o.min};
