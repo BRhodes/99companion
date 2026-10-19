@@ -356,8 +356,8 @@ def inside(poly, x, y):
 
 def two_sided(wall, cells, _index={}):
     """A wall's foot with ground on both sides of it (a step's riser, a lip between two pieces of floor, a door frame's
-    side): not a wall. Looked for half a metre and a metre and a half out (past a doorway's bare threshold), at about
-    its height."""
+    side): not a wall. Looked for half a metre out (a doorway's bare threshold is filled in first), at about its
+    height."""
     key = id(cells)
     if key not in _index:
         _index.clear()
@@ -381,7 +381,7 @@ def two_sided(wall, cells, _index={}):
 
     def ground(x, y):
         return any(inside(poly, x, y) and -0.5 < z_at(x, y) - z < 1.5 for poly, z_at in grid.get((math.floor(x), math.floor(y)), []))
-    sides = [any(ground(mx + s * d * nx, my + s * d * ny) for d in (0.5, 1.5)) for s in (1, -1)]
+    sides = [any(ground(mx + s * d * nx, my + s * d * ny) for d in (0.5,)) for s in (1, -1)]
     return all(sides)
 
 
