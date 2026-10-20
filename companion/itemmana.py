@@ -31,6 +31,12 @@ EQUIP_WINDOW = 3.0      # seconds: an activation error this soon after an equip 
 OUT_OF_MANA = re.compile(r"^Your (.+) is out of Mana\.$")
 GIVES = re.compile(r"^The (.+?) gives ([\d,]+) points? of mana to (?:the |your )?(.+?)\.$")
 GIFTS_KEPT = 20         # the latest mana stone uses kept on an item
+# A stone gives all it holds, or as much as the item has room for (ManaStone.cpp): giving less than it held, it filled
+# the item -- the item's mana is its max now. A stone's charge is its last ITEM_CUR_MANA; a charge's, its kind's (they
+# come full: 9 WeenieDefaults ManaStone).
+CHARGES = {"Tiny Mana Charge": 50, "Small Mana Charge": 100, "Moderate Mana Charge": 250, "High Mana Charge": 500,
+           "Great Mana Charge": 1000}
+FILL_WINDOW = 5.0       # seconds: the item's new mana and the stone's message come together (either first)
 
 
 def rate(rec, powers):
@@ -68,9 +74,11 @@ class ItemMana:
     def reading(self, rec, mana, now, max_mana=None, spells=None, source="update"):
         """The item's mana, read (an appraisal, a mana update): the estimate starts again from it."""
         rec.update(mana=mana, read=now, worn=0.0, equips=0, out=mana == 0)
-        if not (source == "update" and rec.get("source") == "mana stone" and now - (rec.get("read_at") or 0) < 5):
+        if not (source == "update" and rec.get("source") == "mana stone" and now - (rec.get("read_at") or 0) < FILL_WINDOW):
             rec["source"] = source           # (a stone's update, just after its "gives": the stone read it)
         rec["read_at"] = now
+        if rec.get("filled") is not None and now - rec["filled"] < FILL_WINDOW:
+            rec["max"] = mana                # (a stone just filled it: this is as full as it gets)
         if max_mana is not None:
             rec["max"] = max_mana
         if spells and "Unknown" not in spells:
@@ -106,10 +114,16 @@ class ItemMana:
             rec["worn"] = (rec.get("worn") or 0) + now - rec["since"]
             rec["since"] = None
 
-    def given(self, rec, amount, source, now):
-        """A mana stone (or charge) gave the item mana: kept on it (its new mana comes as an update)."""
+    def given(self, rec, amount, source, now, held=None):
+        """A mana stone (or charge) gave the item mana: kept on it (its new mana comes as an update). held: what the
+        stone held (or the least any it could have been held), if known -- more than it gave, and the item's full."""
         rec["given"] = (rec.get("given") or 0) + amount
         rec["gifts"] = ((rec.get("gifts") or []) + [{"ts": now, "amount": amount, "from": source}])[-GIFTS_KEPT:]
+        if held is not None and held > amount:
+            rec["gifts"][-1]["held"] = held
+            rec["filled"] = now
+            if rec.get("mana") is not None and now - (rec.get("read_at") or -1e9) < FILL_WINDOW:
+                rec["max"] = rec["mana"]     # (its new mana came first)
         rec["source"], rec["read_at"] = "mana stone", now
 
     def ran_out(self, name, now, worn):

@@ -882,6 +882,15 @@ class Tracker:
         older = lambda g: (lambda r: r if r and (r.get("at") or 0) <= now else None)(recall(g)) if callable(recall) else None
         return self.item_mana.record(guid, self.objects.get(guid, {}).get("name"), older)
 
+    def _stone_held(self, name):
+        """What the stone of that name just used held: a charge's kind's, else the least any charged stone of that
+        name of yours held (its last ITEM_CUR_MANA) -- or None, not known."""
+        if name in itemmana.CHARGES:
+            return itemmana.CHARGES[name]
+        held = [r["mana"] for g, r in self.item_mana.items.items()
+                if (r.get("mana") or 0) > 0 and self.objects.get(g, {}).get("name") == name and g not in self._worn()]
+        return min(held) if held else None
+
     def _item_named(self, name):
         """The item of that name you have: one you wear first, else one in your packs, else any seen; or None."""
         named = [g for g, o in self.objects.items() if o.get("name") == name]
@@ -1112,7 +1121,7 @@ class Tracker:
             guid = self._item_named(m.group(3))
             if guid is not None:
                 rec = self._mana_record(guid, now)
-                self.item_mana.given(rec, int(m.group(2).replace(",", "")), m.group(1), now)
+                self.item_mana.given(rec, int(m.group(2).replace(",", "")), m.group(1), now, self._stone_held(m.group(1)))
                 self._mana_save(rec, now)
         elif action and ev["channel"] == MAGIC_CHANNEL:
             if text.startswith("You cast"):

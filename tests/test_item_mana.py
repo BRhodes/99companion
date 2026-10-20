@@ -69,6 +69,36 @@ class ManaStoneTest(unittest.TestCase):
         self.assertEqual((r["given"], len(r["gifts"])), (1307, 2))
         self.assertEqual(row(tr, 3500.0)["mana"], 404 - 30)   # (its 404 read at 2000, then 1 every 50 s since)
 
+    def test_giving_less_than_it_held_fills_the_item(self):
+        tr = tracker()
+        STONE = 0x80000009
+        obj(tr, STAFF, "Black Garnet Staff", 1000.0, container=PACK)
+        obj(tr, STONE, "Greater Mana Stone", 1000.0, container=PACK)
+        appraise(tr, STAFF, 299, 404, ["Focus Other V"], 1000.0)
+        tr.handle({"type": "int", "object": STONE, "key": 107, "value": 684}, 1100.0)    # it drained something
+        # the staff's new mana, the message, then the stone's emptied
+        tr.handle({"type": "int", "object": STAFF, "key": 107, "value": 300}, 1200.0)
+        self.give(tr, 1, "Black Garnet Staff", 1200.0)
+        tr.handle({"type": "int", "object": STONE, "key": 107, "value": 0}, 1200.0)
+        rec = tr.item_mana.items[STAFF]
+        self.assertEqual((rec["mana"], rec["max"]), (300, 300))      # full: the stone held 684 and gave 1
+        self.assertEqual(rec["gifts"][-1]["held"], 684)
+
+    def test_a_charge_filling_it_message_first(self):
+        tr = tracker()
+        obj(tr, NECKLACE, "Bronze Heavy Necklace", 1000.0, container=PACK)
+        self.give(tr, 120, "Bronze Heavy Necklace", 1000.0, stone="Great Mana Charge")   # held 1,000
+        tr.handle({"type": "int", "object": NECKLACE, "key": 107, "value": 820}, 1000.5)
+        self.assertEqual(tr.item_mana.items[NECKLACE]["max"], 820)
+
+    def test_giving_all_it_held_says_nothing_of_full(self):
+        tr = tracker()
+        obj(tr, NECKLACE, "Bronze Heavy Necklace", 1000.0, container=PACK)
+        appraise(tr, NECKLACE, 100, 900, ["Endurance Other VI"], 1000.0)
+        tr.handle({"type": "int", "object": NECKLACE, "key": 107, "value": 600}, 1100.0)
+        self.give(tr, 500, "Bronze Heavy Necklace", 1100.0, stone="High Mana Charge")     # all 500 of it
+        self.assertEqual(tr.item_mana.items[NECKLACE]["max"], 900)
+
     def test_an_appraisal_says_so(self):
         tr = tracker()
         obj(tr, STAFF, "Staff", 1000.0, container=PACK)
