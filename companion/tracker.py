@@ -14,6 +14,7 @@ narrowed to an exact value from the action that caused it (spell power, recipe d
 import json
 import logging
 import math
+import re
 import time
 from collections import Counter, deque
 from pathlib import Path
@@ -59,6 +60,12 @@ EXPIRED_KEEP = 3600.0   # a buff of yours that ran out is reported this long (un
 KILL_PAIR = 3.0         # seconds between a creature's deletion and its corpse appearing for them to be one death
 CHAT_KEEP = 500         # chat lines kept per login (all of them go to the database)
 PLAYER_IDS = range(0x50000000, 0x60000000)
+# Your spells' damage on a creature, as the server words it (WeenieObject.cpp, SpellcastingManager.cpp)
+DAMAGE_DONE = re.compile(r"^(?:Sneak Attack! )?You \w+ (?P<name>.+?) for (?P<n>[\d,]+) points? with .+\.$")   # war
+HARM_DONE = re.compile(r"^With .+? you drain (?P<n>[\d,]+) points? of health from (?P<name>.+)\.$")         # Harm Other
+DRAIN_DONE = re.compile(r"^You gain [\d,]+ points? of health due to casting (?P<spell>.+?) on (?P<name>.+)$")
+DRAIN_FRACTION, DRAIN_CAP = 0.25, 50   # Drain Health Other takes 25% of what it has left, rounded up, at most 50
+                                       # (TransferVitalPercent; its message says what YOU gained: 0 at full health)
 AGGRO_DEFAULT = 40.0          # metres a creature sees you from, unless it says otherwise (the server's DEFAULT_AWARENESS_RANGE)
 FIZZLE = 0x402
 # errors the server returns when it refuses a cast/use request outright (TryBeginCast); nothing burns
@@ -1109,6 +1116,8 @@ class Tracker:
         self._expire_actions(now)
         self._chat_text(ev, now)
         text = ev["text"]
+        if ev["channel"] == MAGIC_CHANNEL:
+            self._predict_hit(text)
         action = self._oldest_cast()
         if text.startswith(TEXT_COMPONENTS):
             names = [n.strip() for n in text[len(TEXT_COMPONENTS):].split(",") if n.strip()]
@@ -1305,17 +1314,55 @@ class Tracker:
                 "target": info(target)}
 
     def _on_combat(self, ev, now):
-        """'You hit X' / 'X hits you' name the creature: the newest object of that name we know."""
+        """'You hit X' / 'X hits you' name the creature: the newest object of that name we know. Your hit says how much
+        it took (its damage, and its share of the creature's max health): off its health bar at once."""
         if self.foe and self.foe["name"] == ev["foe"]:
             self.foe["ts"] = now          # (the same dict as the history's newest)
+        else:
+            guid = max((g for g, o in self.objects.items() if o.get("name") == ev["foe"]), default=None)
+            if guid is not None:
+                self._set_foe(guid, now)
+        if ev.get("you_hit") and ev.get("share") is not None and self.foe and self.foe["name"] == ev["foe"]:
+            o = self.objects.get(self.foe["guid"])
+            if o and o.get("health") is not None:
+                o["health"] = max(0.0, o["health"] - ev["share"])
+
+    # ---- your spells' damage, as it lands: the creature's health bar moved at once (the server's own update follows) --
+    def _spell_damage(self, text):
+        """(creature name, damage or None, its spell's drain fraction or None) from your spell's message, or None."""
+        if (m := DAMAGE_DONE.match(text)) or (m := HARM_DONE.match(text)):
+            return m.group("name"), int(m.group("n").replace(",", "")), None
+        if (m := DRAIN_DONE.match(text)) and m.group("spell").startswith("Drain Health"):
+            return m.group("name"), None, DRAIN_FRACTION
+        return None
+
+    def _predict_hit(self, text):
+        got = self._spell_damage(text)
+        if not got:
             return
-        guid = max((g for g, o in self.objects.items() if o.get("name") == ev["foe"]), default=None)
-        if guid is not None:
-            self._set_foe(guid, now)
+        name, damage, drain = got
+        guid = self.foe["guid"] if self.foe and self.foe["name"] == name else \
+            max((g for g, o in self.objects.items() if o.get("name") == name), default=None)
+        o = self.objects.get(guid)
+        m = MONSTERS.get(str((o or {}).get("wcid")))
+        if not o or not m or not m.get("health") or o.get("health") is None:
+            return
+        top = m["health"]
+        hp = o["health"] * top
+        lost = damage if damage is not None else min(DRAIN_CAP, math.ceil(hp * drain))
+        o["health"] = max(0.0, hp - lost) / top
+
+    def _drain_next(self, guid, m):
+        """What your next Drain Health Other would take from it (25% of what it has, rounded up, at most 50), or None."""
+        o = self.objects.get(guid) if guid is not None else None
+        if not o or not m or not m.get("health") or o.get("health") is None or o.get("dead"):
+            return None
+        return min(DRAIN_CAP, math.ceil(o["health"] * m["health"] * DRAIN_FRACTION))
 
     def _foe_card(self, m, **extra):
         return dict(monsters.analyze(m), defenses=monsters.defenses(m, self.skill_formulas), xp=monsters.kill_xp(m),
-                    max_health=m.get("health"), health=self._foe_health(extra.get("guid")), **extra)
+                    max_health=m.get("health"), health=self._foe_health(extra.get("guid")),
+                    drain_next=self._drain_next(extra.get("guid"), m), **extra)
 
     def _foe_health(self, guid):
         """How much of its health the creature has left (0..1: its health bar, as the server last said), 0 once it's

@@ -66,6 +66,44 @@ class FoeTest(unittest.TestCase):
         self.tr.handle({"type": "health", "object": FOE, "fraction": 0.43}, 6.0)                   # its health bar
         self.assertAlmostEqual(self.tr.snapshot()["foe"]["health"], 0.43)
 
+    def predicted(self, *events):
+        self.tr.handle({"type": "appraise", "object": FOE, "aseq": 1}, 5.0)
+        self.tr.handle({"type": "health", "object": FOE, "fraction": 1.0}, 6.0)          # full: its max
+        for ev in events:
+            self.tr.handle(ev, 7.0)
+        top = MONSTERS["2582"]["health"]
+        return round(self.tr.snapshot()["foe"]["health"] * top, 3), top
+
+    def magic(self, text):
+        return {"type": "text", "channel": 7, "text": text}
+
+    def test_a_war_spell_takes_its_points(self):
+        hp, top = self.predicted(self.magic("You scorch Great Mattekar for 30 points with Flame Bolt IV."))
+        self.assertEqual(hp, top - 30)
+
+    def test_harm_other_takes_its_points(self):
+        hp, top = self.predicted(self.magic("With Harm Other III you drain 17 points of health from Great Mattekar."))
+        self.assertEqual(hp, top - 17)
+
+    def test_a_drain_takes_a_quarter_of_what_it_has(self):
+        top = MONSTERS["2582"]["health"]
+        hp, _ = self.predicted(self.magic("You gain 0 points of health due to casting Drain Health Other I on Great Mattekar"))
+        self.assertEqual(hp, top - min(50, -(-top // 4)))                          # 25%, rounded up, at most 50
+        hp2, _ = self.predicted(self.magic("You gain 0 points of health due to casting Drain Health Other I on Great Mattekar"),
+                                self.magic("You gain 0 points of health due to casting Drain Health Other I on Great Mattekar"))
+        first = top - min(50, -(-top // 4))
+        self.assertEqual(hp2, first - min(50, -(-first // 4)))
+
+    def test_a_melee_hit_takes_its_share(self):
+        top = MONSTERS["2582"]["health"]
+        hp, _ = self.predicted({"type": "combat", "foe": "Great Mattekar", "you_hit": True, "share": 12 / top, "damage": 12})
+        self.assertEqual(hp, top - 12)
+
+    def test_the_next_drain(self):
+        self.predicted()
+        top = MONSTERS["2582"]["health"]
+        self.assertEqual(self.tr.snapshot()["foe"]["drain_next"], min(50, -(-top // 4)))
+
     def test_by_name_when_it_hits_you(self):
         for ev in decode("s2c", 9, struct.pack("<IIII", 0xF7B0, ME, 5, 0x1B2) + s16("Great Mattekar") + b"\0" * 8):
             self.tr.handle(ev, 100.0)

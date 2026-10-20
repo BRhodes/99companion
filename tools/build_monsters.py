@@ -70,7 +70,8 @@ def parse(path):
         extra["aggro"] = floats[31]
     if 146 in ints:                       # XpOverride: an authored award instead of the level curve
         extra["xp_override"] = int(ints[146])
-    return wcid, {**extra, "name": strings.get(1, path.stem), "level": int(ints.get(25, 0)),
+    # (a name's quote comes doubled from the SQL: K''nath)
+    return wcid, {**extra, "name": strings.get(1, path.stem).replace("''", "'"), "level": int(ints.get(25, 0)),
                   "armor_mod": {t: floats.get(k, 1.0) for k, t in ARMOR_MOD.items()},
                   "resist": {t: floats.get(k, 1.0) for k, t in RESIST.items()}, "parts": parts}
 

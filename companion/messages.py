@@ -244,7 +244,16 @@ def _server(op, r, wrapped):
         sender = r.string16()
         return [{"type": "channel", "channel": CHANNELS.get(channel, f"channel {channel:#x}"), "sender": sender,
                  "text": r.string16(), "mine": False}]
-    if op in (OP_YOU_HIT, OP_HIT_YOU, OP_YOU_MISSED) and wrapped:
+    if op == OP_YOU_HIT and wrapped:   # [name][damage type][f64 the share of its max health it took][damage][crit][conditions]
+        foe = r.string16()
+        ev = {"type": "combat", "foe": foe, "you_hit": True}
+        try:
+            r.u32()
+            ev["share"], ev["damage"] = r.f64(), r.u32()
+        except ReadError:
+            pass
+        return [ev]
+    if op in (OP_HIT_YOU, OP_YOU_MISSED) and wrapped:
         return [{"type": "combat", "foe": r.string16(), "you_hit": op != OP_HIT_YOU}]
     if op == OP_TELL and wrapped:
         text, sender = r.string16(), r.string16()

@@ -2769,8 +2769,9 @@ function renderMonster(state) {
     const pct = known ? Math.max(0, Math.min(1, frac)) : 1;
     const color = !known ? "var(--muted)" : pct > .5 ? "var(--good)" : pct > .25 ? "var(--warn)" : "var(--bad)";
     const text = !known ? `${fmt(f.max_health)} HP max` : pct === 0 ? `dead · ${fmt(f.max_health)} HP max`
-      : `~${fmt(Math.round(pct * f.max_health))} / ${fmt(f.max_health)} HP · ${Math.round(pct * 100)}%`;
-    return `<div class="foehp" title="Its health bar (as the server last sent it, when you selected or hit it) times its kind's max: every ${esc(f.name)} spawns with ${fmt(f.max_health)}">
+      : `~${fmt(Math.round(pct * f.max_health))} / ${fmt(f.max_health)} HP · ${Math.round(pct * 100)}%`
+        + (f.drain_next ? ` · next drain −${fmt(f.drain_next)}` : "");
+    return `<div class="foehp" title="Its health bar times its kind's max (every ${esc(f.name)} spawns with ${fmt(f.max_health)}): as the server last sent it, moved at once by your own damage as it lands -- a war spell's or Harm Other's points, a Drain Health Other's 25% of what it has (rounded up, at most 50) -- till the server's next word">
       <div class="fill" style="width:${(pct * 100).toFixed(1)}%;background:${color}"></div><span>${text}</span></div>`;
   })();
   setHTML($("monsterCard"), `${hb}<table><thead><tr><th></th><th>AL</th>${FOE_TYPES.map(([, l], i) => `<th${i === 3 ? ' class="gap"' : ""}>${l}</th>`).join("")}</tr></thead>
