@@ -278,7 +278,7 @@ class Tracker:
         prof = ev.get("profile") or {}
         if ev["success"] and prof.get("mana") is not None:        # an item's mana, read (itemmana.py)
             rec = self._mana_record(ev["object"], now)
-            self.item_mana.reading(rec, prof["mana"], now, prof.get("max_mana"), prof.get("spells"))
+            self.item_mana.reading(rec, prof["mana"], now, prof.get("max_mana"), prof.get("spells"), source="appraisal")
             if rec.get("since") is not None and self._lands_on_you(rec) and \
                     not any(e["caster"] == ev["object"] for e in self.enchantments.values()):
                 rec["since"] = None                  # worn, but none of its spells are on you: its magic's off
@@ -882,6 +882,14 @@ class Tracker:
         older = lambda g: (lambda r: r if r and (r.get("at") or 0) <= now else None)(recall(g)) if callable(recall) else None
         return self.item_mana.record(guid, self.objects.get(guid, {}).get("name"), older)
 
+    def _item_named(self, name):
+        """The item of that name you have: one you wear first, else one in your packs, else any seen; or None."""
+        named = [g for g, o in self.objects.items() if o.get("name") == name]
+        worn = self._worn()
+        mine = lambda g: self.objects[g].get("container") is not None or g in worn
+        return next((g for g in named if g in worn), None) or next((g for g in named if mine(g)), None) or \
+            (named[0] if named else None)
+
     def _mana_save(self, rec, now):
         """Remember an item's record as of now (Companion sets remember_mana: the store's, by the item's id)."""
         rec["at"] = now
@@ -923,7 +931,8 @@ class Tracker:
             out.append({"guid": guid, "name": o.get("name") or rec.get("name") or "?",
                         "slot": buffpanel.item_slot(o.get("location")), "spells": rec.get("spells"),
                         "on_you": sorted(by_caster.get(guid, [])), "mana": None if mana is None else round(mana, 1),
-                        "max": rec.get("max"), "read": rec.get("read"), "rate": rate,
+                        "max": rec.get("max"), "read": rec.get("read"), "source": rec.get("source"), "rate": rate,
+                        "given": rec.get("given") or 0, "gifts": (rec.get("gifts") or [])[-5:], "at": now,
                         "left": mana / rate if mana is not None and rate else None,
                         "active": rec.get("since") is not None, "error": rec.get("error"),
                         "error_text": itemmana.ERROR_TEXT.get(rec.get("error")), "out": bool(rec.get("out"))})
@@ -1098,6 +1107,12 @@ class Tracker:
         elif (m := itemmana.OUT_OF_MANA.match(text)):           # a worn item ran out: its spells come off
             rec = self.item_mana.ran_out(m.group(1), now, self._worn())
             if rec:
+                self._mana_save(rec, now)
+        elif (m := itemmana.GIVES.match(text)):                 # a mana stone gave an item mana
+            guid = self._item_named(m.group(3))
+            if guid is not None:
+                rec = self._mana_record(guid, now)
+                self.item_mana.given(rec, int(m.group(2).replace(",", "")), m.group(1), now)
                 self._mana_save(rec, now)
         elif action and ev["channel"] == MAGIC_CHANNEL:
             if text.startswith("You cast"):

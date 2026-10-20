@@ -3071,8 +3071,17 @@ $("itemSearch").addEventListener("input", () => render());
 const MANA_NOW = 1800, MANA_SOON = 7200;
 const hmm = s => s == null ? "-" : `${Math.floor(s / 3600)}:${String(Math.floor(s % 3600 / 60)).padStart(2, "0")}`;
 const agoM = s => s < 90 ? `${Math.max(0, Math.round(s))}s` : s < 3600 ? `${Math.round(s / 60)}m` : `${Math.floor(s / 3600)}h ${Math.floor(s % 3600 / 60)}m`;
+setInterval(() => {           // (the countdown, every second between snapshots)
+  if (page === "mana" && curSession) try { renderMana(curSession); } catch (e) { console.error("render mana failed", e); }
+}, 1000);
 function renderMana(state) {
-  const rows = state.item_mana || [], t = now();
+  const t = now();
+  // (counting down between snapshots: an item whose spells are on loses its rate a second since the snapshot)
+  const rows = (state.item_mana || []).map(r => {
+    if (!r.active || r.mana == null || !r.rate || r.at == null) return r;
+    const mana = Math.max(0, r.mana - r.rate * Math.max(0, t - r.at));
+    return {...r, mana: Math.round(mana), left: mana / r.rate};
+  });
   setHTML($("manaBody"), rows.length ? rows.map(r => {
     const failed = r.error != null, off = !r.active && !failed;
     const tone = failed || r.out || (r.active && r.left != null && r.left < MANA_NOW) ? "now"
@@ -3082,11 +3091,13 @@ function renderMana(state) {
       : off ? "off" + (r.spells ? " (none of its spells on you)" : "") : r.left != null ? hmm(r.left) : "-";
     return `<tr class="${tone}"><td class="nm">${esc(r.name)}${r.slot ? ` <span class="muted">${esc(r.slot)}</span>` : ""}</td>
       <td class="spells">${spells ? esc(spells) : "<i>appraise to start</i>"}</td>
-      <td class="num">${r.mana == null ? "-" : `${fmt(r.mana)} / ${fmt(r.max)}`}${r.read ? `<span class="as" title="Estimated since then: appraise it to read it again">as of appraisal ${agoM(t - r.read)} ago</span>` : ""}</td>
+      <td class="num">${r.mana == null ? "-" : `${fmt(r.mana)} / ${fmt(r.max)}`}${r.read ? `<span class="as" title="Estimated since then: appraise it to read it again">as of ${r.source === "mana stone" ? "a mana stone" : r.source === "appraisal" ? "appraisal" : "an update"} ${agoM(t - r.read)} ago</span>` : ""}${
+        r.given ? `<span class="as" title="${esc((r.gifts || []).slice().reverse().map(g => `+${fmt(g.amount)} from a ${g.from}, ${agoM(t - g.ts)} ago`).join("\n"))}">+${fmt(r.given)} from mana stones${r.gifts && r.gifts.length ? ` (last +${fmt(r.gifts[r.gifts.length - 1].amount)})` : ""}</span>` : ""}</td>
       <td class="num">${r.rate ? `1 per ${Math.round(1 / r.rate)} s` : r.mana != null ? "<span class=\"muted\" title=\"Not loot's rate (a quest item?): the game never says\">?</span>" : "-"}</td>
       <td class="num ${failed || r.out ? "state" : "left"}">${lasts}</td></tr>`;
   }).join("") : `<tr><td class="empty" colspan="5">Nothing worn${state.status && state.status.in_world ? "" : " (or not in the world yet)"}.</td></tr>`);
-  setHTML($("manaNote"), `Mana is estimated from each item's last appraisal: appraise it to read it again. An item uses 1 mana when
+  setHTML($("manaNote"), `Mana is estimated from each item's last reading (an appraisal, or a mana stone's top-up): appraise it to read it again,
+    and it counts down here while you're logged in and its spells are on. An item uses 1 mana when
     it's put on, then 1 every so often while its spells are on (its spells' power / 10,000 a second); nothing while it's off,
     or you're logged out.`);
 }

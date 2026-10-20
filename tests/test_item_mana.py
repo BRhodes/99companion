@@ -48,6 +48,42 @@ def row(tr, now, guid=STAFF):
     return next(r for r in tr.snapshot()["item_mana"] if r["guid"] == guid)
 
 
+class ManaStoneTest(unittest.TestCase):
+    """A mana stone's top-up: kept on the item (given, gifts), its new mana read from the update that comes with it."""
+
+    def give(self, tr, amount, item, now, stone="Greater Mana Stone"):
+        tr.handle({"type": "text", "channel": 0, "text": f"The {stone} gives {amount:,} points of mana to the {item}."}, now)
+
+    def test_stone_tops_up_and_is_counted(self):
+        tr = tracker()
+        obj(tr, STAFF, "Black Garnet Staff", 1000.0, container=PACK)
+        equip(tr, STAFF, 1000.0)
+        appraise(tr, STAFF, 299, 404, ["Focus Other V"], 1010.0)
+        self.give(tr, 104, "Black Garnet Staff", 2000.0)
+        tr.handle({"type": "int", "object": STAFF, "key": 107, "value": 404}, 2000.0)     # (its new mana)
+        r = row(tr, 2000.0)
+        self.assertEqual((r["mana"], r["source"], r["given"]), (404, "mana stone", 104))
+        self.assertEqual([(g["amount"], g["from"]) for g in r["gifts"]], [(104, "Greater Mana Stone")])
+        self.give(tr, 1203, "Black Garnet Staff", 3000.0, stone="Lesser Mana Stone")
+        r = row(tr, 3000.0)
+        self.assertEqual((r["given"], len(r["gifts"])), (1307, 2))
+        self.assertEqual(row(tr, 3500.0)["mana"], 404 - 30)   # (its 404 read at 2000, then 1 every 50 s since)
+
+    def test_an_appraisal_says_so(self):
+        tr = tracker()
+        obj(tr, STAFF, "Staff", 1000.0, container=PACK)
+        appraise(tr, STAFF, 299, 404, ["Focus Other V"], 1000.0)
+        tr.clock_at["t"] = 1000.0
+        rec = tr.item_mana.items[STAFF]
+        self.assertEqual(rec["source"], "appraisal")
+
+    def test_a_stone_for_an_item_in_your_pack(self):
+        tr = tracker()
+        obj(tr, NECKLACE, "Bronze Heavy Necklace", 1000.0, container=PACK)
+        self.give(tr, 203, "Bronze Heavy Necklace", 1000.0)
+        self.assertEqual(tr.item_mana.items[NECKLACE]["given"], 203)
+
+
 class ItemManaTest(unittest.TestCase):
     def test_appraisal_sets_its_mana_and_it_drains(self):
         tr = tracker()
