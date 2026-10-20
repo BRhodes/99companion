@@ -663,9 +663,12 @@ table.accts tr.add td { border-top: 1px solid var(--line); padding-top: 8px; }
 .acmap .aclegend .aclegnum { font-size: 9px; text-anchor: middle; }
 .bcardtabs { margin-left: auto; display: inline-flex; gap: 4px; }
 /* the map in the dashboard's Buffs card: the card's height, a narrower list beside it */
-section[data-widget="buffpanel"]:has(#dashDungeon:not([hidden])) { display: flex; flex-direction: column; overflow: hidden; }
+section[data-widget="buffpanel"]:has(#dashDungeon:not([hidden])), section[data-widget="buffpanel"]:has(#dashMap:not([hidden])) { display: flex; flex-direction: column; overflow: hidden; }
 #dashDungeon { display: flex; flex-direction: column; min-height: 0; flex: 1 1 0; }
 #dashDungeon[hidden] { display: none; }
+#dashMap { display: flex; flex: 1 1 0; min-height: 260px; }
+#dashMap[hidden] { display: none; }
+#dashMapCanvas { display: block; width: 100%; height: 100%; min-height: 260px; border-radius: 6px; }
 #dashDungeon .dgwrap { gap: 6px; flex: 1 1 0; min-height: 0; }
 #dashDungeon .dghead h2, #dashDungeon .dgviews { display: none; }
 #dashDungeon .dghead { font-size: 12px; }
@@ -787,8 +790,9 @@ section[data-widget="buffpanel"]:has(#dashDungeon:not([hidden])) { display: flex
         <div id="monsterCard"></div></section>
       <section data-widget="buffpanel"><h2 style="display:flex;align-items:center;gap:8px"><span id="bcardTitle">Buffs</span>
           <span class="bcardtabs" role="group" aria-label="Show"><button class="chip mini" data-bcard="buffs">Buffs</button><button
-            class="chip mini" data-bcard="dungeon">Dungeon</button></span></h2>
-        <div id="buffPanel" class="bpanel"></div><div id="dashDungeon" hidden></div></section>
+            class="chip mini" data-bcard="dungeon">Dungeon</button><button class="chip mini" data-bcard="map">Map</button></span></h2>
+        <div id="buffPanel" class="bpanel"></div><div id="dashDungeon" hidden></div><div id="dashMap" hidden><canvas id="dashMapCanvas"
+          title="Where you are, close up: the creatures you can see -- red ones come for you inside their circle. Scroll to zoom."></canvas></div></section>
     </div>
   </div>
 </div>
@@ -3750,15 +3754,17 @@ function renderDashboard(state) {
       <div class="big${low ? " low" : ""}">${fmt(r.count)}</div></div>`;
   }).join("")}</div>` : `<div class="empty">No arrows, kits or potions in your pack. Add others on <a href="#config">Settings</a>.</div>`);
   // the Buffs card shows your buffs or the dungeon map (the Dungeon page's, moved in): its tabs pick
-  const dungeonCard = dash.buffCard === "dungeon";
+  const dungeonCard = dash.buffCard === "dungeon", mapCard = dash.buffCard === "map";
   for (const b of document.querySelectorAll("[data-bcard]")) b.classList.toggle("on", b.dataset.bcard === dash.buffCard);
-  $("bcardTitle").textContent = dungeonCard ? "Dungeon" : "Buffs";
-  $("buffPanel").hidden = dungeonCard;
+  $("bcardTitle").textContent = dungeonCard ? "Dungeon" : mapCard ? "Map" : "Buffs";
+  $("buffPanel").hidden = dungeonCard || mapCard;
   $("dashDungeon").hidden = !dungeonCard;
+  $("dashMap").hidden = !mapCard;
+  if (mapCard) { mapInit(); drawDashMap(); }
   if (dungeonCard) {
     if ($("dgRoot").parentElement !== $("dashDungeon")) { $("dashDungeon").appendChild($("dgRoot")); DG.drawn = null; }
     try { renderDungeon(state); } catch (e) { console.error("render dungeon card failed", e); }
-  } else renderBuffPanel(state);
+  } else if (!mapCard) renderBuffPanel(state);
   renderComps(state);
 }
 document.addEventListener("click", e => {
@@ -4314,9 +4320,9 @@ function mapInit() {
   if (MAP.inited) return;
   MAP.inited = true;
   const img = new Image();
-  img.onload = () => { MAP.img = img; drawMap(); };
+  img.onload = () => { MAP.img = img; drawMap(); drawDashMap(); };
   img.src = "/map.png";
-  fetch("/api/places").then(r => r.json()).then(p => { MAP.places = p; drawMap(); }).catch(() => {});
+  fetch("/api/places").then(r => r.json()).then(p => { MAP.places = p; drawMap(); drawDashMap(); }).catch(() => {});
   const cv = $("mapCanvas");
   cv.addEventListener("wheel", e => {
     e.preventDefault();
@@ -4591,19 +4597,26 @@ function drawMap() {
   const cv = $("mapCanvas");
   if (!cv || page !== "map") return;
   $("mapRefining").hidden = !(MAP.refining && MAP.dest);
-  const w = cv.clientWidth, h = cv.clientHeight, dpr = window.devicePixelRatio || 1;
-  if (cv.width !== Math.round(w * dpr) || cv.height !== Math.round(h * dpr)) { cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr); }
+  const w = cv.clientWidth, h = cv.clientHeight;
   if (!MAP.scale && w) { MAP.scale = Math.min(w, h) / 2041; MAP.ox = (w - 2041 * MAP.scale) / 2; MAP.oy = (h - 2041 * MAP.scale) / 2; }
+  drawMapOn(cv, MAP, true);
+}
+// The map drawn on a canvas at a view ({scale, ox, oy}): everything (the Map page), or (not full) just the ground, the
+// creatures in view and you (the dashboard's card)
+function drawMapOn(cv, V, full) {
+  const w = cv.clientWidth, h = cv.clientHeight, dpr = window.devicePixelRatio || 1;
+  if (!w || !h) return;
+  if (cv.width !== Math.round(w * dpr) || cv.height !== Math.round(h * dpr)) { cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr); }
   const g = cv.getContext("2d");
   g.setTransform(dpr, 0, 0, dpr, 0, 0);
   g.fillStyle = "#1d2b3a"; g.fillRect(0, 0, w, h);
-  g.save(); g.translate(MAP.ox, MAP.oy); g.scale(MAP.scale, MAP.scale);
-  g.imageSmoothingEnabled = MAP.scale < 1;
+  g.save(); g.translate(V.ox, V.oy); g.scale(V.scale, V.scale);
+  g.imageSmoothingEnabled = V.scale < 1;
   if (MAP.img) g.drawImage(MAP.img, 0, 0);
   g.restore();
-  const at = (ns, ew) => { const [px, py] = toPx(ns, ew); return [MAP.ox + px * MAP.scale, MAP.oy + py * MAP.scale]; };
+  const at = (ns, ew) => { const [px, py] = toPx(ns, ew); return [V.ox + px * V.scale, V.oy + py * V.scale]; };
   const P = MAP.places;
-  if (P && $("mapLife").checked) {
+  if (P && full && $("mapLife").checked) {
     g.fillStyle = "#7fd3ff";
     for (const l of P.lifestones) { const [x, y] = at(l.ns, l.ew); g.fillRect(x - 2, y - 2, 4, 4); }
   }
@@ -4618,20 +4631,20 @@ function drawMap() {
     g.fillStyle = "#000c"; g.fillText(text, x + 1, y + 1); g.fillStyle = color; g.fillText(text, x, y);
   };
   g.textAlign = "center";
-  if (P) {   // towns first: their names win any overlap
+  if (P && full) {   // towns first: their names win any overlap
     for (const t of P.towns) {
       const [x, y] = at(t.ns, t.ew);
       g.fillStyle = "#fff"; g.beginPath(); g.arc(x, y, 3, 0, 7); g.fill();
       label(t.name, x, y - 8, "#fff", "600 12px system-ui, sans-serif");
     }
   }
-  if (P && $("mapPortals").checked) {
+  if (P && full && $("mapPortals").checked) {
     const shown = P.portals.filter(p => p.at.ns != null).map(p => [p, ...at(p.at.ns, p.at.ew)]);
     g.fillStyle = "#c58bff";
     for (const [, x, y] of shown) { g.beginPath(); g.arc(x, y, 3, 0, 7); g.fill(); }
     for (const [p, x, y] of shown) label(p.name, x, y - 6, "#e2c6ff", "500 11px system-ui, sans-serif");
   }
-  if (MAP.route) {
+  if (full && MAP.route) {
     g.lineWidth = 3; g.lineJoin = "round";
     for (const s of MAP.route.steps) {
       const pts = s.kind === "run" && s.points ? s.points : [[s.from_ns, s.from_ew], [s.to_ns, s.to_ew]];
@@ -4649,22 +4662,22 @@ function drawMap() {
     g.font = "bold 22px system-ui, sans-serif"; g.fillStyle = "#000"; g.fillText("☠", x + 1, y + 8); g.fillStyle = "#ff6b6b"; g.fillText("☠", x, y + 7);
     label(`your corpse · ${corpseLeft(c)}`, x, y - 12, "#ffb3b3", "600 12px system-ui, sans-serif");
   }
-  if (MAP.start) {                  // the starting point you set: a green flag
+  if (full && MAP.start) {                  // the starting point you set: a green flag
     const [x, y] = at(MAP.start.ns, MAP.start.ew);
     g.strokeStyle = "#000"; g.lineWidth = 1.5; g.fillStyle = "#3cff7a";
     g.beginPath(); g.moveTo(x, y); g.lineTo(x, y - 16); g.stroke();
     g.beginPath(); g.moveTo(x, y - 16); g.lineTo(x + 10, y - 12); g.lineTo(x, y - 8); g.closePath(); g.fill(); g.stroke();
   }
-  if (MAP.dest) {
+  if (full && MAP.dest) {
     const [x, y] = at(MAP.dest.ns, MAP.dest.ew);
     g.fillStyle = "#ff4d4d"; g.beginPath(); g.arc(x, y - 10, 6, 0, 7); g.fill();
     g.beginPath(); g.moveTo(x - 5, y - 8); g.lineTo(x + 5, y - 8); g.lineTo(x, y); g.fill();
   }
   // the creatures in view outdoors: a red dot and its aggro range (to scale) for one that comes for you on sight, a
   // grey dot for one that doesn't; names when zoomed in
-  if ($("mapCreatures").checked) {
+  if (!full || $("mapCreatures").checked) {
     const cs = ((curSession && curSession.creatures) || []).map(c => [c, ...at(c.ns, c.ew)]);
-    const perMetre = 10 / 240 * MAP.scale;                           // (the map: 10 px a coordinate unit, 240 m)
+    const perMetre = 10 / 240 * V.scale;                           // (the map: 10 px a coordinate unit, 240 m)
     for (const [c, x, y] of cs) {
       const r = c.aggro ? c.aggro * perMetre : 0;
       if (r >= 3) {
@@ -4689,6 +4702,22 @@ function drawMap() {
   }
 }
 
+// The dashboard's map card: you in the middle, close up (DASH_MAP.scale: screen pixels a map pixel, 24 m; scroll zooms)
+const DASH_MAP = {scale: 60};
+function drawDashMap() {
+  const cv = $("dashMapCanvas");
+  if (!cv || $("dashMap").hidden) return;
+  const pos = curSession && curSession.position;
+  const [px, py] = pos ? toPx(pos.ns, pos.ew) : [1020, 1020];
+  const V = {scale: DASH_MAP.scale, ox: cv.clientWidth / 2 - px * DASH_MAP.scale, oy: cv.clientHeight / 2 - py * DASH_MAP.scale};
+  drawMapOn(cv, V, false);
+}
+document.addEventListener("wheel", e => {
+  if (e.target.id !== "dashMapCanvas") return;
+  e.preventDefault();
+  DASH_MAP.scale = Math.min(240, Math.max(4, DASH_MAP.scale * Math.exp(-e.deltaY * 0.0015)));
+  drawDashMap();
+}, {passive: false});
 // how long a corpse has till it rots, counting down between snapshots
 const corpseLeft = c => dur(Math.max(0, c.expires - now()));
 
