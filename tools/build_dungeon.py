@@ -70,9 +70,11 @@ def env_cell(cell_dat, cid):
 
 
 def cell_structure(portal_dat, eid, key, _cache={}):
-    """(vertices {id: (x, y, z)}, polygons [[vertex ids]], portals {polygon: [vertex ids]}) of one cell structure of an
-    environment -- its portals (the openings into the cells beside it) apart: one under a tall cave's upper cell would
-    read as its floor."""
+    """(vertices {id: (x, y, z)}, polygons [[vertex ids]], portals {polygon: [vertex ids]}, physics polygons [[vertex
+    ids]]) of one cell structure of an environment -- its portals (the openings into the cells beside it) apart: one under
+    a tall cave's upper cell would read as its floor. The physics polygons are what the game walks on and bumps into
+    (no portals among them, no trim); they follow the cell BSP, found as the first place that many polygon records read
+    in order (ids from 0, vertices it has)."""
     if (eid, key) in _cache:
         return _cache[(eid, key)]
     b = portal_dat.get(eid)
@@ -81,7 +83,7 @@ def cell_structure(portal_dat, eid, key, _cache={}):
     for _ in range(r.take("I")):
         k = r.take("I")
         npoly = r.take("I")
-        r.take("I")                               # physics polygons
+        nphys = r.take("I")
         nport = r.take("I")
         r.take("i")                               # vertex type
         verts = {}
@@ -103,11 +105,13 @@ def cell_structure(portal_dat, eid, key, _cache={}):
                 r.p += pts
             r.align()
         portals = {r.take("h") for _ in range(nport)}
+        q = (r.p + 3) & ~3                        # (aligned: an odd number of portals leaves it half a word in)
+        physics, end = physics_polygons(b, q, nphys, verts)
         _cache[(eid, k)] = (verts, [v for pid, v in polys.items() if pid not in portals],
-                            {pid: v for pid, v in polys.items() if pid in portals})
+                            {pid: v for pid, v in polys.items() if pid in portals}, physics)
         if k == key:
             return _cache[(eid, k)]
-        q = (r.p + 3) & ~3                        # (aligned: an odd number of portals leaves it half a word in)
+        q = end or q
         while q + 24 <= len(b):
             nk, a1, a2, a3, vt, nv = struct.unpack_from("<6I", b, q)
             if nk == k + 1 and vt == 1 and 0 < a1 < 2000 and a2 < 2000 and a3 < 64 and 0 < nv < 5000:
@@ -119,6 +123,35 @@ def cell_structure(portal_dat, eid, key, _cache={}):
     return None
 
 
+def polygon_record(b, p):
+    """(id, vertex ids, where the next one starts) of a polygon record at p (padded to four bytes)."""
+    pid, pts, stip, sides = struct.unpack_from("<hBBi", b, p)
+    p += 12                                       # (and its two surfaces)
+    ids = list(struct.unpack_from(f"<{pts}h", b, p)) if pts else []
+    p += 2 * pts
+    if not stip & 4:
+        p += pts
+    if sides == 1 and not stip & 8:
+        p += pts
+    return pid, ids, (p + 3) & ~3
+
+
+def physics_polygons(b, q, count, verts):
+    """([vertex ids] of each physics polygon, where they end) -- looked for from q -- or ([], None)."""
+    while count and q + 12 <= len(b):
+        try:
+            out, p = [], q
+            for want in range(count):
+                pid, ids, p = polygon_record(b, p)
+                if pid != want or not 3 <= len(ids) <= 32 or any(i not in verts for i in ids):
+                    raise ValueError
+                out.append(ids)
+            return out, p
+        except (ValueError, struct.error):
+            q += 4
+    return [], None
+
+
 def rotate(q, v):
     w, x, y, z = q
     vx, vy, vz = v
@@ -127,10 +160,12 @@ def rotate(q, v):
     return (ix * w - iw * x - iy * z + iz * y, iy * w - iw * y - iz * x + ix * z, iz * w - iw * z - ix * y + iy * x)
 
 
+PHYSICS = True         # floors and walls from the physics polygons (else the render polygons)
 WALKABLE = 0.664       # a polygon's normal z at least this: the game's own (PhysicsGlobals::floor_z, ~48 degrees)
 STAIRS = 0.93          # steeper than this (~22 degrees) is drawn as stairs / a ramp; gentler is a cave's uneven floor
 FLAT_MIN = 50          # m^2 of level ground at one height that make it a floor
 SHARED = 0.75          # how much of a slope between two floors each of them shows
+ONE_FLOOR = 1.5        # metres: level ground at heights this close is one floor
 NEAR = 0.15            # metres: a height this close to a floor's is on it
 LOW_WALL = 1.5         # metres: a "wall" this short with floor on both sides is a step's riser or a lip
 THRESHOLD = 1.2        # metres: a strip of no floor this narrow between two level pieces at one height is a doorway's
@@ -144,7 +179,9 @@ def walkable(portal_dat, c):
     got = cell_structure(portal_dat, c["env"], c["struct"])
     if not got:
         return [], [], {}, []
-    verts, polys, portals = got
+    verts, polys, portals, physics = got
+    if PHYSICS and physics:
+        polys = physics                           # (what the game walks on and bumps into)
     place = lambda ids: [tuple(a + b for a, b in zip(rotate(c["rot"], verts[i]), c["origin"])) for i in ids if i in verts]
     holes, beside = [], {}
     for pid, ids in portals.items():
@@ -156,7 +193,7 @@ def walkable(portal_dat, c):
     out, walls = [], []
     # (and a doorway lying in a ramp's slope -- its foot: the cells' floors stop at it, you walk across it; a level one,
     # a tall cave's opening, isn't ground)
-    sloped_doors = [ids for ids in portals.values() if len(place(ids)) >= 3 and not level_ground(place(ids))]
+    sloped_doors = [] if PHYSICS and physics else         [ids for ids in portals.values() if len(place(ids)) >= 3 and not level_ground(place(ids))]
     for ids in polys + sloped_doors:
         w = place(ids)
         if len(w) < 3:
@@ -273,8 +310,18 @@ def lay(cells):
             if level_ground(w):
                 z = round(w[0][2], 1)
                 ground[z] = ground.get(z, 0) + area(w)
-    heights = sorted(z for z, a in ground.items() if a >= FLAT_MIN)
-    on = lambda z: next((f for f in heights if abs(z - f) < NEAR), None)
+    # floors: the heights with FLAT_MIN of level ground, those within ONE_FLOOR of each other one floor (a bumpy cave's
+    # flat walking plane over its drawn floor), named by the one with the most ground
+    levels = sorted(z for z, a in ground.items() if a >= FLAT_MIN)
+    groups = []
+    for z in levels:
+        if groups and z - groups[-1][-1] < ONE_FLOOR:
+            groups[-1].append(z)
+        else:
+            groups.append([z])
+    name = {z: max(g, key=lambda h: ground[h]) for g in groups for z in g}
+    heights = sorted(set(name.values()))
+    on = lambda z: next((name[f] for f in levels if abs(z - f) < NEAR), None)
     xy = lambda w: [[round(x, 2), round(y, 2)] for x, y, _z in w]
     # the rest -- slopes, and level bits too small to be a floor -- in runs joined edge to edge
     rest = [(c, w, up) for c in cells for w, up in c["raw"] if not (level_ground(w) and on(w[0][2]) is not None)]
@@ -492,10 +539,16 @@ def build(landblock, name, core):
     # the ground itself, in 3D (each walkable polygon once, [[x, y, z]...]): what the page's walking view spreads over
     surface = [[[round(x, 2), round(y, 2), round(z, 2)] for x, y, z in w] for c in cells for w, _up in c["raw"]]
     walls = [w for c in cells for w in c["walls"] if not two_sided(w, cells)]
+    joins = connections(ways)
+    # (a floor nothing's on and nothing reaches -- the flat top of a room's own shape, say -- isn't one)
+    used = {j[s] for j in joins for s in ("a", "b")} | {s["floor"] for s in spawns + exits} |         ({door["arrival"]["floor"]} if door else set())
+    heights[:] = [z for z in heights if z in used]
+    for c in cells:
+        c["floors"] = [f for f in c["floors"] if f[0] in used]
     for c in cells:
         del c["raw"], c["holes"], c["beside"], c["walls"]
     return {"name": name, "landblock": landblock, "floors": heights, "cells": cells, "spawns": spawns, "exits": exits,
-            "connections": connections(ways), "entrance": door, "surface": surface, "walls": walls}
+            "connections": joins, "entrance": door, "surface": surface, "walls": walls}
 
 
 def main():
