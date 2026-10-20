@@ -662,6 +662,10 @@ table.accts tr.add td { border-top: 1px solid var(--line); padding-top: 8px; }
 .acmap .aclegend .acdot { fill: #e01010; }
 .acmap .aclegend .aclegjoin { fill: #fff; stroke: #000; stroke-width: 1; }
 .acmap .aclegend .aclegnum { font-size: 9px; text-anchor: middle; }
+.foehp { position: relative; height: 18px; border-radius: 4px; background: color-mix(in srgb, var(--muted) 18%, transparent);
+  overflow: hidden; margin: 2px 0 8px; }
+.foehp .fill { position: absolute; inset: 0 auto 0 0; opacity: .55; transition: width .3s; }
+.foehp span { position: relative; display: block; text-align: center; font-size: 12px; line-height: 18px; font-weight: 600; }
 .bcardtabs { margin-left: auto; display: inline-flex; gap: 4px; }
 /* the map in the dashboard's Buffs card: the card's height, a narrower list beside it */
 section[data-widget="buffpanel"]:has(#dashDungeon:not([hidden])), section[data-widget="buffpanel"]:has(#dashMap:not([hidden])) { display: flex; flex-direction: column; overflow: hidden; }
@@ -2757,7 +2761,19 @@ function renderMonster(state) {
       `<span title="${esc(`${a.part}: base ${a.base} ${a.type}, ×${a.mult} for Strength, ×0.5–1.5 for its attack power. Typical ${a.avg}, up to ${a.max}; a crit (1 in 10) up to ${a.crit}. Before your armor and protections.`)}">${esc(a.part)}
       ${esc(LABEL_DT[a.type] || a.type || "")} <b>${fmt(a.avg)}</b>–<b>${fmt(a.max)}</b> <span class="muted">crit</span> <b style="color:var(--bad)">${fmt(a.crit)}</b></span>`).join(" · ")}</div>`
     : `<div class="muted" style="margin-top:6px;font-size:12px">No melee attack.</div>`;
-  setHTML($("monsterCard"), `<table><thead><tr><th></th><th>AL</th>${FOE_TYPES.map(([, l], i) => `<th${i === 3 ? ' class="gap"' : ""}>${l}</th>`).join("")}</tr></thead>
+  // its health: the bar's fraction (the server's, when you select or hit it) times its kind's max (every one spawns
+  // with the same); not seen yet, the max alone
+  const hb = (() => {
+    if (!f.max_health) return "";
+    const frac = f.health, known = frac != null && !f.stand_in;
+    const pct = known ? Math.max(0, Math.min(1, frac)) : 1;
+    const color = !known ? "var(--muted)" : pct > .5 ? "var(--good)" : pct > .25 ? "var(--warn)" : "var(--bad)";
+    const text = !known ? `${fmt(f.max_health)} HP max` : pct === 0 ? `dead · ${fmt(f.max_health)} HP max`
+      : `~${fmt(Math.round(pct * f.max_health))} / ${fmt(f.max_health)} HP · ${Math.round(pct * 100)}%`;
+    return `<div class="foehp" title="Its health bar (as the server last sent it, when you selected or hit it) times its kind's max: every ${esc(f.name)} spawns with ${fmt(f.max_health)}">
+      <div class="fill" style="width:${(pct * 100).toFixed(1)}%;background:${color}"></div><span>${text}</span></div>`;
+  })();
+  setHTML($("monsterCard"), `${hb}<table><thead><tr><th></th><th>AL</th>${FOE_TYPES.map(([, l], i) => `<th${i === 3 ? ' class="gap"' : ""}>${l}</th>`).join("")}</tr></thead>
       <tbody>${heights}${row("Magic", f.magic, null)}</tbody></table>${hits}`);
 }
 

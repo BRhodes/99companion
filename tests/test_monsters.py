@@ -5,7 +5,7 @@ import unittest
 
 from companion import monsters
 from companion.messages import decode
-from companion.tracker import Tracker
+from companion.tracker import MONSTERS, Tracker
 
 MATTEKAR = monsters.load()["2582"]           # Great Mattekar, from the server's data
 ME, FOE = 0x50000001, 0x60022EA2
@@ -58,6 +58,13 @@ class FoeTest(unittest.TestCase):
             self.tr.handle(ev, 100.0)
         foe = self.tr.snapshot()["foe"]
         self.assertEqual((foe["name"], foe["guid"]), ("Great Mattekar", FOE))
+
+    def test_its_health(self):
+        self.tr.handle({"type": "appraise", "object": FOE, "aseq": 1}, 5.0)
+        foe = self.tr.snapshot()["foe"]
+        self.assertEqual((foe["max_health"], foe["health"]), (MONSTERS["2582"]["health"], None))   # not seen yet
+        self.tr.handle({"type": "health", "object": FOE, "fraction": 0.43}, 6.0)                   # its health bar
+        self.assertAlmostEqual(self.tr.snapshot()["foe"]["health"], 0.43)
 
     def test_by_name_when_it_hits_you(self):
         for ev in decode("s2c", 9, struct.pack("<IIII", 0xF7B0, ME, 5, 0x1B2) + s16("Great Mattekar") + b"\0" * 8):

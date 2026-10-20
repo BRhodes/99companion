@@ -1314,7 +1314,16 @@ class Tracker:
             self._set_foe(guid, now)
 
     def _foe_card(self, m, **extra):
-        return dict(monsters.analyze(m), defenses=monsters.defenses(m, self.skill_formulas), xp=monsters.kill_xp(m), **extra)
+        return dict(monsters.analyze(m), defenses=monsters.defenses(m, self.skill_formulas), xp=monsters.kill_xp(m),
+                    max_health=m.get("health"), health=self._foe_health(extra.get("guid")), **extra)
+
+    def _foe_health(self, guid):
+        """How much of its health the creature has left (0..1: its health bar, as the server last said), 0 once it's
+        dead, or None (not seen)."""
+        o = self.objects.get(guid) if guid is not None else None
+        if not o:
+            return 0.0 if guid is not None else None
+        return 0.0 if o.get("dead") else o.get("health")
 
     def _foe_snapshot(self):
         if not self.foe:      # nothing fought yet: a Black Rabbit's real numbers, so the card isn't empty
