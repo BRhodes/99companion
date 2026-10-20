@@ -38,8 +38,14 @@ def _goals(got):
             if kind in ("attribute", "vital", "skill") and sid.isdigit() and isinstance(value, (int, float)) and 0 < value < 100000:
                 targets[f"{kind}:{int(sid)}"] = int(value)
         start = g.get("start") if isinstance(g.get("start"), (int, float)) and g.get("start") >= 0 else None
+        buffs = {}                               # (each target's buff levels: {"attr": 0..6, "skill": 0..6})
+        for key, b in list((g.get("buffs") or {}).items())[:40] if isinstance(g.get("buffs"), dict) else []:
+            if key in targets and isinstance(b, dict):
+                lv = {k: int(b[k]) for k in ("attr", "skill") if isinstance(b.get(k), int) and 0 < b[k] <= 6}
+                if lv:
+                    buffs[key] = lv
         out.append({"name": str(g.get("name") or "Goal")[:40], "targets": targets, "start": start,
-                    "buffed": g.get("buffed") is True, "kind": "next" if g.get("kind") == "next" else None})
+                    "buffed": g.get("buffed") is True, "kind": "next" if g.get("kind") == "next" else None, "buffs": buffs})
     return out
 
 

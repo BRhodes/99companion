@@ -18,7 +18,11 @@ Buffed goals (goal "buffed"): the targets are with your buffs on -- your buff pr
 next_tiers(): for each of the profile's Relax / Max buffs, the next tier up and the buffed school skill that casts it
 that reliably (Relax: RELAX_CHANCE; Max: the profile's max chance; the game's 1 - 1 / (1 + e^(0.07 (skill - power)))).
 
-A goal: {name, targets: {"attribute:5": 200, "skill:33": 250, "vital:2": 150}, buffed}. plan() picks the attribute raises
+Buff levels, each target its own (goal "buffs": {"skill:33": {"attr": level, "skill": level}}): the target's value is
+with those buffs on -- its attributes buffed (all of them: the ones it's made from count), and a skill its own buff;
+level I..VI adds BUFF_BY_LEVEL. Set on any target, they take the place of "buffed"'s profile.
+
+A goal: {name, targets: {"attribute:5": 200, "skill:33": 250, "vital:2": 150}, buffed, buffs}. plan() picks the attribute raises
 that make the whole cheapest -- each skill and vital then takes just the ranks it's short -- by a local search over the
 attributes the goal touches, in halving steps (each raise costs more than the last, so it settles on the least).
 """
@@ -223,6 +227,33 @@ def next_tiers(tr, prefs, mods, ch=None):
     return out
 
 
+BUFF_BY_LEVEL = {0: 0, 1: 10, 2: 15, 3: 20, 4: 25, 5: 30, 6: 35}   # what a level I..VI attribute or skill buff adds
+
+
+def _level(v):
+    try:
+        v = int(v or 0)
+    except (TypeError, ValueError):
+        return 0
+    return v if v in BUFF_BY_LEVEL else 0
+
+
+def has_levels(goal):
+    return any(_level((b or {}).get("attr")) or _level((b or {}).get("skill")) for b in (goal.get("buffs") or {}).values()
+               if isinstance(b, dict))
+
+
+def level_bonus(goal, ch, kind, sid):
+    """A target's buff levels as a bonus ({"attributes": {id: +n}, "skills": {id: +n}}), or None (no buffs on it)."""
+    b = (goal.get("buffs") or {}).get(f"{kind}:{sid}") or {}
+    attr, own = BUFF_BY_LEVEL[_level(b.get("attr"))], BUFF_BY_LEVEL[_level(b.get("skill"))] if kind == "skill" else 0
+    if kind == "attribute":                      # (an attribute's own buff is its "attr")
+        return {"attributes": {sid: attr}, "skills": {}} if attr else None
+    if not attr and not own:
+        return None
+    return {"attributes": {a: attr for a in ch["attributes"]} if attr else {}, "skills": {sid: own} if own else {}}
+
+
 def parse_targets(targets):
     out = []
     for key, target in (targets or {}).items():
@@ -238,7 +269,13 @@ def plan(goal, ch, tables, unassigned=0, bonus=None):
     raises your unassigned XP pays for, cheapest steps first], still (XP to earn)}."""
     A, V = tables.get("attribute") or [], tables.get("vital") or []
     targets = parse_targets(goal.get("targets"))
-    bonus = bonus if goal.get("buffed") else None
+    targets_all = parse_targets(goal.get("targets"))
+    if has_levels(goal):                     # each target with its own buffs
+        tbonus = {(k, i): level_bonus(goal, ch, k, i) for k, i, _t in targets_all}
+        bonus = None
+    else:                                    # all with the profile's (buffed), or none
+        bonus = bonus if goal.get("buffed") else None
+        tbonus = {(k, i): bonus for k, i, _t in targets_all}
     battr = (bonus or {}).get("attributes") or {}
     problems = []
     for kind, sid, _t in targets:
@@ -261,7 +298,7 @@ def plan(goal, ch, tables, unassigned=0, bonus=None):
     lo = {a: 0 for a in touched}
     for kind, sid, t in targets:
         if kind == "attribute" and sid in touched:
-            lo[sid] = max(lo[sid], t - attrs[sid]["value"] - battr.get(sid, 0))
+            lo[sid] = max(lo[sid], t - attrs[sid]["value"] - ((tbonus.get((kind, sid)) or {}).get("attributes") or {}).get(sid, 0))
     hi = {a: len(A) - 1 - attrs[a]["raises"] for a in touched}
 
     def parts(d):
@@ -273,9 +310,12 @@ def plan(goal, ch, tables, unassigned=0, bonus=None):
                 c = A[r + n] - A[r]
                 need[("attribute", a)] = (n, c)
                 total += c
-        val = values(ch, d, bonus)
+        vals = {}                                 # (one set of values per distinct bonus)
         for kind, sid, t in targets:
-            short = t - val.get((kind, sid), 0)
+            tb = tbonus.get((kind, sid))
+            if id(tb) not in vals:
+                vals[id(tb)] = values(ch, d, tb)
+            short = t - vals[id(tb)].get((kind, sid), 0)
             if short <= 0 or kind == "attribute":
                 if kind == "attribute" and short > 0:
                     return INF, None              # an attribute the search can't raise
@@ -319,17 +359,18 @@ def plan(goal, ch, tables, unassigned=0, bonus=None):
             step //= 2
     feasible = best != INF
     _total, need = parts(d) if feasible else (INF, {})
-    now_vals, goal_vals = values(ch, None, bonus), values(ch, d, bonus) if feasible else values(ch, None, bonus)
+    now_of = lambda k, i: values(ch, None, tbonus.get((k, i), bonus)).get((k, i))
+    goal_of = lambda k, i: values(ch, d if feasible else None, tbonus.get((k, i), bonus)).get((k, i))
     rows = []
     for (kind, sid), (n, cost) in sorted((need or {}).items(), key=lambda kv: (["attribute", "vital", "skill"].index(kv[0][0]), kv[0][1])):
         steps = _steps(kind, sid, n, ch, tables)
-        before = now_vals.get((kind, sid), 0)
+        before = now_of(kind, sid) or 0
         # an attribute: its raises; a skill or vital: what its attributes' raises bring it to, then its own
-        after = before + n if kind == "attribute" else goal_vals.get((kind, sid), 0) + n
+        after = before + n if kind == "attribute" else (goal_of(kind, sid) or 0) + n
         rows.append({"kind": kind, "id": sid, "name": stat_name(kind, sid), "from": before, "to": after,
                      "raises": n, "cost": cost, "steps": steps})
-    tgt = [{"key": f"{k}:{i}", "kind": k, "id": i, "name": stat_name(k, i), "current": now_vals.get((k, i)),
-            "target": t, "distance": max(0, t - (now_vals.get((k, i)) or 0))} for k, i, t in targets]
+    tgt = [{"key": f"{k}:{i}", "kind": k, "id": i, "name": stat_name(k, i), "current": now_of(k, i),
+            "target": t, "distance": max(0, t - (now_of(k, i) or 0))} for k, i, t in targets]
     cost = best if feasible else None
     return {"name": goal.get("name") or "Goal", "buffed": bool(goal.get("buffed")), "cost": cost, "feasible": feasible, "problems": problems,
             "targets": tgt, "raises": rows, "now": guidance(rows, unassigned if feasible else 0),

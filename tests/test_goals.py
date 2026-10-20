@@ -96,6 +96,31 @@ class PlanTest(unittest.TestCase):
         self.assertLess(buffed["cost"], plain["cost"])
         self.assertEqual(goals.plan({"targets": {"skill:34": 80}}, self.ch, TABLES, bonus=bonus)["cost"], plain["cost"])
 
+    def test_buff_levels(self):
+        # the skill with its attributes at a level II buff (+15) and itself at level III (+20): as if those were on
+        by_levels = goals.plan({"targets": {"skill:34": 80}, "buffs": {"skill:34": {"attr": 2, "skill": 3}}}, self.ch, TABLES)
+        same = goals.plan({"targets": {"skill:34": 80}, "buffed": True}, self.ch, TABLES,
+                          bonus={"attributes": {5: 15, 6: 15, 2: 15}, "skills": {34: 20}})
+        self.assertEqual((by_levels["targets"][0]["current"], by_levels["cost"]), (same["targets"][0]["current"], same["cost"]))
+        # set, they take the place of the profile's buffs
+        profile = goals.plan({"targets": {"skill:34": 80}, "buffed": True, "buffs": {"skill:34": {"attr": 2, "skill": 3}}},
+                             self.ch, TABLES, bonus={"attributes": {5: 1}, "skills": {}})
+        self.assertEqual(profile["cost"], by_levels["cost"])
+        self.assertFalse(goals.has_levels({"buffs": {"skill:34": {"attr": 0}}}))
+
+    def test_saved_goals_keep_their_buff_levels(self):
+        from companion import layouts
+        got = layouts._goals([{"name": "MD", "targets": {"skill:6": 280, "attribute:2": 100},
+                               "buffs": {"skill:6": {"attr": 6, "skill": 6}, "attribute:2": {"attr": 9}, "skill:99": {"skill": 3}}}])
+        self.assertEqual(got[0]["buffs"], {"skill:6": {"attr": 6, "skill": 6}})   # (a bad level and a key not a target: gone)
+
+    def test_each_target_its_own_buffs(self):
+        # an attribute target buffed, a skill target not: each measured with its own
+        p = goals.plan({"targets": {"attribute:5": 70, "skill:34": 60}, "buffs": {"attribute:5": {"attr": 6}}}, self.ch, TABLES)
+        cur = {t["key"]: t["current"] for t in p["targets"]}
+        self.assertEqual(cur["attribute:5"], 50 + 35)
+        self.assertEqual(cur["skill:34"], goals.plan({"targets": {"skill:34": 60}}, self.ch, TABLES)["targets"][0]["current"])
+
     def test_skill_for_a_cast_chance(self):
         from companion import research
         for power, chance in ((100, 0.9), (150, 0.3), (200, 0.75)):

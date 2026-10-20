@@ -1316,6 +1316,20 @@ document.addEventListener("click", e => {
 
 // ---- Experience: where the XP went, and goals (goals.py works the plans out; prefs keep the goals) -----------
 let expGoalSel = {};          // character -> the goal shown (its index), kept in this browser
+// a goal's buff levels, each target's own (goals.py BUFF_BY_LEVEL): none, then I..VI (+10..+35)
+const EXP_BUFF_LEVELS = ["none", "I (+10)", "II (+15)", "III (+20)", "IV (+25)", "V (+30)", "VI (+35)"];
+const EXP_BUFF_ADD = [0, 10, 15, 20, 25, 30, 35];
+const expHasLevels = g => Object.values(g.buffs || {}).some(b => b && (b.attr || b.skill));
+function expLevelText(e, g) {
+  const parts = [];
+  for (const [key, b] of Object.entries(g.buffs || {})) {
+    const s = expStat(e, key), bits = [];
+    if (b.skill) bits.push(`+${EXP_BUFF_ADD[b.skill]}`);
+    if (b.attr) bits.push(key.startsWith("attribute:") ? `+${EXP_BUFF_ADD[b.attr]}` : `attributes +${EXP_BUFF_ADD[b.attr]}`);
+    if (bits.length) parts.push(`${s ? s.name : key} ${bits.join(", ")}`);
+  }
+  return parts.join("; ");
+}
 try { expGoalSel = JSON.parse(localStorage.getItem("99companion.expGoal") || "{}"); } catch (e) {}
 // a wait: h:mm up to two days, then days, then "over a year"
 const longDur = s => s == null || !isFinite(s) ? "-" : s < 172800 ? dur(s) : s < 31536000 ? `${Math.round(s / 86400)} days` : "over a year";
@@ -1368,14 +1382,21 @@ function renderExperience(state) {
     const rows = Object.entries(g.targets || {}).map(([key, val]) => {
       const s = expStat(e, key), t = (plan && plan.targets || []).find(x => x.key === key);
       const d = t ? t.distance : null, cur = t ? t.current : s ? (g.buffed && s.buffed != null ? s.buffed : s.value) : null;
-      return `<tr><td>${esc(s ? s.name : key)}</td><td class="num">${cur != null ? fmt(cur) : "-"}</td>
+      const b = (g.buffs || {})[key] || {};
+      const sel = (which, title, label) => `<label class="muted" style="font-size:11px" title="${title}">${label} <select data-exp-buff="${key}" data-exp-buff-of="${which}">${
+        EXP_BUFF_LEVELS.map((l, i) => `<option value="${i}" ${i === (b[which] || 0) ? "selected" : ""}>${l}</option>`).join("")}</select></label>`;
+      const buffSel = key.startsWith("skill:")
+        ? sel("skill", "This skill's own buff (the goal's value is with it on)", "skill") + " " + sel("attr", "Its attributes' buffs (the ones it's made from)", "attributes")
+        : key.startsWith("attribute:") ? sel("attr", "This attribute's buff (the goal's value is with it on)", "buff")
+        : sel("attr", "Its attributes' buffs (the ones it's made from)", "attributes");
+      return `<tr><td>${esc(s ? s.name : key)}${buffSel ? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:2px">${buffSel}</div>` : ""}</td><td class="num">${cur != null ? fmt(cur) : "-"}</td>
         <td class="num"><input type="number" min="1" max="99999" value="${val}" data-exp-target="${key}" style="width:70px"></td>
         <td class="num" style="${d === 0 ? "color:var(--good)" : ""}">${d == null ? "" : d ? `${fmt(d)} to go` : "reached"}</td>
         <td><button class="chip mini" data-exp-drop="${key}" title="Take it off this goal">×</button></td></tr>`;
     }).join("");
     setHTML($("expGoalBody"), `<div class="toolbar" style="gap:8px;flex-wrap:wrap">
         <label>Name <input type="text" maxlength="40" value="${esc(g.name)}" data-exp-name style="width:180px"></label>
-        <label title="The goal's values are with your buff profile's buffs on (the tier each casts now): an attribute buff raises its skills too"><input type="checkbox" data-exp-buffed ${
+        <label title="The goal's values are with your buff profile's buffs on (the tier each casts now): an attribute buff raises its skills too. Buff levels picked here take its place."><input type="checkbox" data-exp-buffed ${
           g.buffed ? "checked" : ""}> with my buffs</label>
         <label title="Show this goal's progress under the vitals instead of the XP to your next level"><input type="checkbox" data-exp-track ${
           p.goal_tracked === sel ? "checked" : ""}> on the dashboard</label>
@@ -1386,7 +1407,8 @@ function renderExperience(state) {
         <input type="number" min="1" max="99999" placeholder="value" data-exp-add-val style="width:80px">
         <button class="chip mini" data-exp-add>Add</button></div>
       ${plan && plan.problems.length ? `<div style="color:var(--warn);font-size:12px;margin-top:6px">${esc(plan.problems.join("; "))}</div>` : ""}
-      ${g.buffed ? `<div class="muted" style="font-size:12px;margin-top:6px">With your buffs: ${expBuffText(e.buffs)}</div>` : ""}
+      ${expHasLevels(g) ? `<div class="muted" style="font-size:12px;margin-top:6px">With buffs: ${esc(expLevelText(e, g))}</div>`
+        : g.buffed ? `<div class="muted" style="font-size:12px;margin-top:6px">With your buffs: ${expBuffText(e.buffs)}</div>` : ""}
       ${g.kind === "next" ? expNextHtml(e, g) : ""}`);
 
     // the plan: what to raise, from what to what, and what it costs
@@ -1500,6 +1522,16 @@ document.addEventListener("change", e => {
     if (g && v > 0) { g.targets[t.dataset.expTarget] = v; g.start = null; }
   });
   if (t.matches("[data-exp-track]")) return expEdit((p, who) => { p.goal_tracked = t.checked ? expSelected(who, p.goals.length) : null; });
+  if (t.matches("[data-exp-buff]")) return expEdit((p, who) => {
+    const g = p.goals[expSelected(who, p.goals.length)];
+    if (!g) return;
+    const key = t.dataset.expBuff, which = t.dataset.expBuffOf;
+    g.buffs = g.buffs || {};
+    const b = g.buffs[key] = Object.assign({}, g.buffs[key]);
+    if (+t.value) b[which] = +t.value; else delete b[which];
+    if (!Object.keys(b).length) delete g.buffs[key];
+    g.start = null;
+  });
   if (t.matches("[data-exp-buffed]")) return expEdit((p, who) => {
     const g = p.goals[expSelected(who, p.goals.length)];
     if (g) { g.buffed = t.checked; g.start = null; }
