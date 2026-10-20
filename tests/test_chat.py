@@ -51,6 +51,15 @@ class ChatTest(unittest.TestCase):
         self.assertEqual(got, [("channel", "Fellowship", "Krodunk", "13 creature", False),
                                ("channel", "Fellowship", "Zorn", "what you need", True)])
 
+    def test_global_channels(self):
+        # the server's channels come as text on channel 8, already "[General] Name: ..." (its length counting a NUL)
+        line = "[General] Mira: this is wiggity whack\0"
+        self.feed(struct.pack("<I", 0xF62C) + s16(line) + struct.pack("<i", 8))
+        self.feed(struct.pack("<I", 0xF62C) + s16("[Trade] Zorn: wts pyreals") + struct.pack("<i", 8), ts=101.0)
+        got = [(c["kind"], c["channel"], c["sender"], c["text"], c["me"]) for c in self.tr.chat]
+        self.assertEqual(got, [("channel", "General", "Mira", "this is wiggity whack", False),
+                               ("channel", "Trade", "Zorn", "wts pyreals", True)])
+
     def test_spell_words_and_npcs(self):
         self.feed(struct.pack("<I", 0x37) + s16("Malar Easith") + s16("Zorn") + struct.pack("<I", ME))
         self.feed(struct.pack("<I", 0x37) + s16("Equin Eamalar") + s16("Krodunk") + struct.pack("<I", FRIEND))

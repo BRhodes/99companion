@@ -54,6 +54,7 @@ XP_UNASSIGNED = 0x16
 TEXT_COMPONENTS = "The spell consumed the following components: "
 MAGIC_CHANNEL = 7
 SYSTEM_CHANNEL, TELL_CHANNEL = 0, 4   # text channels: broadcasts ("... has been saved"), your own tells
+GLOBAL_CHANNEL = 8                    # ...and the server's chat channels, heard as "[General] Name: what they said"
 EXPIRED_KEEP = 3600.0   # a buff of yours that ran out is reported this long (unless recast)
 KILL_PAIR = 3.0         # seconds between a creature's deletion and its corpse appearing for them to be one death
 CHAT_KEEP = 500         # chat lines kept per login (all of them go to the database)
@@ -1292,6 +1293,10 @@ class Tracker:
             self._chat(now, "tell_out", "You", said.strip().strip('"'), to=to)
         elif channel == SYSTEM_CHANNEL:
             self._chat(now, "system", None, text)
+        elif channel == GLOBAL_CHANNEL and text.startswith("[") and "] " in text:
+            name, _, rest = text[1:].partition("] ")
+            sender, _, said = rest.partition(": ")
+            self._chat(now, "channel", sender, said.rstrip("\0"), channel=name, me=sender == self.character)
 
     def _on_stance_request(self, ev, now):
         """You asked for a stance: taken as yours unless the server refuses it straight away (INTERRUPTED)."""

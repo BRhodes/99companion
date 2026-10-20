@@ -2450,7 +2450,7 @@ function renderSession(state, relayUp) {
 
 // ---- chat --------------------------------------------------------------------------------------------
 // Live lines come with each update (this login); "Load earlier" pages back through the database.
-const CHAT_KINDS = [["tell", "Tells"], ["channel", "Fellowship"], ["say", "Nearby"], ["npc", "NPCs"], ["system", "System"]];
+const CHAT_KINDS = [["tell", "Tells"], ["channel", "Channels"], ["say", "Nearby"], ["npc", "NPCs"], ["system", "System"]];
 let chatShow = {tell: true, channel: true, say: true, npc: false, system: false}, chatEarlier = {}, chatSeen = {};
 try { chatShow = Object.assign(chatShow, JSON.parse(localStorage.getItem("99companion.chatShow") || "{}")); } catch (e) {}
 try { chatSeen = JSON.parse(localStorage.getItem("99companion.chatSeen") || "{}") || {}; } catch (e) {}
