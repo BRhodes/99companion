@@ -45,6 +45,17 @@ class CreaturesTest(unittest.TestCase):
         self.t.handle({"type": "deleted", "object": 0xA1}, 102)
         self.assertEqual(self.guids(), {})
 
+    def test_players(self):
+        other = {"type": "object", "object": 0x50000077, "name": "Mira", "wcid": 1, "item_type": 0x10,
+                 "position": {"cell": OUTSIDE, "x": 10.0, "y": 20.0, "z": 0.0, "qw": 1, "qz": 0}}
+        me = dict(other, object=ME, name="Zorn")
+        self.t.handle(other, 100)
+        self.t.handle(me, 100)
+        snap = self.t.snapshot()
+        self.assertEqual([p["name"] for p in snap["players"]], ["Mira"])          # not you
+        self.assertEqual(snap["creatures"], [])                                   # and not a creature
+        self.assertAlmostEqual(snap["players"][0]["ew"], ((OUTSIDE >> 24) * 192 + 10) / 240 - 101.95, places=3)
+
     def test_default_range(self):
         wcid = next(int(k) for k, v in MONSTERS.items() if "aggro" not in v and not v["tolerance"])
         self.t.handle(creature(0xC1, wcid, OUTSIDE), 100)

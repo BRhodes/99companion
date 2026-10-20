@@ -937,6 +937,7 @@ section[data-widget="buffpanel"]:has(#dashDungeon:not([hidden])), section[data-w
           <label class="muted"><input type="checkbox" id="mapPortals"> Portals</label>
           <label class="muted"><input type="checkbox" id="mapLife" checked> Lifestones</label>
           <label class="muted" title="The creatures you can see outdoors: red ones come for you on sight, within the circle (their aggro range); grey ones don't"><input type="checkbox" id="mapCreatures" checked> Creatures</label>
+          <label class="muted" title="The other players you can see outdoors"><input type="checkbox" id="mapPlayers" checked> Players</label>
           <span style="display:flex;gap:6px;align-items:center"><button class="btn" id="mapMe">Center on me</button>
             <span class="muted" style="cursor:help" title="Scroll to zoom, drag to move, click the map to route there, or search a town or dungeon. Routes combine running with portals and dungeon passages; runs walk around open sea and ground too steep to climb (buildings and trees aren't known). Portals above your level are left out, and so is any you skip.">ⓘ</span></span>
         </div>
@@ -4383,7 +4384,7 @@ function mapInit() {
   renderSkipped();
   $("mapClear").addEventListener("click", () => { MAP.dest = MAP.route = null; saveMapPlan(); renderRoute(); drawMap(); renderNextStep(curSession || {}); });
   $("mapMe").addEventListener("click", () => { $("mapFollow").checked = true; centerOnMe(true); });
-  for (const id of ["mapPortals", "mapLife", "mapCreatures"]) $(id).addEventListener("change", drawMap);
+  for (const id of ["mapPortals", "mapLife", "mapCreatures", "mapPlayers"]) $(id).addEventListener("change", drawMap);
   window.addEventListener("resize", drawMap);
 }
 
@@ -4693,6 +4694,15 @@ function drawMapOn(cv, V, full) {
     }
     if (perMetre * 40 >= 25)
       for (const [c, x, y] of cs) label(`${c.name}${c.level ? ` ${c.level}` : ""}`, x, y - 7, c.aggro ? "#ffb3b3" : "#ddd", "500 11px system-ui, sans-serif");
+  }
+  // the other players in view outdoors: a blue dot and their name
+  if (!full || $("mapPlayers").checked) {
+    const ps = ((curSession && curSession.players) || []).map(p => [p, ...at(p.ns, p.ew)]);
+    for (const [, x, y] of ps) {
+      g.fillStyle = "#4da3ff"; g.strokeStyle = "#000"; g.lineWidth = 1.2;
+      g.beginPath(); g.arc(x, y, 4.5, 0, 7); g.fill(); g.stroke();
+    }
+    for (const [p, x, y] of ps) label(p.name, x, y - 8, "#a8d1ff", "600 11px system-ui, sans-serif");
   }
   const pos = curSession && curSession.position;
   if (pos) {

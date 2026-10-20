@@ -446,6 +446,18 @@ class Tracker:
                         "aggro": (m.get("aggro") or AGGRO_DEFAULT) if not m.get("tolerance") else None})
         return out
 
+    def _players_snapshot(self):
+        """The other players in view outdoors, where they stand: [{guid, name, ns, ew}]."""
+        out = []
+        for guid, o in self.objects.items():
+            p = o.get("pos")
+            if guid not in PLAYER_IDS or guid == self.player or not p or (p["cell"] & 0xFFFF) >= 0x100:
+                continue
+            bx, by = p["cell"] >> 24, (p["cell"] >> 16) & 0xFF
+            out.append({"guid": guid, "name": o.get("name"), "ns": round((by * 192 + p["y"]) / 240 - 101.95, 4),
+                        "ew": round((bx * 192 + p["x"]) / 240 - 101.95, 4)})
+        return out
+
     # ---- vendors -------------------------------------------------------------------------------------
     # A vendor's window counts as open from its stock list (sent when you use it, and after every sale) until
     # you move at all further from it, another opens, or you leave. The client never says it closed the
@@ -1620,6 +1632,7 @@ class Tracker:
             "item_targets": self.item_targets(),
             "position": self._position_snapshot(),
             "creatures": self._creatures_snapshot(),
+            "players": self._players_snapshot(),
             "level": self.level,
             "inventory": self._carried_items(),
             "crafts": self._craftable(),
