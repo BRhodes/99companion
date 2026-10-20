@@ -499,6 +499,19 @@ def first_delay(files, wcid):
     return float(m.group(1)) if m else None
 
 
+AGGRO = 40.0           # metres a creature sees you from unless it says (the server's DEFAULT_AWARENESS_RANGE)
+AGGRO_INDOORS = 25.0   # ...indoors, one that sees further than that sees this far (DEFAULT_INDOOR_AWARENESS_RANGE)
+
+
+def indoor_aggro(m):
+    """How far off a creature comes for you in a dungeon, or None if it doesn't on sight (its tolerance): its visual
+    awareness range, but over AGGRO indoors it's AGGRO_INDOORS (MonsterAIManager::GetVisualRange)."""
+    if m.get("tolerance"):
+        return None
+    seen = m.get("aggro") or AGGRO
+    return AGGRO_INDOORS if seen > AGGRO else seen
+
+
 def build(landblock, name, core):
     game = Path(game_dir())
     cell_dat, portal_dat = DatFile(str(game / "cell.dat")), DatFile(str(game / "portal.dat"))
@@ -527,7 +540,8 @@ def build(landblock, name, core):
         m = monsters[str(wcid)]
         delay = first_delay(files, placed[parent[g]][0]) if g in parent and parent[g] in placed else None
         spawns.append({"wcid": wcid, "name": m["name"].replace("''", "'"), "level": m["level"], "cell": cid & 0xFFFF,
-                       "x": round(x, 2), "y": round(y, 2), "z": round(z, 2), "floor": level(z), "delay": delay})
+                       "x": round(x, 2), "y": round(y, 2), "z": round(z, 2), "floor": level(z), "delay": delay,
+                       "aggro": indoor_aggro(m)})
     spawns.sort(key=lambda s: (s["cell"], s["x"], s["y"]))
     exits = [{"name": n, "x": round(x, 2), "y": round(y, 2), "z": round(z, 2), "floor": level(z), "cell": cid & 0xFFFF}
              for _g, (w, cid, x, y, z, n) in placed.items() if "Surface" in n or "Portal" in n]
