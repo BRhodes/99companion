@@ -58,6 +58,11 @@ def parse(path):
     attributes = {int(r[1]): int(r[2]) for r in section(text, "weenie_properties_attribute")}
     skills = {int(r[1]): int(r[5]) for r in section(text, "weenie_properties_skill") if int(r[1]) in DEFENSES}
     extra = {"attributes": attributes, "skills": skills}
+    # who it goes after on sight, and from how far: Tolerance (int 67; 0: anyone in range -- else never, or only once
+    # attacked or bothered) and VisualAwarenessRange (float 31; the server's default 40 m)
+    extra["tolerance"] = int(ints.get(67, 0))
+    if 31 in floats:
+        extra["aggro"] = floats[31]
     if 146 in ints:                       # XpOverride: an authored award instead of the level curve
         extra["xp_override"] = int(ints[146])
     return wcid, {**extra, "name": strings.get(1, path.stem), "level": int(ints.get(25, 0)),

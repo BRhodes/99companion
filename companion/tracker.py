@@ -59,6 +59,7 @@ EXPIRED_KEEP = 3600.0   # a buff of yours that ran out is reported this long (un
 KILL_PAIR = 3.0         # seconds between a creature's deletion and its corpse appearing for them to be one death
 CHAT_KEEP = 500         # chat lines kept per login (all of them go to the database)
 PLAYER_IDS = range(0x50000000, 0x60000000)
+AGGRO_DEFAULT = 40.0          # metres a creature sees you from, unless it says otherwise (the server's DEFAULT_AWARENESS_RANGE)
 FIZZLE = 0x402
 # errors the server returns when it refuses a cast/use request outright (TryBeginCast); nothing burns
 REJECT_CODES = {0x1D: "rejected: busy", 0x3FC: "rejected: untrained", 0x3FE: "rejected: unlearned",
@@ -429,6 +430,21 @@ class Tracker:
                 "ns": (by * 192 + p["y"]) / 240 - 101.95, "ew": (bx * 192 + p["x"]) / 240 - 101.95,
                 "indoors": (p["cell"] & 0xFFFF) >= 0x100,
                 "facing": [-math.sin(angle), math.cos(angle)]}
+
+    def _creatures_snapshot(self):
+        """The creatures in view outdoors, where they stand: [{guid, name, level, ns, ew, aggro}] -- aggro: how far off
+        it comes for you (its visual awareness range, the server's default 40 m), or None if it doesn't go after anyone
+        on sight (its tolerance: never, or only once attacked or bothered)."""
+        out = []
+        for guid, o in self.objects.items():
+            p, m = o.get("pos"), MONSTERS.get(str(o.get("wcid")))
+            if not p or not m or o.get("dead") or guid == self.player or guid in PLAYER_IDS or (p["cell"] & 0xFFFF) >= 0x100:
+                continue
+            bx, by = p["cell"] >> 24, (p["cell"] >> 16) & 0xFF
+            out.append({"guid": guid, "name": o.get("name") or m["name"], "level": m.get("level"),
+                        "ns": round((by * 192 + p["y"]) / 240 - 101.95, 4), "ew": round((bx * 192 + p["x"]) / 240 - 101.95, 4),
+                        "aggro": (m.get("aggro") or AGGRO_DEFAULT) if not m.get("tolerance") else None})
+        return out
 
     # ---- vendors -------------------------------------------------------------------------------------
     # A vendor's window counts as open from its stock list (sent when you use it, and after every sale) until
@@ -1603,6 +1619,7 @@ class Tracker:
             "players_seen": [dict(s) for s in (getattr(self, "player_sightings", None) or [])[-25:]],
             "item_targets": self.item_targets(),
             "position": self._position_snapshot(),
+            "creatures": self._creatures_snapshot(),
             "level": self.level,
             "inventory": self._carried_items(),
             "crafts": self._craftable(),
