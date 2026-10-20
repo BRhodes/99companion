@@ -3760,7 +3760,7 @@ function renderDashboard(state) {
   $("buffPanel").hidden = dungeonCard || mapCard;
   $("dashDungeon").hidden = !dungeonCard;
   $("dashMap").hidden = !mapCard;
-  if (mapCard) { mapInit(); drawDashMap(); }
+  if (mapCard) { mapInit(); if (MAP.dest) fetchRoute(false); drawDashMap(); }   // (the route kept up as you go, as on the Map page)
   if (dungeonCard) {
     if ($("dgRoot").parentElement !== $("dashDungeon")) { $("dashDungeon").appendChild($("dgRoot")); DG.drawn = null; }
     try { renderDungeon(state); } catch (e) { console.error("render dungeon card failed", e); }
@@ -4298,6 +4298,7 @@ const MAP = {img: null, places: null, scale: 0, ox: 0, oy: 0, dest: null, route:
              picking: false};    // the next map click or search pick sets the start, not the destination
 // The destination and a set starting point outlive a reload (the companion restarting reloads the page): kept in
 // this browser, put back on load.
+const DASH_MAP = {scale: 60};       // the dashboard's map card: screen pixels a map pixel (24 m)
 function saveMapPlan() {
   try { localStorage.setItem("99companion.mapPlan", JSON.stringify({dest: MAP.dest, start: MAP.start})); } catch (e) {}
 }
@@ -4594,6 +4595,7 @@ function centerOnMe(force) {
 }
 
 function drawMap() {
+  drawDashMap();                    // (the dashboard's card shows the route too: whatever redraws the map redraws it)
   const cv = $("mapCanvas");
   if (!cv || page !== "map") return;
   $("mapRefining").hidden = !(MAP.refining && MAP.dest);
@@ -4644,7 +4646,7 @@ function drawMapOn(cv, V, full) {
     for (const [, x, y] of shown) { g.beginPath(); g.arc(x, y, 3, 0, 7); g.fill(); }
     for (const [p, x, y] of shown) label(p.name, x, y - 6, "#e2c6ff", "500 11px system-ui, sans-serif");
   }
-  if (full && MAP.route) {
+  if (MAP.route) {                  // the route (on the dashboard's card too)
     g.lineWidth = 3; g.lineJoin = "round";
     for (const s of MAP.route.steps) {
       const pts = s.kind === "run" && s.points ? s.points : [[s.from_ns, s.from_ew], [s.to_ns, s.to_ew]];
@@ -4668,7 +4670,7 @@ function drawMapOn(cv, V, full) {
     g.beginPath(); g.moveTo(x, y); g.lineTo(x, y - 16); g.stroke();
     g.beginPath(); g.moveTo(x, y - 16); g.lineTo(x + 10, y - 12); g.lineTo(x, y - 8); g.closePath(); g.fill(); g.stroke();
   }
-  if (full && MAP.dest) {
+  if (MAP.dest) {
     const [x, y] = at(MAP.dest.ns, MAP.dest.ew);
     g.fillStyle = "#ff4d4d"; g.beginPath(); g.arc(x, y - 10, 6, 0, 7); g.fill();
     g.beginPath(); g.moveTo(x - 5, y - 8); g.lineTo(x + 5, y - 8); g.lineTo(x, y); g.fill();
@@ -4703,7 +4705,6 @@ function drawMapOn(cv, V, full) {
 }
 
 // The dashboard's map card: you in the middle, close up (DASH_MAP.scale: screen pixels a map pixel, 24 m; scroll zooms)
-const DASH_MAP = {scale: 60};
 function drawDashMap() {
   const cv = $("dashMapCanvas");
   if (!cv || $("dashMap").hidden) return;
