@@ -61,6 +61,7 @@ tools\relay-tint.cmd     the same with the experimental vendor backgrounds on (-
 tools\relay-stop.cmd     stop a relay that's running (start.cmd's window and the two above do this first)
 tools\account1.cmd, account2.cmd   start the game for account 1 or 2 (the dashboard's play buttons do this)
 tools\unlock-client.cmd  clear the game's one-copy-at-a-time lock in running clients (launching does this)
+tools\unlock-client-standalone.cmd  the same on its own: one file, nothing to install (give it to anyone)
 tools\bgpatch.cmd        make the background copy of the client (Settings › Game does this)
 ```
 

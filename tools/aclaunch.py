@@ -148,7 +148,7 @@ def unlock(dry_run=False):
         else:
             ok = False
             print(f"Couldn't close the lock in PID {pid} (error {ctypes.get_last_error()}). If that client runs as "
-                  f"administrator, run this as administrator too, or use close-instance-lock.ps1.")
+                  f"administrator, run this as administrator too.")
     return ok
 
 
