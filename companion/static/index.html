@@ -756,6 +756,8 @@ section[data-widget="buffpanel"]:has(#dashDungeon:not([hidden])), section[data-w
 .plref td:first-child, .plref th:first-child { color: var(--ink); font-weight: 600; }
 .plref td.hi { color: var(--ink); font-weight: 600; } .plref td.lo { color: var(--muted); opacity: .7; }
 .plref td.mid50 { box-shadow: inset 0 -2px 0 var(--accent); }
+.plref tr.here td { background: color-mix(in srgb, #4a90e2 16%, transparent); }
+.plref tr.here td:first-child { color: #4a90e2; }
 .plref .note { font-size: 12px; color: var(--muted); max-width: 520px; margin-top: 6px; }
 #planPick .row { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; font-size: 12px; }
 #planPick .row > span { color: var(--muted); width: 84px; } #planCompare tr[data-plan-pick] { cursor: pointer; }
@@ -1411,15 +1413,24 @@ const PLAN_DEFAULT = () => ({name: "Mage", attributes: {1: 10, 2: 100, 3: 10, 4:
 const BENCH_DEFAULT = () => [{name: "Mage 250", buff: 6, targets: {"skill:34": 250, "skill:33": 250}},
                              {name: "Life 300", buff: 6, targets: {"skill:33": 300}}];
 const PLAN = {builds: [PLAN_DEFAULT()], sel: 0, plans: [], benches: BENCH_DEFAULT(), bsel: 0, matrix: [],
-              catalog: null, error: null, timer: null, asked: null};
+              catalog: null, error: null, timer: null, asked: null,
+              ref: {magic: null, mana: null}};      // (what the Reference tables center on: {value, name})
 try {
   const saved = JSON.parse(localStorage.getItem(PLAN_KEY) || "null");
   if (saved && Array.isArray(saved.builds) && saved.builds.length) { PLAN.builds = saved.builds; PLAN.sel = Math.min(saved.sel || 0, saved.builds.length - 1); }
+  if (saved && saved.ref) PLAN.ref = Object.assign(PLAN.ref, saved.ref);
   if (saved && Array.isArray(saved.benches)) { PLAN.benches = saved.benches; PLAN.bsel = Math.min(saved.bsel || 0, Math.max(0, saved.benches.length - 1)); }
 } catch (e) {}
 const planBuild = () => PLAN.builds[PLAN.sel];
+const MAGIC_SKILLS = [31, 32, 33, 34], MANA_CONV = 16;
+function planNoteRef(key, value) {        // a goal just set: the Reference tables center on it
+  const id = +String(key).split(":")[1];
+  if (!String(key).startsWith("skill:") || !(value > 0)) return;
+  if (MAGIC_SKILLS.includes(id)) PLAN.ref.magic = {value: Math.round(value), name: planStatName(key)};
+  if (id === MANA_CONV) PLAN.ref.mana = {value: Math.round(value), name: planStatName(key)};
+}
 function planSave(refresh = true) {
-  try { localStorage.setItem(PLAN_KEY, JSON.stringify({builds: PLAN.builds, sel: PLAN.sel, benches: PLAN.benches, bsel: PLAN.bsel})); } catch (e) {}
+  try { localStorage.setItem(PLAN_KEY, JSON.stringify({builds: PLAN.builds, sel: PLAN.sel, benches: PLAN.benches, bsel: PLAN.bsel, ref: PLAN.ref})); } catch (e) {}
   if (refresh) planAsk();
   render();
 }
@@ -1595,28 +1606,40 @@ function manaSaved(mc, power) {
   }
   return 1 - sum / N;
 }
+// the rows around a value: +-10 in steps of 2, then steps of 10 out to `below` under it and `above` over it
+function refRows(center, below, above, lo = 0) {
+  const out = new Set();
+  for (let d = -10; d <= 10; d += 2) out.add(center + d);
+  for (let d = 20; d <= below; d += 10) out.add(center - d);
+  for (let d = 20; d <= above; d += 10) out.add(center + d);
+  return [...out].filter(v => v >= lo).sort((a, b) => a - b);
+}
 function renderPlanRef() {
   const box = $("planRef");
-  if (box.dataset.done) return;                 // (it never changes)
-  box.dataset.done = "1";
+  const magic = PLAN.ref.magic || {value: 250, name: null}, mc = PLAN.ref.mana || {value: 200, name: null};
+  const key = `${magic.value}|${mc.value}|${magic.name}|${mc.name}`;
+  if (box.dataset.key === key) return;          // (only changes with what it centers on)
+  box.dataset.key = key;
   const cols = [[4, 150], [4, 175], [5, 200], [5, 225], [6, 250], [6, 275]];
   const pct = p => p >= 0.9995 ? ">99.9%" : p < 0.0005 ? "0%" : `${(p * 100).toFixed(p >= 0.995 || p < 0.1 ? 1 : 0)}%`;
   const cls = p => p >= 0.9 ? "hi" : p < 0.5 ? "lo" : "";
-  const skills = []; for (let s = 120; s <= 345; s += 5) skills.push(s);
+  const skills = refRows(magic.value, 60, 80);
   const cast = `<table><thead><tr><th>Skill</th>${cols.map(([lv, pw]) => `<th>${ROMAN[lv]}<br><span style="font-weight:400">${pw}</span></th>`).join("")}</tr></thead><tbody>${
-    skills.map(s => `<tr><td>${s}</td>${cols.map(([, pw]) => { const p = refCast(s, pw);
+    skills.map(s => `<tr class="${s === magic.value ? "here" : ""}"><td>${s}</td>${cols.map(([, pw]) => { const p = refCast(s, pw);
       return `<td class="${cls(p)}${s === pw ? " mid50" : ""}">${pct(p)}</td>`; }).join("")}</tr>`).join("")}</tbody></table>
     <div class="note">Cast chance = 1 − 1 / (1 + e<sup>0.07 (skill − power)</sup>): 50% at the spell's power, ~90% 31 above it, ~99% 66 above.
       Each level's first column is self buffs and bolts; the second, 25 more: spells on others and streaks (drains: 38 more).</div>`;
   const mcCols = [[5, 200], [5, 225], [6, 250], [6, 275]];
-  const mcs = []; for (let m = 50; m <= 400; m += 10) mcs.push(m);
+  const mcs = refRows(mc.value, 60, 80);
   const mana = `<table><thead><tr><th>Mana Conv.</th>${mcCols.map(([lv, pw]) => `<th>${ROMAN[lv]}<br><span style="font-weight:400">${pw}</span></th>`).join("")}</tr></thead><tbody>${
-    mcs.map(m => `<tr><td>${m}</td>${mcCols.map(([, pw]) => { const v = manaSaved(m, pw);
+    mcs.map(m => `<tr class="${m === mc.value ? "here" : ""}"><td>${m}</td>${mcCols.map(([, pw]) => { const v = manaSaved(m, pw);
       return `<td class="${v >= 0.5 ? "hi" : v < 0.15 ? "lo" : ""}">${Math.round(v * 100)}%</td>`; }).join("")}</tr>`).join("")}</tbody></table>
     <div class="note">The average mana saved per cast. Two checks: against (50 + power) / 2, then 50 + power, each passing with
       1 − 1 / (1 + e<sup>0.03 (skill − difficulty)</sup>) and cutting the cost by (chance − roll × luck), one luck roll for both.
       The cost is a whole number, rounded down after each check, so small costs save a little more than this.</div>`;
-  setHTML(box, `<div><h3 class="plh" style="margin-top:0">Cast chance by casting skill</h3>${cast}</div><div><h3 class="plh" style="margin-top:0">Mana saved by Mana Conversion</h3>${mana}</div>`);
+  const around = (r, what, dflt) => `<span style="text-transform:none;letter-spacing:0">around ${r.value}${r.name ? ` (${esc(r.name)}, set last)` : ` (set a ${what} goal to center it on yours)`}</span>`;
+  setHTML(box, `<div><h3 class="plh" style="margin-top:0">Cast chance by casting skill ${around(magic, "magic skill")}</h3>${cast}</div>
+    <div><h3 class="plh" style="margin-top:0">Mana saved by Mana Conversion ${around(mc, "Mana Conversion")}</h3>${mana}</div>`);
 }
 function renderPlanBench(c) {
   renderPlanRef();
@@ -1746,7 +1769,7 @@ document.addEventListener("click", e => {
     if (bt.matches("[data-bench-drop]") && k) { delete (k.targets || {})[bt.dataset.benchDrop]; return planSave(); }
     if (bt.matches("[data-bench-add]") && k) {
       const key = document.querySelector("[data-bench-add-stat]").value, val = +document.querySelector("[data-bench-add-val]").value;
-      if (key && val > 0) { k.targets = k.targets || {}; k.targets[key] = Math.round(val); planSave(); }
+      if (key && val > 0) { k.targets = k.targets || {}; k.targets[key] = Math.round(val); planNoteRef(key, val); planSave(); }
     }
     return;
   }
@@ -1767,14 +1790,14 @@ document.addEventListener("click", e => {
   if (t.matches("[data-plan-drop]")) { delete (b.targets || {})[t.dataset.planDrop]; return planSave(); }
   if (t.matches("[data-plan-add]")) {
     const key = document.querySelector("[data-plan-add-stat]").value, val = +document.querySelector("[data-plan-add-val]").value;
-    if (key && val > 0) { b.targets = b.targets || {}; b.targets[key] = Math.round(val); planSave(); }
+    if (key && val > 0) { b.targets = b.targets || {}; b.targets[key] = Math.round(val); planNoteRef(key, val); planSave(); }
   }
 });
 document.addEventListener("input", e => {
   const t = e.target, k = PLAN.benches[PLAN.bsel];
   if (!t.closest || !t.closest("#planBenchBody") || !k) return;
   if (t.matches("[data-bench-name]")) { k.name = t.value; return planSave(); }
-  if (t.matches("[data-bench-target]")) { if (+t.value > 0) { k.targets[t.dataset.benchTarget] = Math.round(+t.value); planSave(); } }
+  if (t.matches("[data-bench-target]")) { if (+t.value > 0) { k.targets[t.dataset.benchTarget] = Math.round(+t.value); planNoteRef(t.dataset.benchTarget, +t.value); planSave(); } }
 });
 document.addEventListener("change", e => {
   const t = e.target, k = PLAN.benches[PLAN.bsel];
@@ -1787,7 +1810,7 @@ document.addEventListener("input", e => {
   if (!t.closest || !t.closest("#planBuildBody") || !b) return;
   if (t.matches("[data-plan-name]")) { b.name = t.value; return planSave(); }
   if (t.matches("[data-plan-attr]")) { b.attributes = b.attributes || {}; b.attributes[t.dataset.planAttr] = +t.value || 0; return planSave(); }
-  if (t.matches("[data-plan-target]")) { if (+t.value > 0) { b.targets[t.dataset.planTarget] = Math.round(+t.value); planSave(); } return; }
+  if (t.matches("[data-plan-target]")) { if (+t.value > 0) { b.targets[t.dataset.planTarget] = Math.round(+t.value); planNoteRef(t.dataset.planTarget, +t.value); planSave(); } return; }
   if (t.matches("[data-plan-rate]")) { b.rate = +t.value || 0; return planSave(); }
 });
 document.addEventListener("change", e => {
