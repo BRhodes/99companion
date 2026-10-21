@@ -162,6 +162,7 @@ a { color: var(--accent); }
   body.fit .dash > .dcol { height: 100%; min-height: 0; position: static; }
   body.fit .dash section { min-height: 0; overflow: auto; margin: 0; }
   body.fit .dash section[data-widget="bonusxp"],
+  body.fit .dash section[data-widget="mana"],
   body.fit .dash section[data-widget="monster"] { flex: none; }
   body.fit .dash section[data-widget="consumables"] { flex: 0 1 auto; }
   body.fit .dash section[data-widget="soon"] { flex: 1 1 0; }
@@ -372,6 +373,12 @@ a { color: var(--accent); }
 .manatbl tr.soon td.left { color: var(--warn); font-weight: 600; }                              /* act soon */
 .manatbl tr.off td { opacity: .6; }
 .manatbl .as { display: block; font-size: 11px; color: var(--muted); }
+.manadash { width: 100%; }
+.manadash td.num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; color: var(--muted); }
+.manadash td.left { color: var(--ink); width: 1%; }
+.manadash tr.now td.left { color: var(--bad); font-weight: 600; }      /* act now */
+.manadash tr.soon td.left { color: var(--warn); font-weight: 600; }    /* act soon */
+.manadash tr.off td { opacity: .6; }
 .itbl tr.sub th { text-align: left; font-size: 11px; font-weight: 600; color: var(--muted); padding: 8px 6px 2px; position: sticky; top: 0; background: var(--panel); }
 @media (min-width: 1300px) {
   body.itemsfit { overflow: hidden; }
@@ -768,6 +775,8 @@ section[data-widget="buffpanel"]:has(#dashDungeon:not([hidden])), section[data-w
     <div class="dcol">
       <section data-widget="bonusxp"><h2>Bonus XP <a href="#xp" class="muted" style="font-size:12px;font-weight:400">all</a></h2>
         <div id="xpDash"></div></section>
+      <section data-widget="mana"><h2>Mana <a href="#mana" class="muted" style="font-size:12px;font-weight:400">all</a></h2>
+        <div id="manaDash"></div></section>
       <section data-widget="soon">
         <h2 style="display:flex;align-items:center;gap:8px">Expiring soon<span id="soonComps" style="margin-left:auto;min-width:0"></span>
           <span id="soonLearn" style="display:flex;flex:none;font-weight:400"></span><span id="soonSort" style="display:flex;gap:4px;flex:none;font-weight:400"></span></h2>
@@ -2851,7 +2860,7 @@ document.addEventListener("click", e => {
 
 // ---- dashboard -------------------------------------------------------------------------------------
 // What the dashboard shows lives in this browser (localStorage): which cards, and which items to count.
-const WIDGETS = [["bonusxp", "Bonus XP (the skills nearest their bonus)"], ["vitals", "Vitals"], ["soon", "Expiring soon"], ["consumables", "Consumables"],
+const WIDGETS = [["bonusxp", "Bonus XP (the skills nearest their bonus)"], ["mana", "Mana (the worn items soonest out)"], ["vitals", "Vitals"], ["soon", "Expiring soon"], ["consumables", "Consumables"],
                  ["shortcomps", "Components (soonest out, fewest)"], ["buffpanel", "Buffs (attributes, skills, protections, banes)"],
                  ["chat", "Chat column (both characters)"], ["monster", "Monster info (last fought)"], ["info", "Name card (vitals, pyreals)"]];
 const AMMO = /\b(Arrow|Quarrel|Dart)s?\b/;          // ammunition, not the parts it's made from
@@ -3121,20 +3130,43 @@ const MANA_NOW = 1800, MANA_SOON = 7200;
 const hmm = s => s == null ? "-" : `${Math.floor(s / 3600)}:${String(Math.floor(s % 3600 / 60)).padStart(2, "0")}`;
 const agoM = s => s < 90 ? `${Math.max(0, Math.round(s))}s` : s < 3600 ? `${Math.round(s / 60)}m` : `${Math.floor(s / 3600)}h ${Math.floor(s % 3600 / 60)}m`;
 setInterval(() => {           // (the countdown, every second between snapshots)
-  if (page === "mana" && curSession) try { renderMana(curSession); } catch (e) { console.error("render mana failed", e); }
+  if (!curSession) return;
+  if (page === "mana") try { renderMana(curSession); } catch (e) { console.error("render mana failed", e); }
+  if (page === "dashboard" && widgetOn("mana")) try { renderManaDash(curSession); } catch (e) { console.error("render mana card failed", e); }
 }, 1000);
-function renderMana(state) {
-  const t = now();
-  // (counting down between snapshots: an item whose spells are on loses its rate a second since the snapshot)
-  const rows = (state.item_mana || []).map(r => {
+// (counting down between snapshots: an item whose spells are on loses its rate a second since the snapshot)
+function manaRows(state, t) {
+  return (state.item_mana || []).map(r => {
     if (!r.active || r.mana == null || !r.rate || r.at == null) return r;
     const mana = Math.max(0, r.mana - r.rate * Math.max(0, t - r.at));
     return {...r, mana: Math.round(mana), left: mana / r.rate};
   });
+}
+function manaTone(r) {
+  const failed = r.error != null, off = !r.active && !failed;
+  return failed || r.out || (r.active && r.left != null && r.left < MANA_NOW) ? "now"
+    : r.active && r.left != null && r.left < MANA_SOON ? "soon" : off ? "off" : "";
+}
+// The dashboard's Mana card: the 5 worn items soonest out (out of mana or failed first, then the least time left; off
+// and unread ones last), each with its time left.
+const MANA_DASH = 5;
+function renderManaDash(state) {
+  const rank = r => r.out || r.error != null ? -1 : r.active && r.left != null ? r.left : Infinity;
+  const rows = manaRows(state, now()).filter(r => r.mana != null || r.error != null)
+    .sort((a, b) => rank(a) - rank(b)).slice(0, MANA_DASH);
+  setHTML($("manaDash"), rows.length ? `<table class="manadash"><tbody>${rows.map(r => {
+    const left = r.out ? "out" : r.error != null ? "failed" : !r.active ? "off" : r.left != null ? hmm(r.left) : "-";
+    return `<tr class="${manaTone(r)}"><td>${esc(r.name)}</td><td class="num">${r.mana == null ? "" : `${fmt(r.mana)} / ${fmt(r.max)}`}</td>
+      <td class="num left">${left}</td></tr>`;
+  }).join("")}</tbody></table>` : `<div class="empty">${(state.item_mana || []).length ? "Appraise what you wear to read its mana."
+    : "Nothing worn" + (state.status && state.status.in_world ? "" : " (or not in the world yet)")}.</div>`);
+}
+function renderMana(state) {
+  const t = now();
+  const rows = manaRows(state, t);
   setHTML($("manaBody"), rows.length ? rows.map(r => {
     const failed = r.error != null, off = !r.active && !failed;
-    const tone = failed || r.out || (r.active && r.left != null && r.left < MANA_NOW) ? "now"
-      : r.active && r.left != null && r.left < MANA_SOON ? "soon" : off ? "off" : "";
+    const tone = manaTone(r);
     const spells = (r.spells || r.on_you || []).join(", ");
     const lasts = r.out ? "out of mana" : failed ? `off: ${esc(r.error_text || `error ${r.error}`)}`
       : off ? "off" + (r.spells ? " (none of its spells on you)" : "") : r.left != null ? hmm(r.left) : "-";
@@ -3822,6 +3854,7 @@ function renderDashboard(state) {
     el.style.display = widgetOn(el.dataset.widget) ? "" : "none";
   renderStatus(state);
   try { renderXpMini(state, "xpDash", 5); } catch (e) { console.error("render bonus xp card failed", e); }
+  try { renderManaDash(state); } catch (e) { console.error("render mana card failed", e); }
   const rows = trackedItems(state);
   setHTML($("tracked"), rows.length ? `<div class="items">${rows.map(r => {
     const low = r.warn != null && r.warn !== "" && r.count < +r.warn;
