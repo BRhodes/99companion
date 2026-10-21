@@ -1123,7 +1123,8 @@ section[data-widget="buffpanel"]:has(#dashDungeon:not([hidden])), section[data-w
   <div class="grid" id="planGrid">
     <section id="planBuild"><h2 style="display:flex;align-items:center;gap:8px">Build <span id="planTabs" style="display:flex;gap:4px;flex-wrap:wrap"></span></h2>
       <div id="planBuildBody"></div></section>
-    <section id="planResult"><h2>Cheapest way there</h2><div id="planResultBody"></div></section>
+    <section id="planResult"><h2 style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">Cheapest way there <span id="planResultTabs" style="display:flex;gap:4px;flex-wrap:wrap"></span></h2>
+      <div id="planResultBody"></div></section>
     <section id="planCompare"><h2>Compare builds</h2><div id="planCompareBody"></div></section>
     <section id="planStats"><h2>Stats at the goal <span class="muted" style="font-size:12px;font-weight:400;text-transform:none;letter-spacing:0">start → goal, unbuffed (buffed)</span></h2>
       <div class="scroll" id="planStatsBody"></div></section>
@@ -1454,7 +1455,15 @@ function planStatName(key) {
   const s = (list || []).find(x => String(x.id) === id);
   return s ? s.name : key;
 }
-let planView = "builds";
+let planView = "builds", planResultOf = -1;      // (the Builds card's plan: -1 its own goals, else a benchmark's)
+try { planResultOf = +(localStorage.getItem("99companion.planResultOf") ?? -1); } catch (e) {}
+document.addEventListener("click", e => {
+  const r = e.target.closest("[data-plan-result]");
+  if (!r) return;
+  planResultOf = +r.dataset.planResult;
+  try { localStorage.setItem("99companion.planResultOf", String(planResultOf)); } catch (e2) {}
+  render();
+});
 try { planView = localStorage.getItem("99companion.planView") || "builds"; } catch (e) {}
 function renderPlanner() {
   for (const b of document.querySelectorAll("[data-plan-view]")) b.classList.toggle("on", b.dataset.planView === planView);
@@ -1520,19 +1529,30 @@ function renderPlanner() {
       ${plan && plan.problems && plan.problems.length ? `<div style="color:var(--warn);font-size:12px;margin-top:6px">${esc(plan.problems.join("; "))}</div>` : ""}`);
   }
 
-  // the plan: its XP, the level that's earned it (and the credits its skills take), and the raises
-  const cr = plan && plan.credits;
+  // the plan: its XP, the level that's earned it (and the credits its skills take), and the raises -- for the build's
+  // own goals, or one of the benchmarks (picked by the card's chips: planResultOf, -1 = its own)
+  if (planResultOf >= PLAN.benches.length) planResultOf = -1;
+  setHTML($("planResultTabs"), [[-1, "Own goals", "This build's own goals"]].concat(PLAN.benches.map((k, i) => [i, k.name || "Benchmark",
+      `${Object.entries(k.targets || {}).map(([key, v]) => `${planStatName(key)} ${v}`).join(", ")}${+k.buff ? ` · buffs ${ROMAN[+k.buff]}` : ""}`]))
+    .map(([i, name, tip]) => `<button class="chip mini${i === planResultOf ? " on" : ""}" data-plan-result="${i}" title="${esc(tip)}">${esc(name)}</button>`).join(""));
+  const bench = planResultOf >= 0 ? PLAN.benches[planResultOf] : null;
+  const shown = bench ? (PLAN.matrix[planResultOf] || [])[PLAN.sel] || null : plan;
+  const goalsOf = bench ? bench.targets || {} : b.targets || {};
+  const cr = shown && shown.credits;
   if (PLAN.error) setHTML($("planResultBody"), `<div class="empty" style="color:var(--bad)">${esc(PLAN.error)}</div>`);
-  else if (!plan) setHTML($("planResultBody"), `<div class="empty">Working it out…</div>`);
-  else if (!Object.keys(b.targets || {}).length) setHTML($("planResultBody"), `${planWarn(plan)}<div class="empty">Add a goal: what to raise, and the least XP that gets this build there, show here.</div>`);
-  else if (!plan.feasible) setHTML($("planResultBody"), `<div class="empty" style="color:var(--bad)">Out of reach: a stat would need more raises than the game allows.</div>`);
-  else setHTML($("planResultBody"), `${planWarn(plan)}<div class="expsum"><span>Needs <b>${fmt(plan.cost)}</b> XP</span>
-      <span>${plan.level ? `by level <b>${plan.level}</b>` : !plan.possible ? "" : `<b style="color:var(--bad)">past the last level</b>`}</span>
-      ${plan.hours != null ? `<span>about <b>${longDur(plan.hours * 3600)}</b> at ${fmt(b.rate)}/h</span>` : ""}</div>
-    <div class="muted" style="font-size:12px;margin:-4px 0 8px">${plan.xp_level ? `The XP's earned by level ${plan.xp_level}` : ""}${
+  else if (!shown) setHTML($("planResultBody"), `<div class="empty">Working it out…</div>`);
+  else if (!Object.keys(goalsOf).length) setHTML($("planResultBody"), `${planWarn(plan)}<div class="empty">${bench ? "This benchmark has no goals yet: add some on Benchmarks."
+    : "Add a goal: what to raise, and the least XP that gets this build there, show here."}</div>`);
+  else if (shown.missing && shown.missing.length) setHTML($("planResultBody"), `${planWarn(plan)}<div class="empty" style="color:var(--bad)">This build doesn't train ${esc(shown.missing.join(", "))}: it can't reach ${esc(bench.name || "this benchmark")}.</div>`);
+  else if (!shown.feasible) setHTML($("planResultBody"), `${planWarn(plan)}<div class="empty" style="color:var(--bad)">${shown.possible === false ? "This build can't be made." : "Out of reach: a stat would need more raises than the game allows."}</div>`);
+  else setHTML($("planResultBody"), `${planWarn(plan)}${bench ? `<div class="muted" style="font-size:12px;margin-bottom:6px">Against <b style="color:var(--ink)">${esc(bench.name || "Benchmark")}</b>: ${
+      esc(Object.entries(goalsOf).map(([key, v]) => `${planStatName(key)} ${v}`).join(", "))}${+bench.buff ? `, with level ${ROMAN[+bench.buff]} buffs` : ", unbuffed"}.</div>` : ""}<div class="expsum"><span>Needs <b>${fmt(shown.cost)}</b> XP</span>
+      <span>${shown.level ? `by level <b>${shown.level}</b>` : shown.possible === false ? "" : `<b style="color:var(--bad)">past the last level</b>`}</span>
+      ${shown.hours != null ? `<span>about <b>${longDur(shown.hours * 3600)}</b> at ${fmt(b.rate)}/h</span>` : ""}</div>
+    <div class="muted" style="font-size:12px;margin:-4px 0 8px">${shown.xp_level ? `The XP's earned by level ${shown.xp_level}` : ""}${
       cr.later ? `; ${esc(cr.later_skills.join(", "))} ${cr.later_skills.length > 1 ? "are" : "is"} trained later, ${cr.later} credits${cr.level ? ` (levels have given them by ${cr.level})` : " (more than levels give)"}` : ""}.</div>
-    ${plan.raises.length ? `<table class="exptbl"><thead><tr><th>Raise</th><th class="num">From</th><th class="num">To</th><th class="num">Raises</th><th class="num">XP</th></tr></thead><tbody>${
-      plan.raises.map(r => `<tr><td>${esc(r.name)} <span class="muted" style="font-size:11px">${expKindLabel[r.kind]}</span></td><td class="num">${fmt(r.from)}</td>
+    ${shown.raises.length ? `<table class="exptbl"><thead><tr><th>Raise</th><th class="num">From</th><th class="num">To</th><th class="num">Raises</th><th class="num">XP</th></tr></thead><tbody>${
+      shown.raises.map(r => `<tr><td>${esc(r.name)} <span class="muted" style="font-size:11px">${expKindLabel[r.kind]}</span></td><td class="num">${fmt(r.from)}</td>
         <td class="num"><b>${fmt(r.to)}</b></td><td class="num">+${fmt(r.raises)}</td><td class="num">${fmt(r.cost)}</td></tr>`).join("")}</tbody></table>
       <div class="muted" style="font-size:12px;margin-top:6px">Raising an attribute raises every skill and vital made from it: this is the split that costs the least.</div>`
       : `<div class="empty" style="color:var(--good)">Reached at the start.</div>`}`);

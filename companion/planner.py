@@ -177,7 +177,8 @@ def against(build, bench, tables, bases, vital_formulas, level_xp, level_credits
     ok = not missing and p["possible"]
     return {"cost": p["cost"] if ok else None, "level": p["level"] if ok else None,
             "xp_level": p["xp_level"], "hours": p["hours"] if ok else None,
-            "feasible": p["feasible"] and ok, "missing": missing, "possible": p["possible"], "warnings": p["warnings"]}
+            "feasible": p["feasible"] and ok, "missing": missing, "possible": p["possible"], "warnings": p["warnings"],
+            "raises": p["raises"] if ok else [], "targets": p["targets"], "credits": p["credits"]}
 
 
 def catalog(bases):
