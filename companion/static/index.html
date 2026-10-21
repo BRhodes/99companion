@@ -733,7 +733,19 @@ section[data-widget="buffpanel"]:has(#dashDungeon:not([hidden])), section[data-w
 .plmagic th, .plmagic td { padding: 1px 4px; text-align: right; border-bottom: 1px solid var(--line); }
 .plmagic th:first-child, .plmagic td:first-child { text-align: left; }
 .plmagic td.lo { color: var(--muted); opacity: .7; } .plmagic td.hi { color: var(--ink); font-weight: 600; }
-#planCompare tr.on td { color: #4a90e2; font-weight: 600; } #planCompare tr[data-plan-pick] { cursor: pointer; }
+#planCompare tr.on td { color: #4a90e2; font-weight: 600; }
+/* Planner > Compare: a column per build; a cell that isn't the first build's is marked, the best result bold */
+.plcmp { border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
+.plcmp th, .plcmp td { padding: 3px 10px; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; }
+.plcmp th:first-child, .plcmp td:first-child { text-align: left; color: var(--muted); position: sticky; left: 0; background: var(--panel); }
+.plcmp thead th { vertical-align: bottom; }
+.plcmp thead th .nm { font-size: 14px; color: var(--ink); }
+.plcmp thead th.on .nm { color: #4a90e2; }
+.plcmp thead th .acts { display: flex; gap: 3px; justify-content: flex-end; margin-top: 3px; }
+.plcmp tr.grp td { padding-top: 12px; font-size: 11px; text-transform: uppercase; letter-spacing: .5px; border-bottom-color: var(--line); }
+.plcmp td.diff { box-shadow: inset 2px 0 0 var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.plcmp td.best { font-weight: 700; color: var(--ink); }
+.plcmp td.none { color: var(--muted); opacity: .6; } #planCompare tr[data-plan-pick] { cursor: pointer; }
 #expStatsBody { max-height: 70vh; overflow-y: auto; }
 .vital.XP > span { font-size: 11px; }
 .vital.Health > i { background: #c0392b88; } .vital.Stamina > i { background: #d4a01788; } .vital.Mana > i { background: #2e6fd188; }
@@ -1079,6 +1091,11 @@ section[data-widget="buffpanel"]:has(#dashDungeon:not([hidden])), section[data-w
 </div>
 
 <div class="page" id="page-plan">
+  <nav class="subtabs" id="planViews" aria-label="Planner" style="padding:10px 10px 0"><button data-plan-view="builds">Builds</button><button data-plan-view="compare">Compare</button></nav>
+  <div class="grid" id="planCmpGrid"><section class="wide"><h2 style="display:flex;align-items:center;gap:8px">Compare builds
+      <span class="muted" style="font-size:12px;font-weight:400;text-transform:none;letter-spacing:0">every build side by side · marked: not the same as the first</span>
+      <span style="margin-left:auto;display:flex;gap:4px"><button class="chip mini" data-plan-new>+ New</button></span></h2>
+    <div class="scroll" id="planCmpBody"></div></section></div>
   <div class="grid" id="planGrid">
     <section id="planBuild"><h2 style="display:flex;align-items:center;gap:8px">Build <span id="planTabs" style="display:flex;gap:4px;flex-wrap:wrap"></span></h2>
       <div id="planBuildBody"></div></section>
@@ -1399,7 +1416,12 @@ function planStatName(key) {
   const s = (list || []).find(x => String(x.id) === id);
   return s ? s.name : key;
 }
+let planView = "builds";
+try { planView = localStorage.getItem("99companion.planView") || "builds"; } catch (e) {}
 function renderPlanner() {
+  for (const b of document.querySelectorAll("[data-plan-view]")) b.classList.toggle("on", b.dataset.planView === planView);
+  $("planGrid").style.display = planView === "compare" ? "none" : "";
+  $("planCmpGrid").style.display = planView === "compare" ? "" : "none";
   if (!PLAN.catalog) {
     if (!PLAN.loading) {
       PLAN.loading = true;
@@ -1410,6 +1432,7 @@ function renderPlanner() {
     return;
   }
   const c = PLAN.catalog, b = planBuild(), plan = PLAN.plans[PLAN.sel] || null;
+  if (planView === "compare") return renderPlanCompare(c);
   setHTML($("planTabs"), PLAN.builds.map((x, i) => `<button class="chip mini${i === PLAN.sel ? " on" : ""}" data-plan-tab="${i}">${esc(x.name || "Build")}</button>`).join("")
     + `<button class="chip mini" data-plan-new title="A new build">+ New</button><button class="chip mini" data-plan-copy title="A copy of this build, to try a change against it">Copy</button>`);
   const box = $("planBuildBody");
@@ -1510,7 +1533,74 @@ function renderPlanner() {
   <div class="muted" style="font-size:12px;margin-top:8px">Solid: the first power track (buffs on yourself, bolts); dashed and the second columns: 25 more (spells on others, streaks). Blue line: the build's buffed skill (dashed: unbuffed).
     Cast chance = 1 − 1 / (1 + e<sup>0.07 (skill − power)</sup>); a few spells (drains) sit 38 above the first track.</div>` : "");
 }
+// Planner > Compare: every build as a column -- its setup (attributes, buffs, skills, goals) and what it comes to (XP,
+// level, time, the goals' stats at the end, cast chances) -- a cell marked where it isn't the first build's, the best
+// result in a row bold. Each column: Edit (back to Builds on it), Copy, Delete.
+function renderPlanCompare(c) {
+  const builds = PLAN.builds, plans = builds.map((_, i) => PLAN.plans[i] || null);
+  const cols = builds.length;
+  const row = (label, vals, opts = {}) => {
+    const first = vals[0];
+    const nums = vals.map(v => typeof v === "number" ? v : null).filter(v => v != null);
+    const best = opts.best && nums.length > 1 ? (opts.best === "low" ? Math.min(...nums) : Math.max(...nums)) : null;
+    return `<tr><td>${label}</td>${vals.map((v, i) => {
+      const show = v == null || v === "" ? "–" : opts.fmt ? opts.fmt(v) : typeof v === "number" ? fmt(v) : esc(v);
+      const cls = [i && String(v ?? "") !== String(first ?? "") ? "diff" : "", best != null && v === best && nums.filter(n => n === best).length < nums.length ? "best" : "",
+                   v == null || v === "" ? "none" : ""].filter(Boolean).join(" ");
+      return `<td class="${cls}">${show}</td>`;
+    }).join("")}</tr>`;
+  };
+  const grp = label => `<tr class="grp"><td colspan="${cols + 1}">${label}</td></tr>`;
+  const head = `<thead><tr><th></th>${builds.map((b, i) => `<th class="${i === PLAN.sel ? "on" : ""}"><div class="nm">${esc(b.name || "Build")}</div>
+      <div class="acts"><button class="chip mini" data-plan-edit="${i}" title="Change this build">Edit</button><button class="chip mini" data-plan-dup="${i}" title="A copy of it, to try a change against it">Copy</button>${
+        cols > 1 ? `<button class="chip mini" data-plan-del="${i}" title="Delete this build">×</button>` : ""}</div></th>`).join("")}</tr></thead>`;
+  let rows = grp("Result");
+  rows += row("XP needed", plans.map((p, i) => p && p.feasible && Object.keys(builds[i].targets || {}).length ? p.cost : null), {best: "low"});
+  rows += row("By level", plans.map(p => p && p.level ? p.level : null), {best: "low"});
+  rows += row("Time", plans.map(p => p && p.hours != null ? p.hours : null), {best: "low", fmt: h => longDur(h * 3600)});
+  rows += row("XP/hour", builds.map(b => +b.rate || null));
+  rows += row("Credits", plans.map(p => p ? p.credits.used : null));
+  rows += grp("Setup");
+  rows += row("Buffs", builds.map(b => +b.buff ? `${ROMAN[+b.buff]} (+${EXP_BUFF_ADD[+b.buff]})` : "none"));
+  rows += row("Trained at creation", builds.map(b => b.chargen !== false ? "yes" : "no"));
+  for (const a of c.attributes) rows += row(esc(a.name), builds.map(b => +(b.attributes || {})[a.id] || c.creation.min));
+  const used = new Set(builds.flatMap(b => Object.keys(b.skills || {})));
+  const skillList = c.skills.filter(s => used.has(String(s.id)));
+  if (skillList.length) {
+    rows += grp("Skills");
+    for (const s of skillList) rows += row(esc(s.name), builds.map(b => ({trained: "Trained", specialized: "Spec"})[(b.skills || {})[s.id]] || (s.free ? "Trained" : "")));
+  }
+  const keys = [...new Set(builds.flatMap(b => Object.keys(b.targets || {})))];
+  if (keys.length) {
+    rows += grp("Goals");
+    for (const k of keys) rows += row(esc(planStatName(k)), builds.map(b => (b.targets || {})[k] ?? null));
+    rows += grp("At the goal, unbuffed (buffed)");
+    const stat = (p, k) => p && (p.stats || []).find(s => s.key === k);
+    for (const k of keys) rows += row(esc(planStatName(k)), plans.map(p => { const s = stat(p, k); return s ? (p.buff ? `${fmt(s.end)} (${fmt(s.buffed)})` : fmt(s.end)) : null; }));
+    const attrs = c.attributes.map(a => `attribute:${a.id}`).filter(k => !keys.includes(k));
+    for (const k of attrs) rows += row(esc(planStatName(k)), plans.map(p => { const s = stat(p, k); return s ? s.end : null; }));
+  }
+  rows += grp("Cast chance at the goal, buffed (self buffs · on others)");
+  for (const school of Object.keys(SCHOOL_SKILL)) {
+    const m = plans.map(p => p && (p.magic || []).find(x => x.school === school));
+    if (!m.some(x => x && x.skill != null)) continue;
+    rows += row(`${esc(SCHOOL_SKILL[school])} skill`, m.map(x => x && x.skill != null ? x.skill : null), {best: "high"});
+    for (const lv of [4, 5, 6]) rows += row(`&nbsp;&nbsp;level ${ROMAN[lv]}`, m.map(x => x && x.skill != null
+      ? `${Math.round(x.chances.base[lv - 1] * 100)}% · ${Math.round(x.chances.other[lv - 1] * 100)}%` : null));
+  }
+  setHTML($("planCmpBody"), PLAN.error ? `<div class="empty" style="color:var(--bad)">${esc(PLAN.error)}</div>`
+    : `<table class="plcmp">${head}<tbody>${rows}</tbody></table>`);
+}
 document.addEventListener("click", e => {
+  const v = e.target.closest("[data-plan-view]");
+  if (v) { planView = v.dataset.planView; try { localStorage.setItem("99companion.planView", planView); } catch (e2) {} return render(); }
+  const k = e.target.closest("[data-plan-edit], [data-plan-dup], [data-plan-del]");
+  if (k) {
+    if (k.dataset.planEdit != null) { PLAN.sel = +k.dataset.planEdit; planView = "builds"; try { localStorage.setItem("99companion.planView", planView); } catch (e2) {} return planSave(false); }
+    if (k.dataset.planDup != null) { const src = PLAN.builds[+k.dataset.planDup]; PLAN.builds.splice(+k.dataset.planDup + 1, 0, {...JSON.parse(JSON.stringify(src)), name: `${src.name || "Build"} copy`}); PLAN.sel = +k.dataset.planDup + 1; return planSave(); }
+    if (k.dataset.planDel != null && PLAN.builds.length > 1) { PLAN.builds.splice(+k.dataset.planDel, 1); PLAN.plans.splice(+k.dataset.planDel, 1); PLAN.sel = Math.min(PLAN.sel, PLAN.builds.length - 1); return planSave(); }
+    return;
+  }
   const t = e.target.closest("[data-plan-tab], [data-plan-new], [data-plan-copy], [data-plan-delete], [data-plan-drop], [data-plan-add], [data-plan-pick]");
   if (!t) return;
   if (t.dataset.planTab != null || t.dataset.planPick != null) { PLAN.sel = +(t.dataset.planTab ?? t.dataset.planPick); return planSave(false); }
