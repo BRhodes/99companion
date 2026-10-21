@@ -3,8 +3,13 @@ specializes, a buff tier and stat goals -- and the least XP that gets it there (
 earned that much, the skill credits its skills take, and how often it casts each school's spells.
 
 A build: {name, attributes: {"1".."6": 10..100} (330 in all at creation), skills: {"33": "trained" | "specialized"},
-chargen: the skills are trained at creation (+5 ranks trained, +10 specialized: free XP, Client.cpp), buff: 0..6 (a
-level I..VI buff on every attribute and skill: goals.BUFF_BY_LEVEL), targets: {"skill:33": 300, ...}, rate: XP an hour}.
+buff: 0..6 (a level I..VI buff on every attribute and skill: goals.BUFF_BY_LEVEL), targets: {"skill:33": 300, ...},
+rate: XP an hour}.
+
+Skill credits (creation()): a character is made with CREATION_CREDITS, and what it doesn't spend then is lost. A skill
+is specialized only at creation, so every specialized skill is paid for there; the trained skills that fit go in too
+(the set that spends the most of what's left), and the rest are trained later with the credits levels give. A skill
+taken at creation starts with free ranks (+5 trained, +10 specialized: free XP, Client.cpp); one trained later at 0.
 A benchmark: a goal set to hold every build against -- {name, targets, buff} (against()).
 
 The targets are buffed values when buff is set (as a goal's buff levels), else unbuffed. The XP a level has earned is
@@ -32,7 +37,40 @@ def _sac(v):
     return goals.SPECIALIZED if v == "specialized" else goals.TRAINED if v == "trained" else None
 
 
-def character(build, tables, bases, vital_formulas):
+def creation(build, bases):
+    """How a build's skill credits go: {"creation": [skill ids taken at creation], "later": [trained later], "spent":
+    credits spent at creation, "lost": unspent there (gone), "later_cost": credits the later ones take, "over":
+    specialized skills that cost more than creation has (an impossible build)}. The skills that come trained are free."""
+    spec, trained = [], []
+    for sid, v in (build.get("skills") or {}).items():
+        b = bases.get(int(sid)) if str(sid).isdigit() else None
+        if not b or not _sac(v):
+            continue
+        if _sac(v) == goals.SPECIALIZED:
+            spec.append((int(sid), b["specialized_cost"]))
+        elif b["trained_cost"]:
+            trained.append((int(sid), b["trained_cost"]))
+    spec_cost = sum(c for _, c in spec)
+    room = max(0, CREATION_CREDITS - spec_cost)
+    # the trained skills that spend the most of the room: best[n] = a set costing exactly n -- of those, the one with
+    # the most of the build's goal skills (they're what the free ranks help)
+    wanted = {int(k.split(":")[1]) for k in (build.get("targets") or {}) if k.startswith("skill:") and k.split(":")[1].isdigit()}
+    score = lambda chosen: sum(s in wanted for s in chosen)
+    best = {0: []}
+    for sid, cost in sorted(trained):
+        for n, chosen in sorted(best.items(), reverse=True):
+            m, cand = n + cost, chosen + [sid]
+            if m <= room and (m not in best or score(cand) > score(best[m])):
+                best[m] = cand
+    fill = max(best)
+    at_creation = [s for s, _ in spec] + best[fill]
+    later = [s for s, _ in sorted(trained) if s not in best[fill]]
+    spent = spec_cost + fill
+    return {"creation": at_creation, "later": later, "spent": spent, "lost": max(0, CREATION_CREDITS - spent),
+            "later_cost": sum(c for s, c in trained if s in later), "over": max(0, spec_cost - CREATION_CREDITS)}
+
+
+def character(build, tables, bases, vital_formulas, split=None):
     """The planner's character as goals works with it (goals.character's shape): nothing raised yet."""
     attrs = {}
     for a in goals.ATTRIBUTES:
@@ -42,7 +80,7 @@ def character(build, tables, bases, vital_formulas):
             v = ATTRIBUTE_MIN
         attrs[a] = {"value": max(ATTRIBUTE_MIN, min(ATTRIBUTE_MAX, v)), "raises": 0, "invested": 0}
     vitals = {k: {"raises": 0, "init": 0, "invested": 0, "formula": vital_formulas.get(k - 1)} for k in goals.VITALS}
-    chargen = build.get("chargen", True) is not False
+    split = split or creation(build, bases)
     out_skills = {}
     for sid, b in bases.items():
         sac = _sac((build.get("skills") or {}).get(str(sid)))
@@ -51,23 +89,15 @@ def character(build, tables, bases, vital_formulas):
         if sac is None:
             continue
         table = tables.get("specialized" if sac == goals.SPECIALIZED else "trained") or []
-        ranks = CHARGEN_RANKS[sac] if chargen else 0
+        ranks = CHARGEN_RANKS[sac] if sid in split["creation"] or b["trained_cost"] == 0 else 0
         xp = table[ranks] if ranks < len(table) else 0
         out_skills[sid] = {"sac": sac, "xp": xp, "rank": ranks, "init": 0, "formula": b["formula"]}
     return {"attributes": attrs, "vitals": vitals, "skills": out_skills}
 
 
-def credits_used(build, bases):
-    used = 0
-    for sid, v in (build.get("skills") or {}).items():
-        b = bases.get(int(sid)) if str(sid).isdigit() else None
-        if b and _sac(v):
-            used += b["specialized_cost"] if _sac(v) == goals.SPECIALIZED else b["trained_cost"]
-    return used
-
-
 def credits_at(level, level_credits):
-    return CREATION_CREDITS + sum(level_credits[1:level + 1])
+    """The credits levels have given by this level (creation's aren't counted: they're spent or gone)."""
+    return sum(level_credits[1:level + 1])
 
 
 def level_for(xp, level_xp):
@@ -83,7 +113,8 @@ def _goal(build):
 
 
 def plan(build, tables, bases, vital_formulas, level_xp, level_credits):
-    ch = character(build, tables, bases, vital_formulas)
+    split = creation(build, bases)
+    ch = character(build, tables, bases, vital_formulas, split)
     tier = goals._level(build.get("buff"))
     p = goals.plan(_goal(build), ch, tables)
     # where it ends up: the plan's raises on top of the start
@@ -106,9 +137,13 @@ def plan(build, tables, bases, vital_formulas, level_xp, level_credits):
              for k, i in sorted(end_v, key=lambda ki: (["attribute", "vital", "skill"].index(ki[0]),
                                                        goals.stat_name(*ki) if ki[0] == "skill" else "", ki[1]))]   # (skills by name)
     cost = p["cost"]
-    used = credits_used(build, bases)
     xp_level = level_for(cost, level_xp) if cost is not None else None
-    credit_level = next((lv for lv in range(1, len(level_xp)) if credits_at(lv, level_credits) >= used), None)
+    credit_level = next((lv for lv in range(1, len(level_xp)) if credits_at(lv, level_credits) >= split["later_cost"]), None)
+    warnings = []
+    if split["over"]:
+        warnings.append(f"its specialized skills take {split['over']} more credits than creation's {CREATION_CREDITS}: it can't be made")
+    elif split["lost"]:
+        warnings.append(f"{split['lost']} of creation's {CREATION_CREDITS} credits go unspent and are lost")
     try:
         rate = float(build.get("rate") or 0)
     except (TypeError, ValueError):
@@ -123,9 +158,11 @@ def plan(build, tables, bases, vital_formulas, level_xp, level_credits):
                       "chances": {track: [round(cast_chance(s, pw), 4) for pw in pws] for track, pws in POWERS.items()}})
     return {"name": build.get("name") or "Build", "cost": cost, "feasible": p["feasible"], "problems": p["problems"],
             "targets": p["targets"], "raises": p["raises"], "stats": stats, "buff": tier,
-            "level": max(xp_level, credit_level or 0) if xp_level is not None else None,   # (None: past the last level)
-            "xp_level": xp_level, "credits": {"used": used, "creation": CREATION_CREDITS, "level": credit_level,
-                                              "over_creation": max(0, used - CREATION_CREDITS)},
+            "level": max(xp_level, credit_level or 0) if xp_level is not None and credit_level and not split["over"] else None,
+            "xp_level": xp_level, "warnings": warnings, "possible": not split["over"],
+            "credits": {"creation": CREATION_CREDITS, "spent": split["spent"], "lost": split["lost"], "over": split["over"],
+                        "later": split["later_cost"], "level": credit_level, "used": split["spent"] + split["later_cost"],
+                        "later_skills": [sk.skill_name(s) for s in split["later"]]},
             "hours": round(cost / rate, 1) if cost is not None and rate > 0 else None, "magic": magic}
 
 
@@ -137,9 +174,10 @@ def against(build, bench, tables, bases, vital_formulas, level_xp, level_credits
     missing = [goals.stat_name("skill", int(k.split(":")[1])) for k in (bench.get("targets") or {})
                if k.startswith("skill:") and k.split(":")[1].isdigit()
                and not any(s["key"] == k for s in p["stats"])]
-    return {"cost": p["cost"] if not missing else None, "level": p["level"] if not missing else None,
-            "xp_level": p["xp_level"], "hours": p["hours"] if not missing else None,
-            "feasible": p["feasible"] and not missing, "missing": missing}
+    ok = not missing and p["possible"]
+    return {"cost": p["cost"] if ok else None, "level": p["level"] if ok else None,
+            "xp_level": p["xp_level"], "hours": p["hours"] if ok else None,
+            "feasible": p["feasible"] and ok, "missing": missing, "possible": p["possible"], "warnings": p["warnings"]}
 
 
 def catalog(bases):

@@ -26,16 +26,33 @@ class CharacterTest(unittest.TestCase):
         self.assertEqual((ch["skills"][34]["rank"], ch["skills"][34]["xp"]), (10, S[10]))
         self.assertEqual((ch["skills"][33]["rank"], ch["skills"][33]["xp"]), (5, T[5]))
         self.assertIn(15, ch["skills"])                      # (free: it comes trained)
-        later = planner.character(build(chargen=False), TABLES, BASES, VITALS)
-        self.assertEqual(later["skills"][34]["rank"], 0)
+        # (a trained skill that doesn't fit at creation is trained later, from 0)
+        later = planner.character(build(skills={"34": "specialized", "33": "trained"}), TABLES,
+                                  {**BASES, 33: {**BASES[33], "trained_cost": 30}}, VITALS)
+        self.assertEqual(later["skills"][33]["rank"], 0)
 
     def test_attributes_kept_in_range(self):
         ch = planner.character(build(attributes={"5": 250, "6": 3}), TABLES, BASES, VITALS)
         self.assertEqual((ch["attributes"][5]["value"], ch["attributes"][6]["value"]), (100, 10))
 
     def test_credits(self):
-        self.assertEqual(planner.credits_used(build(skills={"34": "specialized", "33": "trained"}), BASES), 28 + 12)
-        self.assertEqual(planner.credits_at(4, LEVEL_CREDITS), 50 + 3)
+        split = planner.creation(build(skills={"34": "specialized", "33": "trained"}), BASES)
+        self.assertEqual((split["spent"], split["lost"], split["later"]), (28 + 12, 10, []))
+        self.assertEqual(planner.credits_at(4, LEVEL_CREDITS), 3)
+
+    def test_creation_spends_the_most_it_can(self):
+        bases = {**BASES, 1: {"trained_cost": 6, "specialized_cost": 12, "formula": MAGIC},
+                 2: {"trained_cost": 8, "specialized_cost": 16, "formula": MAGIC},
+                 3: {"trained_cost": 10, "specialized_cost": 20, "formula": MAGIC}}
+        # specialized War (28) leaves 22: Life (12) + Bow-ish 10 = 22 beats any other fit
+        split = planner.creation(build(skills={"34": "specialized", "33": "trained", "1": "trained", "2": "trained", "3": "trained"}), bases)
+        self.assertEqual((split["spent"], split["lost"]), (50, 0))
+        self.assertEqual(split["later_cost"], 6 + 8 + 10 + 12 - 22)
+        self.assertNotIn(34, split["later"])                        # (specialized: always at creation)
+        # spending the same either way, the goal skill stays at creation
+        b = build(skills={"34": "specialized", "33": "trained", "1": "trained", "2": "trained"}, targets={"skill:33": 100})
+        bases2 = {**bases, 1: {**bases[1], "trained_cost": 12}, 2: {**bases[2], "trained_cost": 10}}
+        self.assertIn(33, planner.creation(b, bases2)["creation"])
 
 
 class PlanTest(unittest.TestCase):
@@ -56,11 +73,21 @@ class PlanTest(unittest.TestCase):
         self.assertGreaterEqual(war["buffed"], 120)
         self.assertIn(war["buffed"] - war["end"], (35 + 17, 35 + 18))   # (its own +35, and Focus and Self's +35 / 4, rounded)
 
-    def test_credits_past_creation_need_levels(self):
+    def test_specializing_past_creation_is_impossible(self):
         b = build(skills={"34": "specialized", "33": "specialized", "15": "specialized"})   # 28 + 20 + 12 = 60
         got = planner.plan(b, TABLES, BASES, VITALS, LEVEL_XP, LEVEL_CREDITS)
-        self.assertEqual(got["credits"]["over_creation"], 10)
-        self.assertIsNone(got["credits"]["level"])              # (these tables only give 5 more)
+        self.assertEqual((got["credits"]["over"], got["possible"], got["level"]), (10, False, None))
+        self.assertTrue(got["warnings"])
+
+    def test_lost_credits_warn_and_later_skills_need_levels(self):
+        got = planner.plan(build(targets={"skill:34": 100}), TABLES, BASES, VITALS, LEVEL_XP, LEVEL_CREDITS)
+        self.assertEqual(got["credits"]["lost"], 50 - 28)
+        self.assertIn("lost", got["warnings"][0])
+        bases = {**BASES, 33: {**BASES[33], "trained_cost": 30}}       # (doesn't fit next to War's 28)
+        got = planner.plan(build(skills={"34": "specialized", "33": "trained"}, targets={"skill:34": 100}),
+                           TABLES, bases, VITALS, LEVEL_XP, LEVEL_CREDITS)
+        self.assertEqual((got["credits"]["later"], got["credits"]["level"]), (30, None))   # (these levels give 5)
+        self.assertIsNone(got["level"])
 
     def test_cast_chances(self):
         got = planner.plan(build(targets={"skill:34": 250}), TABLES, BASES, VITALS, LEVEL_XP, LEVEL_CREDITS)

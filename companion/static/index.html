@@ -1394,7 +1394,7 @@ document.addEventListener("click", e => {
 // rate. Each change asks the companion for every build's plan (POST /api/planner), so Compare stays current.
 const PLAN_KEY = "99companion.planner";
 const PLAN_DEFAULT = () => ({name: "Mage", attributes: {1: 10, 2: 100, 3: 10, 4: 10, 5: 100, 6: 100},
-  skills: {34: "specialized", 33: "trained", 31: "trained"}, chargen: true, buff: 6, rate: 500000,
+  skills: {34: "specialized", 33: "trained", 31: "trained"}, buff: 6, rate: 500000,
   targets: {"skill:34": 250, "skill:33": 200}});
 // a benchmark: a goal set every build is held against -- its goals and the buff tier they're with
 const BENCH_DEFAULT = () => [{name: "Mage 250", buff: 6, targets: {"skill:34": 250, "skill:33": 250}},
@@ -1458,11 +1458,12 @@ function renderPlanner() {
     const attrs = c.attributes.map(a => `<label>${esc(a.name)}<input type="number" min="${c.creation.min}" max="${c.creation.max}" value="${
       (b.attributes || {})[a.id] ?? c.creation.min}" data-plan-attr="${a.id}"></label>`).join("");
     const total = c.attributes.reduce((n, a) => n + (+(b.attributes || {})[a.id] || 0), 0);
-    const used = c.skills.reduce((n, s) => n + ({trained: s.trained, specialized: s.specialized}[(b.skills || {})[s.id]] || 0), 0);
+    const cr0 = plan && plan.credits, later = new Set((cr0 && cr0.later_skills) || []);
     const skills = c.skills.map(s => {
       const v = (b.skills || {})[s.id] || (s.free ? "trained" : "");
-      return `<label class="${v ? "on" : ""}" title="${s.free ? "Comes trained (no credits)" : `Trained ${s.trained} credits`} · specialized ${s.specialized}">
-        <span class="n">${esc(s.name)}</span><span class="muted" style="font-size:11px">${s.free ? "free" : s.trained}/${s.specialized}</span>
+      return `<label class="${v ? "on" : ""}" title="${s.free ? "Comes trained (no credits)" : `Trained ${s.trained} credits`} · specialized ${s.specialized}${
+        later.has(s.name) ? " · doesn't fit in creation's credits: trained later, with the credits levels give, from rank 0" : ""}">
+        <span class="n">${esc(s.name)}${later.has(s.name) ? ` <span class="muted" style="font-size:11px;font-weight:400">later</span>` : ""}</span><span class="muted" style="font-size:11px">${s.free ? "free" : s.trained}/${s.specialized}</span>
         <select data-plan-skill="${s.id}">${s.free ? "" : `<option value="" ${!v ? "selected" : ""}>–</option>`}
           <option value="trained" ${v === "trained" ? "selected" : ""}>Trained</option><option value="specialized" ${v === "specialized" ? "selected" : ""}>Spec</option></select></label>`;
     }).join("");
@@ -1483,9 +1484,10 @@ function renderPlanner() {
         <span style="flex:1"></span><button class="chip mini" data-plan-delete ${PLAN.builds.length < 2 ? "disabled" : ""}>Delete build</button></div>
       <div class="plh">Starting attributes <span style="${total > c.creation.attributes ? "color:var(--bad)" : ""}">${total} / ${c.creation.attributes}</span></div>
       <div class="plattrs">${attrs}</div>
-      <div class="plh">Skills <span style="${used > c.creation.credits ? "color:var(--warn)" : ""}">${used} / ${c.creation.credits} credits</span>
-        <label style="text-transform:none;letter-spacing:0;margin-left:auto" title="Skills trained at creation start with free ranks: +5 trained, +10 specialized (later, with credits, they start at 0)"><input type="checkbox" data-plan-chargen ${
-          b.chargen !== false ? "checked" : ""}> trained at creation</label></div>
+      <div class="plh">Skills ${cr0 ? `<span title="Specialized skills are only taken at creation; the trained ones that fit go in too, and what's left unspent is lost"
+          style="${cr0.over ? "color:var(--bad)" : cr0.lost ? "color:var(--warn)" : ""}">creation ${cr0.spent + cr0.over} / ${c.creation.credits}${
+          cr0.over ? ` (${cr0.over} too many)` : cr0.lost ? ` (${cr0.lost} lost)` : ""}</span>${cr0.later ? `<span>· ${cr0.later} later${cr0.level ? ` (by level ${cr0.level})` : " (more than levels give)"}</span>` : ""}` : ""}
+        <span style="margin-left:auto;text-transform:none;letter-spacing:0" class="muted">at creation: +5 ranks trained, +10 specialized</span></div>
       <div class="plskills">${skills}</div>
       <div class="plh">Goals <span>${+b.buff ? `buffed values (level ${ROMAN[b.buff]} on everything)` : "unbuffed values"}</span></div>
       <table class="exptbl"><thead><tr><th>Stat</th><th class="num">Start</th><th class="num">Goal</th><th></th></tr></thead>
@@ -1500,13 +1502,13 @@ function renderPlanner() {
   const cr = plan && plan.credits;
   if (PLAN.error) setHTML($("planResultBody"), `<div class="empty" style="color:var(--bad)">${esc(PLAN.error)}</div>`);
   else if (!plan) setHTML($("planResultBody"), `<div class="empty">Working it out…</div>`);
-  else if (!Object.keys(b.targets || {}).length) setHTML($("planResultBody"), `<div class="empty">Add a goal: what to raise, and the least XP that gets this build there, show here.</div>`);
+  else if (!Object.keys(b.targets || {}).length) setHTML($("planResultBody"), `${planWarn(plan)}<div class="empty">Add a goal: what to raise, and the least XP that gets this build there, show here.</div>`);
   else if (!plan.feasible) setHTML($("planResultBody"), `<div class="empty" style="color:var(--bad)">Out of reach: a stat would need more raises than the game allows.</div>`);
-  else setHTML($("planResultBody"), `<div class="expsum"><span>Needs <b>${fmt(plan.cost)}</b> XP</span>
-      <span>${plan.level ? `by level <b>${plan.level}</b>` : `<b style="color:var(--bad)">past the last level</b>`}</span>
+  else setHTML($("planResultBody"), `${planWarn(plan)}<div class="expsum"><span>Needs <b>${fmt(plan.cost)}</b> XP</span>
+      <span>${plan.level ? `by level <b>${plan.level}</b>` : !plan.possible ? "" : `<b style="color:var(--bad)">past the last level</b>`}</span>
       ${plan.hours != null ? `<span>about <b>${longDur(plan.hours * 3600)}</b> at ${fmt(b.rate)}/h</span>` : ""}</div>
     <div class="muted" style="font-size:12px;margin:-4px 0 8px">${plan.xp_level ? `The XP's earned by level ${plan.xp_level}` : ""}${
-      cr.over_creation ? `; its skills take ${cr.used} credits, ${cr.over_creation} past creation's ${cr.creation}${cr.level ? ` (level ${cr.level} has them)` : " (more than leveling gives)"}` : ""}.</div>
+      cr.later ? `; ${esc(cr.later_skills.join(", "))} ${cr.later_skills.length > 1 ? "are" : "is"} trained later, ${cr.later} credits${cr.level ? ` (levels have given them by ${cr.level})` : " (more than levels give)"}` : ""}.</div>
     ${plan.raises.length ? `<table class="exptbl"><thead><tr><th>Raise</th><th class="num">From</th><th class="num">To</th><th class="num">Raises</th><th class="num">XP</th></tr></thead><tbody>${
       plan.raises.map(r => `<tr><td>${esc(r.name)} <span class="muted" style="font-size:11px">${expKindLabel[r.kind]}</span></td><td class="num">${fmt(r.from)}</td>
         <td class="num"><b>${fmt(r.to)}</b></td><td class="num">+${fmt(r.raises)}</td><td class="num">${fmt(r.cost)}</td></tr>`).join("")}</tbody></table>
@@ -1517,8 +1519,8 @@ function renderPlanner() {
   setHTML($("planCompareBody"), `<table class="exptbl"><thead><tr><th>Build</th><th class="num">XP</th><th class="num">Level</th><th class="num">Time</th><th class="num">Credits</th></tr></thead><tbody>${
     PLAN.builds.map((x, i) => { const p = PLAN.plans[i];
       return `<tr data-plan-pick="${i}" class="${i === PLAN.sel ? "on" : ""}"><td>${esc(x.name || "Build")}</td>
-        <td class="num">${p && p.feasible && Object.keys(x.targets || {}).length ? fmt(p.cost) : "-"}</td><td class="num">${p && p.level ? p.level : "-"}</td>
-        <td class="num">${p && p.hours != null ? longDur(p.hours * 3600) : "-"}</td><td class="num">${p ? p.credits.used : "-"}</td></tr>`; }).join("")}</tbody></table>`);
+        <td class="num">${p && !p.possible ? `<span style="color:var(--bad)">can't be made</span>` : p && p.feasible && Object.keys(x.targets || {}).length ? fmt(p.cost) : "-"}</td><td class="num">${p && p.level ? p.level : "-"}</td>
+        <td class="num">${p && p.hours != null ? longDur(p.hours * 3600) : "-"}</td><td class="num" style="${p && !p.possible ? "color:var(--bad)" : p && p.credits.lost ? "color:var(--warn)" : ""}" title="${p ? esc(p.warnings.join("; ")) : ""}">${p ? `${p.credits.used}${p.credits.lost ? ` (${p.credits.lost} lost)` : ""}` : "-"}</td></tr>`; }).join("")}</tbody></table>`);
 
   // where it ends up: every stat, start -> goal, unbuffed (buffed)
   setHTML($("planStatsBody"), plan ? `<table class="exptbl"><tbody>${["attribute", "vital", "skill"].map(k => {
@@ -1551,12 +1553,16 @@ function renderPlanner() {
   <div class="muted" style="font-size:12px;margin-top:8px">Solid: the first power track (buffs on yourself, bolts); dashed and the second columns: 25 more (spells on others, streaks). Blue line: the build's buffed skill (dashed: unbuffed).
     Cast chance = 1 − 1 / (1 + e<sup>0.07 (skill − power)</sup>); a few spells (drains) sit 38 above the first track.</div>` : "");
 }
+// a build's warnings: creation credits it loses (yellow), or specialized skills creation can't pay for (red)
+const planWarn = p => p && p.warnings && p.warnings.length
+  ? `<div style="color:var(${p.possible ? "--warn" : "--bad"});font-size:13px;margin-bottom:8px">⚠ ${esc(p.warnings.join("; "))}</div>` : "";
 // Planner > Benchmarks: goal sets to hold every build against (a name, a buff tier, goals on any stat), and how
 // each build does against the one shown.
-const planCell = r => !r ? `<td class="none">–</td>` : r.missing && r.missing.length
+const planCell = r => !r ? `<td class="none">–</td>` : r.possible === false
+  ? `<td class="cant" style="color:var(--bad)" title="${esc((r.warnings || []).join("; "))}">can't be made</td>` : r.missing && r.missing.length
   ? `<td class="cant" title="This build doesn't train ${esc(r.missing.join(", "))}">needs ${esc(r.missing.join(", "))}</td>`
   : !r.feasible ? `<td class="cant">out of reach</td>`
-  : `<td data-cost="${r.cost}">${fmt(r.cost)}<span class="sub">${r.level ? `level ${r.level}` : "past the last level"}${r.hours != null ? ` · ${longDur(r.hours * 3600)}` : ""}</span></td>`;
+  : `<td data-cost="${r.cost}"${(r.warnings || []).length ? ` title="${esc(r.warnings.join("; "))}"` : ""}>${(r.warnings || []).length ? `<span style="color:var(--warn)">⚠</span> ` : ""}${fmt(r.cost)}<span class="sub">${r.level ? `level ${r.level}` : "past the last level"}${r.hours != null ? ` · ${longDur(r.hours * 3600)}` : ""}</span></td>`;
 function planBest(cells) {           // (bold the least XP in a row of cells, where more than one can get there)
   const costs = cells.map(r => r && r.feasible && !(r.missing || []).length ? r.cost : null).filter(v => v != null);
   const least = costs.length > 1 ? Math.min(...costs) : null;
@@ -1632,14 +1638,16 @@ function renderPlanCompare(c) {
       <div class="acts"><button class="chip mini" data-plan-edit="${i}" title="Change this build">Edit</button><button class="chip mini" data-plan-dup="${i}" title="A copy of it, to try a change against it">Copy</button>${
         PLAN.builds.length > 1 ? `<button class="chip mini" data-plan-del="${i}" title="Delete this build">×</button>` : ""}</div></th>`; }).join("")}</tr></thead>`;
   let rows = grp("Result");
-  rows += row("XP needed", plans.map((p, i) => p && p.feasible && Object.keys(builds[i].targets || {}).length ? p.cost : null), {best: "low"});
-  rows += row("By level", plans.map(p => p && p.level ? p.level : null), {best: "low"});
-  rows += row("Time", plans.map(p => p && p.hours != null ? p.hours : null), {best: "low", fmt: h => longDur(h * 3600)});
+  const can = p => p && p.possible;          // (a build that can't be made has no result to compare)
+  rows += row("XP needed", plans.map((p, i) => can(p) && p.feasible && Object.keys(builds[i].targets || {}).length ? p.cost : p && !p.possible ? "can't be made" : null), {best: "low"});
+  rows += row("By level", plans.map(p => can(p) && p.level ? p.level : null), {best: "low"});
+  rows += row("Time", plans.map(p => can(p) && p.hours != null ? p.hours : null), {best: "low", fmt: h => longDur(h * 3600)});
   rows += row("XP/hour", builds.map(b => +b.rate || null));
-  rows += row("Credits", plans.map(p => p ? p.credits.used : null));
+  rows += row("Credits at creation", plans.map(p => p ? `${p.credits.spent + p.credits.over} / ${p.credits.creation}` : null));
+  rows += row("Lost at creation", plans.map(p => p ? (p.credits.over ? `${p.credits.over} too many` : p.credits.lost || null) : null), {best: "low"});
+  rows += row("Trained later", plans.map(p => p && p.credits.later ? `${p.credits.later_skills.join(", ")} (${p.credits.later})` : null));
   rows += grp("Setup");
   rows += row("Buffs", builds.map(b => +b.buff ? `${ROMAN[+b.buff]} (+${EXP_BUFF_ADD[+b.buff]})` : "none"));
-  rows += row("Trained at creation", builds.map(b => b.chargen !== false ? "yes" : "no"));
   for (const a of c.attributes) rows += row(esc(a.name), builds.map(b => +(b.attributes || {})[a.id] || c.creation.min));
   const used = new Set(builds.flatMap(b => Object.keys(b.skills || {})));
   const skillList = c.skills.filter(s => used.has(String(s.id)));
@@ -1735,7 +1743,6 @@ document.addEventListener("change", e => {
   const t = e.target, b = PLAN.builds[PLAN.sel];
   if (!t.closest || !t.closest("#planBuildBody") || !b) return;
   if (t.matches("[data-plan-buff]")) { b.buff = +t.value || 0; return planSave(); }
-  if (t.matches("[data-plan-chargen]")) { b.chargen = t.checked; return planSave(); }
   if (t.matches("[data-plan-skill]")) {
     b.skills = b.skills || {};
     if (t.value) b.skills[t.dataset.planSkill] = t.value; else delete b.skills[t.dataset.planSkill];
