@@ -748,6 +748,15 @@ section[data-widget="buffpanel"]:has(#dashDungeon:not([hidden])), section[data-w
 .plcmp td.none { color: var(--muted); opacity: .6; }
 .plcmp td .sub { display: block; font-size: 11px; color: var(--muted); font-weight: 400; }
 .plcmp td.cant { color: var(--muted); font-size: 12px; white-space: normal; max-width: 160px; }
+.plref { display: flex; gap: 24px; flex-wrap: wrap; align-items: flex-start; }
+.plref > div { min-width: 0; overflow-x: auto; }
+.plref table { border-collapse: collapse; font-size: 12px; font-variant-numeric: tabular-nums; }
+.plref th, .plref td { padding: 1px 8px; text-align: right; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.plref th { color: var(--muted); font-weight: 600; vertical-align: bottom; }
+.plref td:first-child, .plref th:first-child { color: var(--ink); font-weight: 600; }
+.plref td.hi { color: var(--ink); font-weight: 600; } .plref td.lo { color: var(--muted); opacity: .7; }
+.plref td.mid50 { box-shadow: inset 0 -2px 0 var(--accent); }
+.plref .note { font-size: 12px; color: var(--muted); max-width: 520px; margin-top: 6px; }
 #planPick .row { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; font-size: 12px; }
 #planPick .row > span { color: var(--muted); width: 84px; } #planCompare tr[data-plan-pick] { cursor: pointer; }
 #expStatsBody { max-height: 70vh; overflow-y: auto; }
@@ -1098,7 +1107,9 @@ section[data-widget="buffpanel"]:has(#dashDungeon:not([hidden])), section[data-w
   <nav class="subtabs" id="planViews" aria-label="Planner" style="padding:10px 10px 0"><button data-plan-view="builds">Builds</button><button data-plan-view="benchmarks">Benchmarks</button><button data-plan-view="compare">Compare</button></nav>
   <div class="grid" id="planBenchGrid"><section><h2 style="display:flex;align-items:center;gap:8px">Benchmark <span id="planBenchTabs" style="display:flex;gap:4px;flex-wrap:wrap"></span></h2>
       <div id="planBenchBody"></div></section>
-    <section><h2>Every build against it</h2><div id="planBenchResult"></div></section></div>
+    <section><h2>Every build against it</h2><div id="planBenchResult"></div></section>
+    <section class="wide"><h2>Reference <span class="muted" style="font-size:12px;font-weight:400;text-transform:none;letter-spacing:0">cast chance by casting skill · mana saved by Mana Conversion</span></h2>
+      <div id="planRef" class="plref"></div></section></div>
   <div class="grid" id="planCmpGrid"><section class="wide"><h2 style="display:flex;align-items:center;gap:8px">Builds against benchmarks
       <span class="muted" style="font-size:12px;font-weight:400;text-transform:none;letter-spacing:0">the XP each build needs for each benchmark, the level it's earned by, how long · bold: the least in the row</span></h2>
     <div id="planPick" style="display:flex;flex-direction:column;gap:4px;margin-bottom:8px"></div>
@@ -1568,7 +1579,47 @@ function planBest(cells) {           // (bold the least XP in a row of cells, wh
   const least = costs.length > 1 ? Math.min(...costs) : null;
   return cells.map(r => { const h = planCell(r); return least != null && r && r.cost === least ? h.replace("<td ", `<td class="best" `) : h; });
 }
+// Planner > Benchmarks > Reference: cast chance by casting skill (+5 steps) for the spell levels' powers, and the
+// mana Mana Conversion saves (+10 steps) on level V and VI spells -- the server's own formulas (SkillChecks.cpp).
+const refCast = (skill, power) => 1 - 1 / (1 + Math.exp(0.07 * (skill - power)));
+const skillChance = (skill, diff) => Math.min(1, Math.max(0, 1 - 1 / (1 + Math.exp(0.03 * (skill - diff)))));
+// GetManaCost: two checks (against (50 + power) / 2, then 50 + power), sharing one luck roll; a check that passes
+// (roll <= chance) multiplies the cost by 1 - (chance - roll x luck). Expected: per luck, each check leaves
+// (1 - c) + c (1 - c) + luck c^2 / 2 of the cost; the two multiply, averaged over luck.
+function manaSaved(mc, power) {
+  const d = 50 + power, c1 = skillChance(mc, Math.floor(d / 2)), c2 = skillChance(mc, d), N = 200;
+  let sum = 0;
+  for (let i = 0; i < N; i++) {
+    const l = (i + 0.5) / N;
+    sum += ((1 - c1) + c1 * (1 - c1) + l * c1 * c1 / 2) * ((1 - c2) + c2 * (1 - c2) + l * c2 * c2 / 2);
+  }
+  return 1 - sum / N;
+}
+function renderPlanRef() {
+  const box = $("planRef");
+  if (box.dataset.done) return;                 // (it never changes)
+  box.dataset.done = "1";
+  const cols = [[4, 150], [4, 175], [5, 200], [5, 225], [6, 250], [6, 275]];
+  const pct = p => p >= 0.9995 ? ">99.9%" : p < 0.0005 ? "0%" : `${(p * 100).toFixed(p >= 0.995 || p < 0.1 ? 1 : 0)}%`;
+  const cls = p => p >= 0.9 ? "hi" : p < 0.5 ? "lo" : "";
+  const skills = []; for (let s = 120; s <= 345; s += 5) skills.push(s);
+  const cast = `<table><thead><tr><th>Skill</th>${cols.map(([lv, pw]) => `<th>${ROMAN[lv]}<br><span style="font-weight:400">${pw}</span></th>`).join("")}</tr></thead><tbody>${
+    skills.map(s => `<tr><td>${s}</td>${cols.map(([, pw]) => { const p = refCast(s, pw);
+      return `<td class="${cls(p)}${s === pw ? " mid50" : ""}">${pct(p)}</td>`; }).join("")}</tr>`).join("")}</tbody></table>
+    <div class="note">Cast chance = 1 − 1 / (1 + e<sup>0.07 (skill − power)</sup>): 50% at the spell's power, ~90% 31 above it, ~99% 66 above.
+      Each level's first column is self buffs and bolts; the second, 25 more: spells on others and streaks (drains: 38 more).</div>`;
+  const mcCols = [[5, 200], [5, 225], [6, 250], [6, 275]];
+  const mcs = []; for (let m = 50; m <= 400; m += 10) mcs.push(m);
+  const mana = `<table><thead><tr><th>Mana Conv.</th>${mcCols.map(([lv, pw]) => `<th>${ROMAN[lv]}<br><span style="font-weight:400">${pw}</span></th>`).join("")}</tr></thead><tbody>${
+    mcs.map(m => `<tr><td>${m}</td>${mcCols.map(([, pw]) => { const v = manaSaved(m, pw);
+      return `<td class="${v >= 0.5 ? "hi" : v < 0.15 ? "lo" : ""}">${Math.round(v * 100)}%</td>`; }).join("")}</tr>`).join("")}</tbody></table>
+    <div class="note">The average mana saved per cast. Two checks: against (50 + power) / 2, then 50 + power, each passing with
+      1 − 1 / (1 + e<sup>0.03 (skill − difficulty)</sup>) and cutting the cost by (chance − roll × luck), one luck roll for both.
+      The cost is a whole number, rounded down after each check, so small costs save a little more than this.</div>`;
+  setHTML(box, `<div><h3 class="plh" style="margin-top:0">Cast chance by casting skill</h3>${cast}</div><div><h3 class="plh" style="margin-top:0">Mana saved by Mana Conversion</h3>${mana}</div>`);
+}
 function renderPlanBench(c) {
+  renderPlanRef();
   setHTML($("planBenchTabs"), PLAN.benches.map((x, i) => `<button class="chip mini${i === PLAN.bsel ? " on" : ""}" data-bench-tab="${i}">${esc(x.name || "Benchmark")}</button>`).join("")
     + `<button class="chip mini" data-bench-new title="A new benchmark">+ New</button>${PLAN.benches.length ? `<button class="chip mini" data-bench-copy title="A copy of this benchmark">Copy</button>` : ""}`);
   const k = PLAN.benches[PLAN.bsel], box = $("planBenchBody");
