@@ -1465,6 +1465,21 @@ document.addEventListener("click", e => {
   render();
 });
 try { planView = localStorage.getItem("99companion.planView") || "builds"; } catch (e) {}
+// a build's mana saved at its goal: its buffed Mana Conversion, times its wand's mod, against each spell level's powers
+function planManaOf(plan, b) {
+  const s = plan && (plan.stats || []).find(x => x.key === "skill:16");
+  if (!s) return null;
+  const mc = plan.buff ? s.buffed : s.end;
+  return {mc, eff: wandMC(mc, b.wand), wand: +b.wand || 0};
+}
+function planManaHtml(plan, b) {
+  const m = planManaOf(plan, b);
+  if (!m) return `<div class="plh">Mana saved</div><div class="muted" style="font-size:12px">Mana Conversion isn't trained: every spell costs its full mana.</div>`;
+  const cols = [[4, 150, 175], [5, 200, 225], [6, 250, 275]];
+  return `<div class="plh">Mana saved <span style="text-transform:none;letter-spacing:0">Mana Conversion ${fmt(m.mc)}${m.wand ? ` × ${1 + m.wand} (wand) = ${fmt(m.eff)}` : ""}${plan.buff ? ", buffed" : ""}</span></div>
+    <table class="exptbl" style="max-width:420px"><thead><tr><th>Level</th><th class="num">Self buffs, bolts</th><th class="num">On others</th></tr></thead><tbody>${
+      cols.map(([lv, a, o]) => `<tr><td>${ROMAN[lv]}</td><td class="num">${Math.round(manaSaved(m.eff, a) * 100)}%</td><td class="num">${Math.round(manaSaved(m.eff, o) * 100)}%</td></tr>`).join("")}</tbody></table>`;
+}
 function renderPlanner() {
   for (const b of document.querySelectorAll("[data-plan-view]")) b.classList.toggle("on", b.dataset.planView === planView);
   $("planGrid").style.display = planView === "builds" ? "" : "none";
@@ -1512,6 +1527,7 @@ function renderPlanner() {
         <label title="Every attribute and skill buffed this much: the goals are buffed values, and so are the cast chances">Buffs <select data-plan-buff>${
           EXP_BUFF_LEVELS.map((l, i) => `<option value="${i}" ${i === (+b.buff || 0) ? "selected" : ""}>${l}</option>`).join("")}</select></label>
         <label title="How fast this build earns XP: how long its goals take">XP/hour <input type="number" min="0" step="10000" value="${b.rate || ""}" data-plan-rate style="width:100px"></label>
+        ${wandSel("data-plan-wand", b.wand, "A wielded caster with a Mana Conversion mod (the White Virindi Wand's is 5%): your Mana Conversion x 1.03 / 1.05 while it's in hand")}
         <span style="flex:1"></span><button class="chip mini" data-plan-delete ${PLAN.builds.length < 2 ? "disabled" : ""}>Delete build</button></div>
       <div class="plh">Starting attributes <span style="${total > c.creation.attributes ? "color:var(--bad)" : ""}">${total} / ${c.creation.attributes}</span></div>
       <div class="plattrs">${attrs}</div>
@@ -1593,7 +1609,8 @@ function renderPlanner() {
         pw.base.map((p, i) => `<tr><td>${ROMAN[i + 1]}</td><td class="muted">${p}</td>${cell(m.chances.base[i])}<td class="muted">${pw.other[i]}</td>${cell(m.chances.other[i])}</tr>`).join("")}</tbody></table>`}</div>`;
   }).join("")}</div>
   <div class="muted" style="font-size:12px;margin-top:8px">Solid: the first power track (buffs on yourself, bolts); dashed and the second columns: 25 more (spells on others, streaks). Blue line: the build's buffed skill (dashed: unbuffed).
-    Cast chance = 1 − 1 / (1 + e<sup>0.07 (skill − power)</sup>); a few spells (drains) sit 38 above the first track.</div>` : "");
+    Cast chance = 1 − 1 / (1 + e<sup>0.07 (skill − power)</sup>); a few spells (drains) sit 38 above the first track.</div>
+  ${planManaHtml(plan, b)}` : "");
 }
 // a build's warnings: creation credits it loses (yellow), or specialized skills creation can't pay for (red)
 const planWarn = p => p && p.warnings && p.warnings.length
@@ -1617,6 +1634,9 @@ const skillChance = (skill, diff) => Math.min(1, Math.max(0, 1 - 1 / (1 + Math.e
 // GetManaCost: two checks (against (50 + power) / 2, then 50 + power), sharing one luck roll; a check that passes
 // (roll <= chance) multiplies the cost by 1 - (chance - roll x luck). Expected: per luck, each check leaves
 // (1 - c) + c (1 - c) + luck c^2 / 2 of the cost; the two multiply, averaged over luck.
+const WANDS = [[0, "no wand"], [0.03, "3% wand"], [0.05, "5% wand"]];
+const wandMC = (mc, mod) => Math.floor(mc * (1 + (+mod || 0)));
+const wandSel = (attr, v, title) => `<label title="${title}">MC wand <select ${attr}>${WANDS.map(([m, l]) => `<option value="${m}" ${m === (+v || 0) ? "selected" : ""}>${l}</option>`).join("")}</select></label>`;
 function manaSaved(mc, power) {
   const d = 50 + power, c1 = skillChance(mc, Math.floor(d / 2)), c2 = skillChance(mc, d), N = 200;
   let sum = 0;
@@ -1637,7 +1657,8 @@ function refRows(center, below, above, lo = 0) {
 function renderPlanRef() {
   const box = $("planRef");
   const magic = PLAN.ref.magic || {value: 250, name: null}, mc = PLAN.ref.mana || {value: 200, name: null};
-  const key = `${magic.value}|${mc.value}|${magic.name}|${mc.name}`;
+  const wand = +PLAN.ref.wand || 0;
+  const key = `${magic.value}|${mc.value}|${magic.name}|${mc.name}|${wand}`;
   if (box.dataset.key === key) return;          // (only changes with what it centers on)
   box.dataset.key = key;
   const cols = [[4, 150], [4, 175], [5, 200], [5, 225], [6, 250], [6, 275]];
@@ -1651,15 +1672,16 @@ function renderPlanRef() {
       Each level's first column is self buffs and bolts; the second, 25 more: spells on others and streaks (drains: 38 more).</div>`;
   const mcCols = [[5, 200], [5, 225], [6, 250], [6, 275]];
   const mcs = refRows(mc.value, 60, 80);
-  const mana = `<table><thead><tr><th>Mana Conv.</th>${mcCols.map(([lv, pw]) => `<th>${ROMAN[lv]}<br><span style="font-weight:400">${pw}</span></th>`).join("")}</tr></thead><tbody>${
-    mcs.map(m => `<tr class="${m === mc.value ? "here" : ""}"><td>${m}</td>${mcCols.map(([, pw]) => { const v = manaSaved(m, pw);
+  const mana = `<table><thead><tr><th>Mana Conv.</th>${wand ? `<th>With wand</th>` : ""}${mcCols.map(([lv, pw]) => `<th>${ROMAN[lv]}<br><span style="font-weight:400">${pw}</span></th>`).join("")}</tr></thead><tbody>${
+    mcs.map(m => `<tr class="${m === mc.value ? "here" : ""}"><td>${m}</td>${wand ? `<td>${wandMC(m, wand)}</td>` : ""}${mcCols.map(([, pw]) => { const v = manaSaved(wandMC(m, wand), pw);
       return `<td class="${v >= 0.5 ? "hi" : v < 0.15 ? "lo" : ""}">${Math.round(v * 100)}%</td>`; }).join("")}</tr>`).join("")}</tbody></table>
     <div class="note">The average mana saved per cast. Two checks: against (50 + power) / 2, then 50 + power, each passing with
       1 − 1 / (1 + e<sup>0.03 (skill − difficulty)</sup>) and cutting the cost by (chance − roll × luck), one luck roll for both.
       The cost is a whole number, rounded down after each check, so small costs save a little more than this.</div>`;
   const around = (r, what, dflt) => `<span style="text-transform:none;letter-spacing:0">around ${r.value}${r.name ? ` (${esc(r.name)}, set last)` : ` (set a ${what} goal to center it on yours)`}</span>`;
   setHTML(box, `<div><h3 class="plh" style="margin-top:0">Cast chance by casting skill ${around(magic, "magic skill")}</h3>${cast}</div>
-    <div><h3 class="plh" style="margin-top:0">Mana saved by Mana Conversion ${around(mc, "Mana Conversion")}</h3>${mana}</div>`);
+    <div><h3 class="plh" style="margin-top:0">Mana saved by Mana Conversion ${around(mc, "Mana Conversion")}</h3>
+      <div style="font-size:12px;margin-bottom:4px">${wandSel("data-ref-wand", wand, "The skill x 1.03 / 1.05 while a Mana Conversion wand is in hand")}</div>${mana}</div>`);
 }
 function renderPlanBench(c) {
   renderPlanRef();
@@ -1742,6 +1764,7 @@ function renderPlanCompare(c) {
   rows += row("Trained later", plans.map(p => p && p.credits.later ? `${p.credits.later_skills.join(", ")} (${p.credits.later})` : null));
   rows += grp("Setup");
   rows += row("Buffs", builds.map(b => +b.buff ? `${ROMAN[+b.buff]} (+${EXP_BUFF_ADD[+b.buff]})` : "none"));
+  rows += row("MC wand", builds.map(b => +b.wand ? `${Math.round(b.wand * 100)}%` : "none"));
   for (const a of c.attributes) rows += row(esc(a.name), builds.map(b => +(b.attributes || {})[a.id] || c.creation.min));
   const used = new Set(builds.flatMap(b => Object.keys(b.skills || {})));
   const skillList = c.skills.filter(s => used.has(String(s.id)));
@@ -1759,6 +1782,11 @@ function renderPlanCompare(c) {
     const attrs = c.attributes.map(a => `attribute:${a.id}`).filter(k => !keys.includes(k));
     for (const k of attrs) rows += row(esc(planStatName(k)), plans.map(p => { const s = stat(p, k); return s ? s.end : null; }));
   }
+  rows += grp("Mana saved at the goal (self buffs · on others)");
+  const mana = plans.map((p, j) => planManaOf(p, builds[j]));
+  rows += row("Mana Conversion (with wand)", mana.map(m => m ? (m.wand ? `${m.mc} → ${m.eff}` : m.mc) : null));
+  for (const [lv, a, o] of [[5, 200, 225], [6, 250, 275]]) rows += row(`&nbsp;&nbsp;level ${ROMAN[lv]}`, mana.map(m => m
+    ? `${Math.round(manaSaved(m.eff, a) * 100)}% · ${Math.round(manaSaved(m.eff, o) * 100)}%` : null));
   rows += grp("Cast chance at the goal, buffed (self buffs · on others)");
   for (const school of Object.keys(SCHOOL_SKILL)) {
     const m = plans.map(p => p && (p.magic || []).find(x => x.school === school));
@@ -1820,6 +1848,9 @@ document.addEventListener("input", e => {
   if (t.matches("[data-bench-target]")) { if (+t.value > 0) { k.targets[t.dataset.benchTarget] = Math.round(+t.value); planNoteRef(t.dataset.benchTarget, +t.value); planSave(); } }
 });
 document.addEventListener("change", e => {
+  if (e.target.matches && e.target.matches("[data-ref-wand]")) { PLAN.ref.wand = +e.target.value || 0; planSave(false); }
+});
+document.addEventListener("change", e => {
   const t = e.target, k = PLAN.benches[PLAN.bsel];
   if (!t.closest || !t.closest("#planBenchBody") || !k) return;
   if (t.matches("[data-bench-buff]")) { k.buff = +t.value || 0; return planSave(); }
@@ -1837,6 +1868,7 @@ document.addEventListener("change", e => {
   const t = e.target, b = PLAN.builds[PLAN.sel];
   if (!t.closest || !t.closest("#planBuildBody") || !b) return;
   if (t.matches("[data-plan-buff]")) { b.buff = +t.value || 0; return planSave(); }
+  if (t.matches("[data-plan-wand]")) { b.wand = +t.value || 0; return planSave(false); }
   if (t.matches("[data-plan-skill]")) {
     b.skills = b.skills || {};
     if (t.value) b.skills[t.dataset.planSkill] = t.value; else delete b.skills[t.dataset.planSkill];
