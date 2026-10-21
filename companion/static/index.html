@@ -745,7 +745,11 @@ section[data-widget="buffpanel"]:has(#dashDungeon:not([hidden])), section[data-w
 .plcmp tr.grp td { padding-top: 12px; font-size: 11px; text-transform: uppercase; letter-spacing: .5px; border-bottom-color: var(--line); }
 .plcmp td.diff { box-shadow: inset 2px 0 0 var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); }
 .plcmp td.best { font-weight: 700; color: var(--ink); }
-.plcmp td.none { color: var(--muted); opacity: .6; } #planCompare tr[data-plan-pick] { cursor: pointer; }
+.plcmp td.none { color: var(--muted); opacity: .6; }
+.plcmp td .sub { display: block; font-size: 11px; color: var(--muted); font-weight: 400; }
+.plcmp td.cant { color: var(--muted); font-size: 12px; white-space: normal; max-width: 160px; }
+#planPick .row { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; font-size: 12px; }
+#planPick .row > span { color: var(--muted); width: 84px; } #planCompare tr[data-plan-pick] { cursor: pointer; }
 #expStatsBody { max-height: 70vh; overflow-y: auto; }
 .vital.XP > span { font-size: 11px; }
 .vital.Health > i { background: #c0392b88; } .vital.Stamina > i { background: #d4a01788; } .vital.Mana > i { background: #2e6fd188; }
@@ -1091,8 +1095,15 @@ section[data-widget="buffpanel"]:has(#dashDungeon:not([hidden])), section[data-w
 </div>
 
 <div class="page" id="page-plan">
-  <nav class="subtabs" id="planViews" aria-label="Planner" style="padding:10px 10px 0"><button data-plan-view="builds">Builds</button><button data-plan-view="compare">Compare</button></nav>
-  <div class="grid" id="planCmpGrid"><section class="wide"><h2 style="display:flex;align-items:center;gap:8px">Compare builds
+  <nav class="subtabs" id="planViews" aria-label="Planner" style="padding:10px 10px 0"><button data-plan-view="builds">Builds</button><button data-plan-view="benchmarks">Benchmarks</button><button data-plan-view="compare">Compare</button></nav>
+  <div class="grid" id="planBenchGrid"><section><h2 style="display:flex;align-items:center;gap:8px">Benchmark <span id="planBenchTabs" style="display:flex;gap:4px;flex-wrap:wrap"></span></h2>
+      <div id="planBenchBody"></div></section>
+    <section><h2>Every build against it</h2><div id="planBenchResult"></div></section></div>
+  <div class="grid" id="planCmpGrid"><section class="wide"><h2 style="display:flex;align-items:center;gap:8px">Builds against benchmarks
+      <span class="muted" style="font-size:12px;font-weight:400;text-transform:none;letter-spacing:0">the XP each build needs for each benchmark, the level it's earned by, how long · bold: the least in the row</span></h2>
+    <div id="planPick" style="display:flex;flex-direction:column;gap:4px;margin-bottom:8px"></div>
+    <div class="scroll" id="planMatrix"></div></section>
+    <section class="wide"><h2 style="display:flex;align-items:center;gap:8px">Compare builds
       <span class="muted" style="font-size:12px;font-weight:400;text-transform:none;letter-spacing:0">every build side by side · marked: not the same as the first</span>
       <span style="margin-left:auto;display:flex;gap:4px"><button class="chip mini" data-plan-new>+ New</button></span></h2>
     <div class="scroll" id="planCmpBody"></div></section></div>
@@ -1385,27 +1396,32 @@ const PLAN_KEY = "99companion.planner";
 const PLAN_DEFAULT = () => ({name: "Mage", attributes: {1: 10, 2: 100, 3: 10, 4: 10, 5: 100, 6: 100},
   skills: {34: "specialized", 33: "trained", 31: "trained"}, chargen: true, buff: 6, rate: 500000,
   targets: {"skill:34": 250, "skill:33": 200}});
-const PLAN = {builds: [PLAN_DEFAULT()], sel: 0, plans: [], catalog: null, error: null, timer: null, asked: null};
+// a benchmark: a goal set every build is held against -- its goals and the buff tier they're with
+const BENCH_DEFAULT = () => [{name: "Mage 250", buff: 6, targets: {"skill:34": 250, "skill:33": 250}},
+                             {name: "Life 300", buff: 6, targets: {"skill:33": 300}}];
+const PLAN = {builds: [PLAN_DEFAULT()], sel: 0, plans: [], benches: BENCH_DEFAULT(), bsel: 0, matrix: [],
+              catalog: null, error: null, timer: null, asked: null};
 try {
   const saved = JSON.parse(localStorage.getItem(PLAN_KEY) || "null");
   if (saved && Array.isArray(saved.builds) && saved.builds.length) { PLAN.builds = saved.builds; PLAN.sel = Math.min(saved.sel || 0, saved.builds.length - 1); }
+  if (saved && Array.isArray(saved.benches)) { PLAN.benches = saved.benches; PLAN.bsel = Math.min(saved.bsel || 0, Math.max(0, saved.benches.length - 1)); }
 } catch (e) {}
 const planBuild = () => PLAN.builds[PLAN.sel];
 function planSave(refresh = true) {
-  try { localStorage.setItem(PLAN_KEY, JSON.stringify({builds: PLAN.builds, sel: PLAN.sel})); } catch (e) {}
+  try { localStorage.setItem(PLAN_KEY, JSON.stringify({builds: PLAN.builds, sel: PLAN.sel, benches: PLAN.benches, bsel: PLAN.bsel})); } catch (e) {}
   if (refresh) planAsk();
   render();
 }
 function planAsk() {                      // (debounced: typing a number asks once)
   clearTimeout(PLAN.timer);
   PLAN.timer = setTimeout(() => {
-    const body = JSON.stringify({builds: PLAN.builds});
+    const body = JSON.stringify({builds: PLAN.builds, benchmarks: PLAN.benches});
     PLAN.asked = body;
     fetch("/api/planner", {method: "POST", headers: {"X-Companion": "1", "Content-Type": "application/json"}, body})
       .then(r => r.json().then(j => [r.ok, j])).then(([ok, j]) => {
         if (PLAN.asked !== body) return;          // (a newer ask is on its way)
         PLAN.error = ok ? null : j.error || "the planner failed";
-        if (ok) PLAN.plans = j.plans || [];
+        if (ok) { PLAN.plans = j.plans || []; PLAN.matrix = j.matrix || []; }
         render();
       }).catch(() => { PLAN.error = "the companion isn't answering"; render(); });
   }, 250);
@@ -1420,8 +1436,9 @@ let planView = "builds";
 try { planView = localStorage.getItem("99companion.planView") || "builds"; } catch (e) {}
 function renderPlanner() {
   for (const b of document.querySelectorAll("[data-plan-view]")) b.classList.toggle("on", b.dataset.planView === planView);
-  $("planGrid").style.display = planView === "compare" ? "none" : "";
+  $("planGrid").style.display = planView === "builds" ? "" : "none";
   $("planCmpGrid").style.display = planView === "compare" ? "" : "none";
+  $("planBenchGrid").style.display = planView === "benchmarks" ? "" : "none";
   if (!PLAN.catalog) {
     if (!PLAN.loading) {
       PLAN.loading = true;
@@ -1432,7 +1449,8 @@ function renderPlanner() {
     return;
   }
   const c = PLAN.catalog, b = planBuild(), plan = PLAN.plans[PLAN.sel] || null;
-  if (planView === "compare") return renderPlanCompare(c);
+  if (planView === "compare") { renderPlanMatrix(); return renderPlanCompare(c); }
+  if (planView === "benchmarks") return renderPlanBench(c);
   setHTML($("planTabs"), PLAN.builds.map((x, i) => `<button class="chip mini${i === PLAN.sel ? " on" : ""}" data-plan-tab="${i}">${esc(x.name || "Build")}</button>`).join("")
     + `<button class="chip mini" data-plan-new title="A new build">+ New</button><button class="chip mini" data-plan-copy title="A copy of this build, to try a change against it">Copy</button>`);
   const box = $("planBuildBody");
@@ -1533,11 +1551,69 @@ function renderPlanner() {
   <div class="muted" style="font-size:12px;margin-top:8px">Solid: the first power track (buffs on yourself, bolts); dashed and the second columns: 25 more (spells on others, streaks). Blue line: the build's buffed skill (dashed: unbuffed).
     Cast chance = 1 − 1 / (1 + e<sup>0.07 (skill − power)</sup>); a few spells (drains) sit 38 above the first track.</div>` : "");
 }
+// Planner > Benchmarks: goal sets to hold every build against (a name, a buff tier, goals on any stat), and how
+// each build does against the one shown.
+const planCell = r => !r ? `<td class="none">–</td>` : r.missing && r.missing.length
+  ? `<td class="cant" title="This build doesn't train ${esc(r.missing.join(", "))}">needs ${esc(r.missing.join(", "))}</td>`
+  : !r.feasible ? `<td class="cant">out of reach</td>`
+  : `<td data-cost="${r.cost}">${fmt(r.cost)}<span class="sub">${r.level ? `level ${r.level}` : "past the last level"}${r.hours != null ? ` · ${longDur(r.hours * 3600)}` : ""}</span></td>`;
+function planBest(cells) {           // (bold the least XP in a row of cells, where more than one can get there)
+  const costs = cells.map(r => r && r.feasible && !(r.missing || []).length ? r.cost : null).filter(v => v != null);
+  const least = costs.length > 1 ? Math.min(...costs) : null;
+  return cells.map(r => { const h = planCell(r); return least != null && r && r.cost === least ? h.replace("<td ", `<td class="best" `) : h; });
+}
+function renderPlanBench(c) {
+  setHTML($("planBenchTabs"), PLAN.benches.map((x, i) => `<button class="chip mini${i === PLAN.bsel ? " on" : ""}" data-bench-tab="${i}">${esc(x.name || "Benchmark")}</button>`).join("")
+    + `<button class="chip mini" data-bench-new title="A new benchmark">+ New</button>${PLAN.benches.length ? `<button class="chip mini" data-bench-copy title="A copy of this benchmark">Copy</button>` : ""}`);
+  const k = PLAN.benches[PLAN.bsel], box = $("planBenchBody");
+  if (!k) {
+    setHTML(box, `<div class="empty">No benchmarks yet: + New, then the stats every build should reach.</div>`);
+    setHTML($("planBenchResult"), "");
+    return;
+  }
+  if (!typingIn(box)) {
+    const opts = [["attribute", c.attributes], ["vital", c.vitals], ["skill", c.skills]].map(([kk, list]) =>
+      `<optgroup label="${expKindLabel[kk]}s">${list.map(s => `<option value="${kk}:${s.id}">${esc(s.name)}</option>`).join("")}</optgroup>`).join("");
+    const rows = Object.entries(k.targets || {}).map(([key, val]) => `<tr><td>${esc(planStatName(key))}</td>
+        <td class="num"><input type="number" min="1" max="99999" value="${val}" data-bench-target="${key}" style="width:70px"></td>
+        <td><button class="chip mini" data-bench-drop="${key}" title="Take it off">×</button></td></tr>`).join("");
+    setHTML(box, `<div class="toolbar" style="gap:8px;flex-wrap:wrap">
+        <label>Name <input type="text" maxlength="40" value="${esc(k.name || "")}" data-bench-name style="width:160px"></label>
+        <label title="The goals are with this buff on every attribute and skill">Buffs <select data-bench-buff>${
+          EXP_BUFF_LEVELS.map((l, i) => `<option value="${i}" ${i === (+k.buff || 0) ? "selected" : ""}>${l}</option>`).join("")}</select></label>
+        <span style="flex:1"></span><button class="chip mini" data-bench-delete>Delete benchmark</button></div>
+      <div class="plh">Goals <span>${+k.buff ? `buffed values (level ${ROMAN[+k.buff]} on everything)` : "unbuffed values"}</span></div>
+      <table class="exptbl"><thead><tr><th>Stat</th><th class="num">Goal</th><th></th></tr></thead>
+        <tbody>${rows || `<tr><td colspan="3" class="muted">No goals yet: add one below.</td></tr>`}</tbody></table>
+      <div class="toolbar" style="margin-top:8px;gap:6px"><select data-bench-add-stat style="max-width:240px">${opts}</select>
+        <input type="number" min="1" max="99999" placeholder="value" data-bench-add-val style="width:80px;flex:none">
+        <button class="chip mini" data-bench-add>Add</button></div>
+      <div class="muted" style="font-size:12px;margin-top:8px">Every build is held to these goals with its own attributes and skills; a build that doesn't train a skill here can't reach it.</div>`);
+  }
+  const cells = planBest(PLAN.builds.map((_, i) => (PLAN.matrix[PLAN.bsel] || [])[i]));
+  setHTML($("planBenchResult"), `<table class="plcmp" style="width:100%"><thead><tr><th>Build</th><th>XP · level · time</th></tr></thead><tbody>${
+    PLAN.builds.map((b, i) => `<tr><td>${esc(b.name || "Build")}</td>${cells[i]}</tr>`).join("")}</tbody></table>`);
+}
+// Planner > Compare: the matrix -- a column per build, a row per benchmark -- with which of each take part.
+function renderPlanMatrix() {
+  const chips = (list, attr, label) => `<div class="row"><span>${label}</span>${list.map((x, i) => `<button class="chip mini${x.off ? "" : " on"}" ${attr}="${i}" title="${x.off ? "Show" : "Hide"} it here">${esc(x.name || "–")}</button>`).join("")}</div>`;
+  setHTML($("planPick"), chips(PLAN.builds, "data-plan-inc", "Builds") + chips(PLAN.benches, "data-bench-inc", "Benchmarks"));
+  const bi = PLAN.builds.map((b, i) => i).filter(i => !PLAN.builds[i].off);
+  const ki = PLAN.benches.map((k, i) => i).filter(i => !PLAN.benches[i].off);
+  if (!PLAN.benches.length) return setHTML($("planMatrix"), `<div class="empty">No benchmarks yet: make some on Benchmarks.</div>`);
+  if (!bi.length || !ki.length) return setHTML($("planMatrix"), `<div class="empty">Pick at least one build and one benchmark above.</div>`);
+  setHTML($("planMatrix"), `<table class="plcmp"><thead><tr><th></th>${bi.map(i => `<th class="${i === PLAN.sel ? "on" : ""}"><div class="nm">${esc(PLAN.builds[i].name || "Build")}</div></th>`).join("")}</tr></thead><tbody>${
+    ki.map(k => { const bench = PLAN.benches[k];
+      const goalsText = Object.entries(bench.targets || {}).map(([key, v]) => `${planStatName(key)} ${v}`).join(", ");
+      return `<tr><td><span style="color:var(--ink)">${esc(bench.name || "Benchmark")}</span><span class="sub" style="display:block;font-size:11px">${esc(goalsText || "no goals")}${+bench.buff ? ` · buffs ${ROMAN[+bench.buff]}` : ""}</span></td>${
+        planBest(bi.map(i => (PLAN.matrix[k] || [])[i])).join("")}</tr>`; }).join("")}</tbody></table>`);
+}
 // Planner > Compare: every build as a column -- its setup (attributes, buffs, skills, goals) and what it comes to (XP,
 // level, time, the goals' stats at the end, cast chances) -- a cell marked where it isn't the first build's, the best
 // result in a row bold. Each column: Edit (back to Builds on it), Copy, Delete.
 function renderPlanCompare(c) {
-  const builds = PLAN.builds, plans = builds.map((_, i) => PLAN.plans[i] || null);
+  const on = PLAN.builds.map((b, i) => i).filter(i => !PLAN.builds[i].off);
+  const builds = on.map(i => PLAN.builds[i]), plans = on.map(i => PLAN.plans[i] || null);
   const cols = builds.length;
   const row = (label, vals, opts = {}) => {
     const first = vals[0];
@@ -1551,9 +1627,10 @@ function renderPlanCompare(c) {
     }).join("")}</tr>`;
   };
   const grp = label => `<tr class="grp"><td colspan="${cols + 1}">${label}</td></tr>`;
-  const head = `<thead><tr><th></th>${builds.map((b, i) => `<th class="${i === PLAN.sel ? "on" : ""}"><div class="nm">${esc(b.name || "Build")}</div>
+  const head = `<thead><tr><th></th>${builds.map((b, j) => { const i = on[j];
+      return `<th class="${i === PLAN.sel ? "on" : ""}"><div class="nm">${esc(b.name || "Build")}</div>
       <div class="acts"><button class="chip mini" data-plan-edit="${i}" title="Change this build">Edit</button><button class="chip mini" data-plan-dup="${i}" title="A copy of it, to try a change against it">Copy</button>${
-        cols > 1 ? `<button class="chip mini" data-plan-del="${i}" title="Delete this build">×</button>` : ""}</div></th>`).join("")}</tr></thead>`;
+        PLAN.builds.length > 1 ? `<button class="chip mini" data-plan-del="${i}" title="Delete this build">×</button>` : ""}</div></th>`; }).join("")}</tr></thead>`;
   let rows = grp("Result");
   rows += row("XP needed", plans.map((p, i) => p && p.feasible && Object.keys(builds[i].targets || {}).length ? p.cost : null), {best: "low"});
   rows += row("By level", plans.map(p => p && p.level ? p.level : null), {best: "low"});
@@ -1589,11 +1666,31 @@ function renderPlanCompare(c) {
       ? `${Math.round(x.chances.base[lv - 1] * 100)}% · ${Math.round(x.chances.other[lv - 1] * 100)}%` : null));
   }
   setHTML($("planCmpBody"), PLAN.error ? `<div class="empty" style="color:var(--bad)">${esc(PLAN.error)}</div>`
-    : `<table class="plcmp">${head}<tbody>${rows}</tbody></table>`);
+    : !cols ? `<div class="empty">Pick at least one build above.</div>` : `<table class="plcmp">${head}<tbody>${rows}</tbody></table>`);
 }
 document.addEventListener("click", e => {
   const v = e.target.closest("[data-plan-view]");
   if (v) { planView = v.dataset.planView; try { localStorage.setItem("99companion.planView", planView); } catch (e2) {} return render(); }
+  const inc = e.target.closest("[data-plan-inc], [data-bench-inc]");
+  if (inc) {
+    const x = inc.dataset.planInc != null ? PLAN.builds[+inc.dataset.planInc] : PLAN.benches[+inc.dataset.benchInc];
+    if (x) { x.off = !x.off; planSave(false); }
+    return;
+  }
+  const bt = e.target.closest("[data-bench-tab], [data-bench-new], [data-bench-copy], [data-bench-delete], [data-bench-drop], [data-bench-add]");
+  if (bt) {
+    const k = PLAN.benches[PLAN.bsel];
+    if (bt.dataset.benchTab != null) { PLAN.bsel = +bt.dataset.benchTab; return planSave(false); }
+    if (bt.matches("[data-bench-new]")) { PLAN.benches.push({name: `Benchmark ${PLAN.benches.length + 1}`, buff: 6, targets: {}}); PLAN.bsel = PLAN.benches.length - 1; return planSave(); }
+    if (bt.matches("[data-bench-copy]") && k) { PLAN.benches.splice(PLAN.bsel + 1, 0, {...JSON.parse(JSON.stringify(k)), name: `${k.name || "Benchmark"} copy`}); PLAN.bsel++; return planSave(); }
+    if (bt.matches("[data-bench-delete]") && k) { PLAN.benches.splice(PLAN.bsel, 1); PLAN.matrix.splice(PLAN.bsel, 1); PLAN.bsel = Math.max(0, PLAN.bsel - 1); return planSave(); }
+    if (bt.matches("[data-bench-drop]") && k) { delete (k.targets || {})[bt.dataset.benchDrop]; return planSave(); }
+    if (bt.matches("[data-bench-add]") && k) {
+      const key = document.querySelector("[data-bench-add-stat]").value, val = +document.querySelector("[data-bench-add-val]").value;
+      if (key && val > 0) { k.targets = k.targets || {}; k.targets[key] = Math.round(val); planSave(); }
+    }
+    return;
+  }
   const k = e.target.closest("[data-plan-edit], [data-plan-dup], [data-plan-del]");
   if (k) {
     if (k.dataset.planEdit != null) { PLAN.sel = +k.dataset.planEdit; planView = "builds"; try { localStorage.setItem("99companion.planView", planView); } catch (e2) {} return planSave(false); }
@@ -1613,6 +1710,18 @@ document.addEventListener("click", e => {
     const key = document.querySelector("[data-plan-add-stat]").value, val = +document.querySelector("[data-plan-add-val]").value;
     if (key && val > 0) { b.targets = b.targets || {}; b.targets[key] = Math.round(val); planSave(); }
   }
+});
+document.addEventListener("input", e => {
+  const t = e.target, k = PLAN.benches[PLAN.bsel];
+  if (!t.closest || !t.closest("#planBenchBody") || !k) return;
+  if (t.matches("[data-bench-name]")) { k.name = t.value; return planSave(); }
+  if (t.matches("[data-bench-target]")) { if (+t.value > 0) { k.targets[t.dataset.benchTarget] = Math.round(+t.value); planSave(); } }
+});
+document.addEventListener("change", e => {
+  const t = e.target, k = PLAN.benches[PLAN.bsel];
+  if (!t.closest || !t.closest("#planBenchBody") || !k) return;
+  if (t.matches("[data-bench-buff]")) { k.buff = +t.value || 0; return planSave(); }
+  if (t.matches("[data-bench-target], [data-bench-name]")) render();
 });
 document.addEventListener("input", e => {
   const t = e.target, b = PLAN.builds[PLAN.sel];

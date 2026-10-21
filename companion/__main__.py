@@ -238,15 +238,18 @@ class Companion:
                 return _json(200, planner.catalog(self.skill_bases))
             if method == "POST":
                 try:
-                    builds = json.loads(body or b"{}").get("builds") or []
-                    if not isinstance(builds, list) or not all(isinstance(b, dict) for b in builds):
+                    got = json.loads(body or b"{}")
+                    builds, benches = got.get("builds") or [], got.get("benchmarks") or []
+                    if not all(isinstance(x, list) and all(isinstance(b, dict) for b in x) for x in (builds, benches)):
                         raise ValueError
                 except (ValueError, AttributeError):
-                    return _json(400, {"error": "want {builds: [build, ...]}"})
+                    return _json(400, {"error": "want {builds: [build, ...], benchmarks: [benchmark, ...]}"})
                 if not Tracker.xp_tables or not self.skill_bases:
                     return _json(503, {"error": "the game's tables aren't loaded (Settings > Game)"})
-                return _json(200, {"plans": [planner.plan(b, Tracker.xp_tables, self.skill_bases, self.vital_formulas,
-                                                          Tracker.level_xp, self.level_credits) for b in builds[:12]]})
+                args = (Tracker.xp_tables, self.skill_bases, self.vital_formulas, Tracker.level_xp, self.level_credits)
+                builds, benches = builds[:12], benches[:12]
+                return _json(200, {"plans": [planner.plan(b, *args) for b in builds],
+                                   "matrix": [[planner.against(b, k, *args) for b in builds] for k in benches]})
         if method == "GET" and path == "/api/dungeons":
             return _json(200, dungeons.available())
         if method == "GET" and len(parts) == 3 and parts[:2] == ["api", "dungeon"]:     # a dungeon's plan and spawn points

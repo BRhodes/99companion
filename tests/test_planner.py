@@ -69,6 +69,16 @@ class PlanTest(unittest.TestCase):
         self.assertIsNone(next(m for m in got["magic"] if m["school"] == "Item")["skill"])     # (not trained)
         self.assertAlmostEqual(planner.cast_chance(250, 250), 0.5)
 
+    def test_against_a_benchmark(self):
+        b = build(targets={"skill:34": 80}, buff=0)
+        bench = {"name": "War 120", "targets": {"skill:34": 120}, "buff": 6}
+        got = planner.against(b, bench, TABLES, BASES, VITALS, LEVEL_XP, LEVEL_CREDITS)
+        direct = planner.plan(build(targets={"skill:34": 120}, buff=6), TABLES, BASES, VITALS, LEVEL_XP, LEVEL_CREDITS)
+        self.assertEqual((got["cost"], got["feasible"], got["missing"]), (direct["cost"], True, []))
+        # a skill the build doesn't train: it can't get there
+        got = planner.against(b, {"targets": {"skill:33": 100}}, TABLES, BASES, VITALS, LEVEL_XP, LEVEL_CREDITS)
+        self.assertEqual((got["feasible"], got["cost"], got["missing"]), (False, None, ["Life Magic"]))
+
     def test_hours(self):
         got = planner.plan(build(targets={"skill:34": 120}, rate=1000), TABLES, BASES, VITALS, LEVEL_XP, LEVEL_CREDITS)
         self.assertEqual(got["hours"], round(got["cost"] / 1000, 1))

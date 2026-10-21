@@ -5,6 +5,7 @@ earned that much, the skill credits its skills take, and how often it casts each
 A build: {name, attributes: {"1".."6": 10..100} (330 in all at creation), skills: {"33": "trained" | "specialized"},
 chargen: the skills are trained at creation (+5 ranks trained, +10 specialized: free XP, Client.cpp), buff: 0..6 (a
 level I..VI buff on every attribute and skill: goals.BUFF_BY_LEVEL), targets: {"skill:33": 300, ...}, rate: XP an hour}.
+A benchmark: a goal set to hold every build against -- {name, targets, buff} (against()).
 
 The targets are buffed values when buff is set (as a goal's buff levels), else unbuffed. The XP a level has earned is
 the level table's (dat.load_level_xp); skill credits: CREATION_CREDITS, then one at each level the table gives one.
@@ -126,6 +127,19 @@ def plan(build, tables, bases, vital_formulas, level_xp, level_credits):
             "xp_level": xp_level, "credits": {"used": used, "creation": CREATION_CREDITS, "level": credit_level,
                                               "over_creation": max(0, used - CREATION_CREDITS)},
             "hours": round(cost / rate, 1) if cost is not None and rate > 0 else None, "magic": magic}
+
+
+def against(build, bench, tables, bases, vital_formulas, level_xp, level_credits):
+    """A build against a benchmark (a goal set of its own: {name, targets, buff}): the build's setup, the benchmark's
+    goals and buff tier. {cost, level, xp_level, hours, feasible, missing: [skills it needs trained]}."""
+    p = plan({**build, "targets": bench.get("targets") or {}, "buff": bench.get("buff") or 0},
+             tables, bases, vital_formulas, level_xp, level_credits)
+    missing = [goals.stat_name("skill", int(k.split(":")[1])) for k in (bench.get("targets") or {})
+               if k.startswith("skill:") and k.split(":")[1].isdigit()
+               and not any(s["key"] == k for s in p["stats"])]
+    return {"cost": p["cost"] if not missing else None, "level": p["level"] if not missing else None,
+            "xp_level": p["xp_level"], "hours": p["hours"] if not missing else None,
+            "feasible": p["feasible"] and not missing, "missing": missing}
 
 
 def catalog(bases):
