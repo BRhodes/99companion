@@ -711,6 +711,29 @@ section[data-widget="buffpanel"]:has(#dashDungeon:not([hidden])), section[data-w
 .exptbl .num { text-align: right; } .exptbl tr.sub td:first-child { padding-left: 18px; color: var(--muted); }
 .exptbl tr.grp th { padding-top: 10px; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .5px; }
 .expsum { display: flex; gap: 6px 16px; flex-wrap: wrap; margin-bottom: 8px; }
+/* Planner: the build's attributes and skills, and a cast chance chart per magic school */
+.plattrs { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 6px 10px; margin: 6px 0 4px; }
+.plattrs label { display: flex; flex-direction: column; font-size: 12px; color: var(--muted); }
+.plattrs input { width: 100%; }
+.plskills { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 2px 14px; margin-top: 6px; font-size: 13px; }
+.plskills label { display: flex; align-items: center; gap: 6px; padding: 2px 0; border-bottom: 1px solid var(--line); }
+.plskills label span.n { flex: 1; min-width: 0; }
+.plskills label.on span.n { color: var(--ink); font-weight: 600; } .plskills label:not(.on) span.n { color: var(--muted); }
+.plskills select { font-size: 12px; padding: 0 2px; }
+.plh { margin: 12px 0 2px; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; display: flex; gap: 8px; align-items: baseline; }
+.plmagic { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
+.plmagic svg { width: 100%; height: auto; display: block; }
+.plmagic svg text { fill: var(--muted); font-size: 10px; }
+.plmagic .curve { fill: none; stroke: var(--accent); stroke-width: 1.6; }
+.plmagic .curve.other { stroke: var(--muted); stroke-dasharray: 4 3; stroke-width: 1.2; }
+.plmagic .axis { stroke: var(--line); stroke-width: 1; }
+.plmagic .you { stroke: #4a90e2; stroke-width: 1.6; } .plmagic .you.unbuffed { stroke-dasharray: 3 3; opacity: .7; }
+.plmagic .lv { fill: var(--accent); font-weight: 600; }
+.plmagic table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 4px; font-variant-numeric: tabular-nums; }
+.plmagic th, .plmagic td { padding: 1px 4px; text-align: right; border-bottom: 1px solid var(--line); }
+.plmagic th:first-child, .plmagic td:first-child { text-align: left; }
+.plmagic td.lo { color: var(--muted); opacity: .7; } .plmagic td.hi { color: var(--ink); font-weight: 600; }
+#planCompare tr.on td { color: #4a90e2; font-weight: 600; } #planCompare tr[data-plan-pick] { cursor: pointer; }
 #expStatsBody { max-height: 70vh; overflow-y: auto; }
 .vital.XP > span { font-size: 11px; }
 .vital.Health > i { background: #c0392b88; } .vital.Stamina > i { background: #d4a01788; } .vital.Mana > i { background: #2e6fd188; }
@@ -748,7 +771,7 @@ section[data-widget="buffpanel"]:has(#dashDungeon:not([hidden])), section[data-w
 <div id="pagenav" role="navigation" aria-label="Pages">
   <a href="#dashboard" data-page="dashboard">Dashboard</a><a
     href="#comps" data-page="comps">Comps</a><a
-    href="#map" data-page="map">Map</a><a href="#spells" data-page="spells">Spell research</a><a href="#buffs" data-page="buffs">Buffs</a><a href="#mana" data-page="mana">Mana</a><a href="#items" data-page="items">Items</a><a href="#xp" data-page="xp">Bonus XP</a><a href="#exp" data-page="exp">Experience</a><a href="#dungeon" data-page="dungeon">Dungeon</a><a href="#info" data-page="info">Info</a><a href="#chat" data-page="chat">Chat <span id="chatBadge"></span></a><a href="#config" data-page="config">Settings</a>
+    href="#map" data-page="map">Map</a><a href="#spells" data-page="spells">Spell research</a><a href="#buffs" data-page="buffs">Buffs</a><a href="#mana" data-page="mana">Mana</a><a href="#items" data-page="items">Items</a><a href="#xp" data-page="xp">Bonus XP</a><a href="#exp" data-page="exp">Experience</a><a href="#plan" data-page="plan">Planner</a><a href="#dungeon" data-page="dungeon">Dungeon</a><a href="#info" data-page="info">Info</a><a href="#chat" data-page="chat">Chat <span id="chatBadge"></span></a><a href="#config" data-page="config">Settings</a>
 </div>
 <div id="none">No characters yet. Start the relay and log in through 127.0.0.1:9110.</div>
 <div id="toast" role="status" aria-live="polite"></div>
@@ -1055,6 +1078,19 @@ section[data-widget="buffpanel"]:has(#dashDungeon:not([hidden])), section[data-w
   </div>
 </div>
 
+<div class="page" id="page-plan">
+  <div class="grid" id="planGrid">
+    <section id="planBuild"><h2 style="display:flex;align-items:center;gap:8px">Build <span id="planTabs" style="display:flex;gap:4px;flex-wrap:wrap"></span></h2>
+      <div id="planBuildBody"></div></section>
+    <section id="planResult"><h2>Cheapest way there</h2><div id="planResultBody"></div></section>
+    <section id="planCompare"><h2>Compare builds</h2><div id="planCompareBody"></div></section>
+    <section id="planStats"><h2>Stats at the goal <span class="muted" style="font-size:12px;font-weight:400;text-transform:none;letter-spacing:0">start → goal, unbuffed (buffed)</span></h2>
+      <div class="scroll" id="planStatsBody"></div></section>
+    <section class="wide" id="planMagic"><h2>Cast chance <span class="muted" style="font-size:12px;font-weight:400;text-transform:none;letter-spacing:0">at the goal, buffed: each spell level's chance to cast (1 − fizzle)</span></h2>
+      <div id="planMagicBody"></div></section>
+  </div>
+</div>
+
 <div class="page" id="page-info">
   <div class="grid">
     <nav class="subtabs wide" aria-label="Info" id="infoTabs"><button data-info-tab="appraisals">Appraisals</button><button
@@ -1276,6 +1312,7 @@ function render() {
     $("connStat").style.display = "";
     $("vitals").style.display = "none";
     if (page === "config") renderConfig(null);
+    if (page === "plan") try { renderPlanner(); } catch (e) { console.error("render planner failed", e); }
     $("side").classList.add("off"); $("shell").classList.add("noside");   // no one to show
     return;
   }
@@ -1290,6 +1327,7 @@ function render() {
   if (page === "buffs") safely("buff profiles", renderProfiles);
   if (page === "xp") safely("xp", renderXpMini);
   if (page === "exp") safely("experience", renderExperience);
+  if (page === "plan") safely("planner", renderPlanner);
   if (page === "dungeon") safely("dungeon", s => {
     if ($("dgRoot").parentElement !== $("page-dungeon")) { $("page-dungeon").appendChild($("dgRoot")); DG.drawn = null; }   // (back from the card)
     renderDungeon(s);
@@ -1321,6 +1359,192 @@ document.addEventListener("click", e => {
   xpBase[who] = {session: curSession.session.id, ts: now(), total: xp.total, grants: xp.grant_gain || 0};
   try { localStorage.setItem("99companion.xpBase", JSON.stringify(xpBase)); } catch (e2) {}
   render();
+});
+
+// ---- Planner: a character that isn't one of yours (planner.py works its plan out) -------------------------
+// Builds live in this browser: starting attributes, the skills trained or specialized, a buff tier, goals and an XP
+// rate. Each change asks the companion for every build's plan (POST /api/planner), so Compare stays current.
+const PLAN_KEY = "99companion.planner";
+const PLAN_DEFAULT = () => ({name: "Mage", attributes: {1: 10, 2: 100, 3: 10, 4: 10, 5: 100, 6: 100},
+  skills: {34: "specialized", 33: "trained", 31: "trained"}, chargen: true, buff: 6, rate: 500000,
+  targets: {"skill:34": 250, "skill:33": 200}});
+const PLAN = {builds: [PLAN_DEFAULT()], sel: 0, plans: [], catalog: null, error: null, timer: null, asked: null};
+try {
+  const saved = JSON.parse(localStorage.getItem(PLAN_KEY) || "null");
+  if (saved && Array.isArray(saved.builds) && saved.builds.length) { PLAN.builds = saved.builds; PLAN.sel = Math.min(saved.sel || 0, saved.builds.length - 1); }
+} catch (e) {}
+const planBuild = () => PLAN.builds[PLAN.sel];
+function planSave(refresh = true) {
+  try { localStorage.setItem(PLAN_KEY, JSON.stringify({builds: PLAN.builds, sel: PLAN.sel})); } catch (e) {}
+  if (refresh) planAsk();
+  render();
+}
+function planAsk() {                      // (debounced: typing a number asks once)
+  clearTimeout(PLAN.timer);
+  PLAN.timer = setTimeout(() => {
+    const body = JSON.stringify({builds: PLAN.builds});
+    PLAN.asked = body;
+    fetch("/api/planner", {method: "POST", headers: {"X-Companion": "1", "Content-Type": "application/json"}, body})
+      .then(r => r.json().then(j => [r.ok, j])).then(([ok, j]) => {
+        if (PLAN.asked !== body) return;          // (a newer ask is on its way)
+        PLAN.error = ok ? null : j.error || "the planner failed";
+        if (ok) PLAN.plans = j.plans || [];
+        render();
+      }).catch(() => { PLAN.error = "the companion isn't answering"; render(); });
+  }, 250);
+}
+function planStatName(key) {
+  const [k, id] = key.split(":"), c = PLAN.catalog || {};
+  const list = k === "attribute" ? c.attributes : k === "vital" ? c.vitals : c.skills;
+  const s = (list || []).find(x => String(x.id) === id);
+  return s ? s.name : key;
+}
+function renderPlanner() {
+  if (!PLAN.catalog) {
+    if (!PLAN.loading) {
+      PLAN.loading = true;
+      fetch("/api/planner").then(r => r.json()).then(c => { PLAN.catalog = c; planAsk(); render(); })
+        .catch(() => { PLAN.loading = false; PLAN.error = "the companion isn't answering"; render(); });
+    }
+    setHTML($("planBuildBody"), `<div class="empty">${PLAN.error ? esc(PLAN.error) : "Loading the game's tables…"}</div>`);
+    return;
+  }
+  const c = PLAN.catalog, b = planBuild(), plan = PLAN.plans[PLAN.sel] || null;
+  setHTML($("planTabs"), PLAN.builds.map((x, i) => `<button class="chip mini${i === PLAN.sel ? " on" : ""}" data-plan-tab="${i}">${esc(x.name || "Build")}</button>`).join("")
+    + `<button class="chip mini" data-plan-new title="A new build">+ New</button><button class="chip mini" data-plan-copy title="A copy of this build, to try a change against it">Copy</button>`);
+  const box = $("planBuildBody");
+  if (!typingIn(box)) {
+    const attrs = c.attributes.map(a => `<label>${esc(a.name)}<input type="number" min="${c.creation.min}" max="${c.creation.max}" value="${
+      (b.attributes || {})[a.id] ?? c.creation.min}" data-plan-attr="${a.id}"></label>`).join("");
+    const total = c.attributes.reduce((n, a) => n + (+(b.attributes || {})[a.id] || 0), 0);
+    const used = c.skills.reduce((n, s) => n + ({trained: s.trained, specialized: s.specialized}[(b.skills || {})[s.id]] || 0), 0);
+    const skills = c.skills.map(s => {
+      const v = (b.skills || {})[s.id] || (s.free ? "trained" : "");
+      return `<label class="${v ? "on" : ""}" title="${s.free ? "Comes trained (no credits)" : `Trained ${s.trained} credits`} · specialized ${s.specialized}">
+        <span class="n">${esc(s.name)}</span><span class="muted" style="font-size:11px">${s.free ? "free" : s.trained}/${s.specialized}</span>
+        <select data-plan-skill="${s.id}">${s.free ? "" : `<option value="" ${!v ? "selected" : ""}>–</option>`}
+          <option value="trained" ${v === "trained" ? "selected" : ""}>Trained</option><option value="specialized" ${v === "specialized" ? "selected" : ""}>Spec</option></select></label>`;
+    }).join("");
+    const opts = [["attribute", c.attributes], ["vital", c.vitals],
+                  ["skill", c.skills.filter(s => (b.skills || {})[s.id] || s.free)]].map(([k, list]) =>
+      `<optgroup label="${expKindLabel[k]}s">${list.map(s => `<option value="${k}:${s.id}">${esc(s.name)}</option>`).join("")}</optgroup>`).join("");
+    const rows = Object.entries(b.targets || {}).map(([key, val]) => {
+      const t = plan && (plan.targets || []).find(x => x.key === key);
+      return `<tr><td>${esc(planStatName(key))}</td><td class="num">${t && t.current != null ? fmt(t.current) : "-"}</td>
+        <td class="num"><input type="number" min="1" max="99999" value="${val}" data-plan-target="${key}" style="width:70px"></td>
+        <td><button class="chip mini" data-plan-drop="${key}" title="Take it off">×</button></td></tr>`;
+    }).join("");
+    setHTML(box, `<div class="toolbar" style="gap:8px;flex-wrap:wrap">
+        <label>Name <input type="text" maxlength="40" value="${esc(b.name || "")}" data-plan-name style="width:160px"></label>
+        <label title="Every attribute and skill buffed this much: the goals are buffed values, and so are the cast chances">Buffs <select data-plan-buff>${
+          EXP_BUFF_LEVELS.map((l, i) => `<option value="${i}" ${i === (+b.buff || 0) ? "selected" : ""}>${l}</option>`).join("")}</select></label>
+        <label title="How fast this build earns XP: how long its goals take">XP/hour <input type="number" min="0" step="10000" value="${b.rate || ""}" data-plan-rate style="width:100px"></label>
+        <span style="flex:1"></span><button class="chip mini" data-plan-delete ${PLAN.builds.length < 2 ? "disabled" : ""}>Delete build</button></div>
+      <div class="plh">Starting attributes <span style="${total > c.creation.attributes ? "color:var(--bad)" : ""}">${total} / ${c.creation.attributes}</span></div>
+      <div class="plattrs">${attrs}</div>
+      <div class="plh">Skills <span style="${used > c.creation.credits ? "color:var(--warn)" : ""}">${used} / ${c.creation.credits} credits</span>
+        <label style="text-transform:none;letter-spacing:0;margin-left:auto" title="Skills trained at creation start with free ranks: +5 trained, +10 specialized (later, with credits, they start at 0)"><input type="checkbox" data-plan-chargen ${
+          b.chargen !== false ? "checked" : ""}> trained at creation</label></div>
+      <div class="plskills">${skills}</div>
+      <div class="plh">Goals <span>${+b.buff ? `buffed values (level ${ROMAN[b.buff]} on everything)` : "unbuffed values"}</span></div>
+      <table class="exptbl"><thead><tr><th>Stat</th><th class="num">Start</th><th class="num">Goal</th><th></th></tr></thead>
+        <tbody>${rows || `<tr><td colspan="4" class="muted">No goals yet: add one below.</td></tr>`}</tbody></table>
+      <div class="toolbar" style="margin-top:8px;gap:6px"><select data-plan-add-stat style="max-width:240px">${opts}</select>
+        <input type="number" min="1" max="99999" placeholder="value" data-plan-add-val style="width:80px;flex:none">
+        <button class="chip mini" data-plan-add>Add</button></div>
+      ${plan && plan.problems && plan.problems.length ? `<div style="color:var(--warn);font-size:12px;margin-top:6px">${esc(plan.problems.join("; "))}</div>` : ""}`);
+  }
+
+  // the plan: its XP, the level that's earned it (and the credits its skills take), and the raises
+  const cr = plan && plan.credits;
+  if (PLAN.error) setHTML($("planResultBody"), `<div class="empty" style="color:var(--bad)">${esc(PLAN.error)}</div>`);
+  else if (!plan) setHTML($("planResultBody"), `<div class="empty">Working it out…</div>`);
+  else if (!Object.keys(b.targets || {}).length) setHTML($("planResultBody"), `<div class="empty">Add a goal: what to raise, and the least XP that gets this build there, show here.</div>`);
+  else if (!plan.feasible) setHTML($("planResultBody"), `<div class="empty" style="color:var(--bad)">Out of reach: a stat would need more raises than the game allows.</div>`);
+  else setHTML($("planResultBody"), `<div class="expsum"><span>Needs <b>${fmt(plan.cost)}</b> XP</span>
+      <span>${plan.level ? `by level <b>${plan.level}</b>` : `<b style="color:var(--bad)">past the last level</b>`}</span>
+      ${plan.hours != null ? `<span>about <b>${longDur(plan.hours * 3600)}</b> at ${fmt(b.rate)}/h</span>` : ""}</div>
+    <div class="muted" style="font-size:12px;margin:-4px 0 8px">${plan.xp_level ? `The XP's earned by level ${plan.xp_level}` : ""}${
+      cr.over_creation ? `; its skills take ${cr.used} credits, ${cr.over_creation} past creation's ${cr.creation}${cr.level ? ` (level ${cr.level} has them)` : " (more than leveling gives)"}` : ""}.</div>
+    ${plan.raises.length ? `<table class="exptbl"><thead><tr><th>Raise</th><th class="num">From</th><th class="num">To</th><th class="num">Raises</th><th class="num">XP</th></tr></thead><tbody>${
+      plan.raises.map(r => `<tr><td>${esc(r.name)} <span class="muted" style="font-size:11px">${expKindLabel[r.kind]}</span></td><td class="num">${fmt(r.from)}</td>
+        <td class="num"><b>${fmt(r.to)}</b></td><td class="num">+${fmt(r.raises)}</td><td class="num">${fmt(r.cost)}</td></tr>`).join("")}</tbody></table>
+      <div class="muted" style="font-size:12px;margin-top:6px">Raising an attribute raises every skill and vital made from it: this is the split that costs the least.</div>`
+      : `<div class="empty" style="color:var(--good)">Reached at the start.</div>`}`);
+
+  // every build side by side: its XP, level and time
+  setHTML($("planCompareBody"), `<table class="exptbl"><thead><tr><th>Build</th><th class="num">XP</th><th class="num">Level</th><th class="num">Time</th><th class="num">Credits</th></tr></thead><tbody>${
+    PLAN.builds.map((x, i) => { const p = PLAN.plans[i];
+      return `<tr data-plan-pick="${i}" class="${i === PLAN.sel ? "on" : ""}"><td>${esc(x.name || "Build")}</td>
+        <td class="num">${p && p.feasible && Object.keys(x.targets || {}).length ? fmt(p.cost) : "-"}</td><td class="num">${p && p.level ? p.level : "-"}</td>
+        <td class="num">${p && p.hours != null ? longDur(p.hours * 3600) : "-"}</td><td class="num">${p ? p.credits.used : "-"}</td></tr>`; }).join("")}</tbody></table>`);
+
+  // where it ends up: every stat, start -> goal, unbuffed (buffed)
+  setHTML($("planStatsBody"), plan ? `<table class="exptbl"><tbody>${["attribute", "vital", "skill"].map(k => {
+      const list = plan.stats.filter(s => s.kind === k);
+      return list.length ? `<tr class="grp"><th colspan="4">${expKindLabel[k]}s</th></tr>` + list.map(s => `<tr><td>${esc(s.name)}${
+        s.specialized ? ` <span class="muted" style="font-size:11px">spec.</span>` : ""}</td><td class="num muted">${fmt(s.start)}</td>
+        <td class="num"><b>${fmt(s.end)}</b></td><td class="num muted">${plan.buff ? `(${fmt(s.buffed)})` : ""}</td></tr>`).join("") : "";
+    }).join("")}</tbody></table>` : "");
+
+  // each magic school: cast chance by spell level against skill, the build's buffed (and unbuffed) skill marked
+  const W = 300, H = 150, L = 28, R = 8, T = 8, B = 20, MAXS = 400;
+  const xs = s => L + (W - L - R) * Math.min(MAXS, Math.max(0, s)) / MAXS, ys = p => T + (H - T - B) * (1 - p);
+  const chance = (s, pw) => 1 - 1 / (1 + Math.exp(0.07 * (s - pw)));
+  const curve = (pw, cls) => `<path class="curve ${cls}" d="${Array.from({length: 81}, (_, i) => i * MAXS / 80)
+    .map((s, i) => `${i ? "L" : "M"}${xs(s).toFixed(1)},${ys(chance(s, pw)).toFixed(1)}`).join("")}"/>`;
+  const cell = p => `<td class="${p >= 0.9 ? "hi" : p < 0.5 ? "lo" : ""}">${(p * 100).toFixed(p >= 0.995 || p < 0.01 ? 0 : 1)}%</td>`;
+  setHTML($("planMagicBody"), plan ? `<div class="plmagic">${plan.magic.map(m => {
+    const pw = c.powers;
+    const grid = [0, 100, 200, 300, 400].map(s => `<line class="axis" x1="${xs(s)}" x2="${xs(s)}" y1="${T}" y2="${H - B}"/><text x="${xs(s)}" y="${H - 6}" text-anchor="middle">${s}</text>`).join("")
+      + [0, 0.5, 1].map(p => `<line class="axis" x1="${L}" x2="${W - R}" y1="${ys(p)}" y2="${ys(p)}"/><text x="${L - 4}" y="${ys(p) + 3}" text-anchor="end">${p * 100}%</text>`).join("");
+    const curves = pw.base.map((p, i) => curve(pw.other[i], "other") + curve(p, "") + `<text class="lv" x="${xs(p) - 3}" y="${ys(0.5) - 4}" text-anchor="end">${ROMAN[i + 1]}</text>`).join("");
+    const you = m.skill == null ? "" : `<line class="you unbuffed" x1="${xs(m.unbuffed)}" x2="${xs(m.unbuffed)}" y1="${T}" y2="${H - B}"/>`
+      + `<line class="you" x1="${xs(m.skill)}" x2="${xs(m.skill)}" y1="${T}" y2="${H - B}"/>`;
+    return `<div><div style="display:flex;justify-content:space-between;align-items:baseline"><b>${esc(SCHOOL_SKILL[m.school])}</b>
+        <span class="muted" style="font-size:12px">${m.skill == null ? "not trained" : `${fmt(m.skill)} buffed · ${fmt(m.unbuffed)} unbuffed`}</span></div>
+      <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(m.school)} cast chance by spell level">${grid}${curves}${you}</svg>
+      ${m.skill == null ? "" : `<table><thead><tr><th>Level</th><th>Power</th><th>Cast</th><th>Power</th><th>Cast</th></tr></thead><tbody>${
+        pw.base.map((p, i) => `<tr><td>${ROMAN[i + 1]}</td><td class="muted">${p}</td>${cell(m.chances.base[i])}<td class="muted">${pw.other[i]}</td>${cell(m.chances.other[i])}</tr>`).join("")}</tbody></table>`}</div>`;
+  }).join("")}</div>
+  <div class="muted" style="font-size:12px;margin-top:8px">Solid: the first power track (buffs on yourself, bolts); dashed and the second columns: 25 more (spells on others, streaks). Blue line: the build's buffed skill (dashed: unbuffed).
+    Cast chance = 1 − 1 / (1 + e<sup>0.07 (skill − power)</sup>); a few spells (drains) sit 38 above the first track.</div>` : "");
+}
+document.addEventListener("click", e => {
+  const t = e.target.closest("[data-plan-tab], [data-plan-new], [data-plan-copy], [data-plan-delete], [data-plan-drop], [data-plan-add], [data-plan-pick]");
+  if (!t) return;
+  if (t.dataset.planTab != null || t.dataset.planPick != null) { PLAN.sel = +(t.dataset.planTab ?? t.dataset.planPick); return planSave(false); }
+  if (t.matches("[data-plan-new]")) { PLAN.builds.push({...PLAN_DEFAULT(), name: `Build ${PLAN.builds.length + 1}`, targets: {}}); PLAN.sel = PLAN.builds.length - 1; return planSave(); }
+  if (t.matches("[data-plan-copy]")) { PLAN.builds.push({...JSON.parse(JSON.stringify(planBuild())), name: `${planBuild().name || "Build"} copy`}); PLAN.sel = PLAN.builds.length - 1; return planSave(); }
+  if (t.matches("[data-plan-delete]")) { if (PLAN.builds.length > 1) { PLAN.builds.splice(PLAN.sel, 1); PLAN.plans.splice(PLAN.sel, 1); PLAN.sel = Math.max(0, PLAN.sel - 1); } return planSave(); }
+  const b = planBuild();
+  if (t.matches("[data-plan-drop]")) { delete (b.targets || {})[t.dataset.planDrop]; return planSave(); }
+  if (t.matches("[data-plan-add]")) {
+    const key = document.querySelector("[data-plan-add-stat]").value, val = +document.querySelector("[data-plan-add-val]").value;
+    if (key && val > 0) { b.targets = b.targets || {}; b.targets[key] = Math.round(val); planSave(); }
+  }
+});
+document.addEventListener("input", e => {
+  const t = e.target, b = PLAN.builds[PLAN.sel];
+  if (!t.closest || !t.closest("#planBuildBody") || !b) return;
+  if (t.matches("[data-plan-name]")) { b.name = t.value; return planSave(); }
+  if (t.matches("[data-plan-attr]")) { b.attributes = b.attributes || {}; b.attributes[t.dataset.planAttr] = +t.value || 0; return planSave(); }
+  if (t.matches("[data-plan-target]")) { if (+t.value > 0) { b.targets[t.dataset.planTarget] = Math.round(+t.value); planSave(); } return; }
+  if (t.matches("[data-plan-rate]")) { b.rate = +t.value || 0; return planSave(); }
+});
+document.addEventListener("change", e => {
+  const t = e.target, b = PLAN.builds[PLAN.sel];
+  if (!t.closest || !t.closest("#planBuildBody") || !b) return;
+  if (t.matches("[data-plan-buff]")) { b.buff = +t.value || 0; return planSave(); }
+  if (t.matches("[data-plan-chargen]")) { b.chargen = t.checked; return planSave(); }
+  if (t.matches("[data-plan-skill]")) {
+    b.skills = b.skills || {};
+    if (t.value) b.skills[t.dataset.planSkill] = t.value; else delete b.skills[t.dataset.planSkill];
+    if (!t.value) delete (b.targets || {})[`skill:${t.dataset.planSkill}`];      // (an untrained skill can't be a goal)
+    t.blur();
+    return planSave();
+  }
+  if (t.matches("[data-plan-attr], [data-plan-target], [data-plan-name], [data-plan-rate]")) render();   // (redraw once you're done typing)
 });
 
 // ---- Experience: where the XP went, and goals (goals.py works the plans out; prefs keep the goals) -----------
@@ -2702,7 +2926,7 @@ document.addEventListener("click", e => {
 document.addEventListener("input", e => { if (e.target.id === "chatSearch") render(); });
 
 // ---- views -------------------------------------------------------------------------------------
-const PAGES = ["dashboard", "comps", "map", "spells", "buffs", "mana", "items", "xp", "exp", "dungeon", "info", "chat", "config"];
+const PAGES = ["dashboard", "comps", "map", "spells", "buffs", "mana", "items", "xp", "exp", "plan", "dungeon", "info", "chat", "config"];
 let page = "dashboard";
 function pageFromHash() {
   const h = location.hash.slice(1);
@@ -2728,8 +2952,8 @@ window.addEventListener("hashchange", () => {
 // Pages need a character, except the dashboard config (it's about this browser, not a character).
 function applyPage(hasSessions) {
   for (const a of document.querySelectorAll("#pagenav a")) a.classList.toggle("active", a.dataset.page === page);
-  for (const p of PAGES) $("page-" + p).classList.toggle("active", p === page && (hasSessions || p === "config"));
-  $("none").style.display = hasSessions || page === "config" ? "none" : "";
+  for (const p of PAGES) $("page-" + p).classList.toggle("active", p === page && (hasSessions || p === "config" || p === "plan"));
+  $("none").style.display = hasSessions || page === "config" || page === "plan" ? "none" : "";
 }
 
 const SCHOOL_SKILL = {Creature: "Creature Enchantment", Item: "Item Enchantment", Life: "Life Magic", War: "War Magic"};

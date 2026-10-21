@@ -22,7 +22,7 @@ from concurrent.futures.process import BrokenProcessPool
 from urllib.parse import unquote
 
 from .capture import TapDecoder
-from .dat import DatFile, icon_png, load_components, load_level_xp, load_skill_formulas, load_spells, load_vital_formulas, load_xp_tables
+from .dat import DatFile, icon_png, load_components, load_level_credits, load_level_xp, load_skill_bases, load_skill_formulas, load_spells, load_vital_formulas, load_xp_tables
 from . import buffpanel, walkmap, worldmap
 from .routing import Router
 from pathlib import Path
@@ -31,7 +31,7 @@ from . import clipboard, research, routing
 from .itembook import ItemBook
 from .updater import Updater, save_settings as save_update_settings
 from . import launcher
-from . import dungeons
+from . import dungeons, planner
 from .layouts import LayoutStore
 from .messages import decode
 from .pipeline import Pipeline
@@ -154,6 +154,8 @@ class Companion:
         self.skill_formulas = load_skill_formulas(dat) if dat else {}
         Tracker.level_xp = load_level_xp(dat) if dat else []     # (the same for everyone: the XP bar's levels)
         Tracker.xp_tables = load_xp_tables(dat) if dat else {}   # (the raises' costs: the Experience page's goals)
+        self.skill_bases = load_skill_bases(dat) if dat else {}     # (the Planner page: credits and formulas)
+        self.level_credits = load_level_credits(dat) if dat else []
         self.icons = {}
         self.router = Router()
         self.cell_dat = Path(dat_path).with_name("cell.dat") if (dat_path := getattr(dat, "path", None)) else None
@@ -231,6 +233,20 @@ class Companion:
                 return _json(200, self.updater.state())
         if method == "GET" and path == "/api/items":
             return _json(200, {"items": self.items.listing(), "keep": self.items.keep})
+        if path == "/api/planner":                   # the Planner page: builds that aren't one of your characters
+            if method == "GET":
+                return _json(200, planner.catalog(self.skill_bases))
+            if method == "POST":
+                try:
+                    builds = json.loads(body or b"{}").get("builds") or []
+                    if not isinstance(builds, list) or not all(isinstance(b, dict) for b in builds):
+                        raise ValueError
+                except (ValueError, AttributeError):
+                    return _json(400, {"error": "want {builds: [build, ...]}"})
+                if not Tracker.xp_tables or not self.skill_bases:
+                    return _json(503, {"error": "the game's tables aren't loaded (Settings > Game)"})
+                return _json(200, {"plans": [planner.plan(b, Tracker.xp_tables, self.skill_bases, self.vital_formulas,
+                                                          Tracker.level_xp, self.level_credits) for b in builds[:12]]})
         if method == "GET" and path == "/api/dungeons":
             return _json(200, dungeons.available())
         if method == "GET" and len(parts) == 3 and parts[:2] == ["api", "dungeon"]:     # a dungeon's plan and spawn points

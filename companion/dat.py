@@ -234,6 +234,18 @@ def load_level_xp(dat):
         return []
 
 
+def load_level_credits(dat):
+    """[skill credits gained at level n] for n = 0 .. the last level (the ExperienceTable's last array)."""
+    d = dat.get(XP_TABLE_ID) if dat else None
+    if not d or len(d) < 24:
+        return []
+    try:
+        _id, a, v, t, s, levels = struct.unpack_from("<6I", d, 0)
+        return list(struct.unpack_from(f"<{levels + 1}I", d, 24 + 4 * (a + v + t + s + 4) + 4 * (levels + 1)))
+    except struct.error:
+        return []
+
+
 def load_skill_formulas(dat):
     """{skill id: (w, x, y, z, attr1, attr2)} from the SkillTable: skill base = round((w + x*a1 + y*a2) / z)."""
     d = dat.get(SKILL_TABLE_ID) if dat else None
@@ -251,6 +263,30 @@ def load_skill_formulas(dat):
             p += 24                     # icon, trained/specialized cost, category, chargen use, min level
             out[key] = struct.unpack_from("<6I", d, p)
             p += 24 + 24                # formula, then upper/lower bound and learn mod (3 doubles)
+    except struct.error:
+        pass
+    return out
+
+
+def load_skill_bases(dat):
+    """{skill id: {trained_cost, specialized_cost (skill credits: 0 trained, it comes trained), formula (w, x, y, z,
+    attr1, attr2)}} from the SkillTable."""
+    d = dat.get(SKILL_TABLE_ID) if dat else None
+    if not d:
+        return {}
+    out = {}
+    try:
+        p = 4
+        count = struct.unpack_from("<H", d, p)[0]
+        p += 4
+        for _ in range(count):
+            key = struct.unpack_from("<I", d, p)[0]
+            _desc, p = _read_string(d, p + 4)
+            _name, p = _read_string(d, p)
+            _icon, trained, specialized = struct.unpack_from("<3I", d, p)
+            p += 24
+            out[key] = {"trained_cost": trained, "specialized_cost": specialized, "formula": struct.unpack_from("<6I", d, p)}
+            p += 24 + 24
     except struct.error:
         pass
     return out
